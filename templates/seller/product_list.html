@@ -1,0 +1,219 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}All Products - Seller Catalog{% endblock %}
+
+{% block seller_content %}
+<div>
+  
+  <!-- Header with Add Button -->
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">All Products ({{ total_count }})</h1>
+      <p class="dashboard-subtitle">Manage store products, live pricing, inventory stock, and buyer visibility</p>
+    </div>
+    <a href="{% url 'seller:product_add' %}" class="btn btn-primary btn-pill">
+      <i class="fa-solid fa-plus"></i> Add New Product
+    </a>
+  </div>
+
+  <!-- Search & Filter Controls -->
+  <div class="form-card" style="padding: 1.25rem; margin-bottom: 1.5rem;">
+    <form method="GET" action="{% url 'seller:product_list' %}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+      
+      <!-- Search Input -->
+      <div style="flex: 2; min-width: 220px; position: relative;">
+        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+        <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Search by Product name, SKU, or Brand..." style="padding-left: 2.25rem;">
+      </div>
+
+      <!-- Category Filter -->
+      <div style="flex: 1; min-width: 160px;">
+        <select name="category" class="form-select" onchange="this.form.submit()">
+          <option value="">All Categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat.slug }}" {% if selected_category == cat.slug %}selected{% endif %}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Stock Status Filter -->
+      <div style="flex: 1; min-width: 150px;">
+        <select name="stock" class="form-select" onchange="this.form.submit()">
+          <option value="">All Stock Levels</option>
+          <option value="in_stock" {% if stock_filter == 'in_stock' %}selected{% endif %}>In Stock ({{ in_stock_count }})</option>
+          <option value="low_stock" {% if stock_filter == 'low_stock' %}selected{% endif %}>Low Stock ({{ low_stock_count }})</option>
+          <option value="out_of_stock" {% if stock_filter == 'out_of_stock' %}selected{% endif %}>Out of Stock ({{ out_of_stock_count }})</option>
+        </select>
+      </div>
+
+      <!-- Active Status Filter -->
+      <div style="flex: 1; min-width: 130px;">
+        <select name="status" class="form-select" onchange="this.form.submit()">
+          <option value="">All Statuses</option>
+          <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active ({{ active_count }})</option>
+          <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive ({{ inactive_count }})</option>
+        </select>
+      </div>
+
+      <!-- Action buttons -->
+      <div style="display: flex; gap: 6px;">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-filter"></i> Filter
+        </button>
+        {% if search_query or selected_category or stock_filter or status_filter %}
+          <a href="{% url 'seller:product_list' %}" class="btn btn-secondary btn-sm" title="Clear Filters">
+            <i class="fa-solid fa-rotate-left"></i>
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Products Table Card -->
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Category & Brand</th>
+            <th>Pricing</th>
+            <th>Stock Health</th>
+            <th>Status</th>
+            <th>Added On</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in products %}
+            <tr>
+              <!-- Product info -->
+              <td>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <img src="{{ product.primary_image_url }}" alt="{{ product.name }}" style="width: 48px; height: 48px; object-fit: contain; background: #FAFAFA; border-radius: 6px; border: 1px solid var(--bg-border);">
+                  <div>
+                    <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">{{ product.name }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                      Unit: <strong>{{ product.unit_value }}</strong> &bull; SKU: <span style="font-family: monospace;">{{ product.sku }}</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Category & Brand -->
+              <td>
+                <div style="font-weight: 600; font-size: 0.85rem;">{{ product.category.name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ product.brand|default:"Farm Fresh" }}</div>
+              </td>
+
+              <!-- Pricing -->
+              <td>
+                <div style="font-weight: 800; color: var(--color-primary-dark); font-size: 0.95rem;">₹{{ product.selling_price }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-decoration: line-through;">MRP: ₹{{ product.mrp }}</div>
+              </td>
+
+              <!-- Stock health -->
+              <td>
+                {% if product.stock_record.current_stock <= 0 %}
+                  <span class="badge badge-danger" style="display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="fa-solid fa-circle-xmark"></i> Red: Out of Stock (0)
+                  </span>
+                {% elif product.stock_record.current_stock <= product.stock_record.low_stock_threshold %}
+                  <span class="badge badge-warning" style="display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Orange: Low Stock ({{ product.stock_record.current_stock }} left)
+                  </span>
+                {% else %}
+                  <span class="badge badge-success" style="display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="fa-solid fa-circle-check"></i> Green: In Stock ({{ product.stock_record.current_stock }})
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- Store Status -->
+              <td>
+                {% if product.is_active %}
+                  <span class="badge badge-success">Active / Live</span>
+                {% else %}
+                  <span class="badge badge-secondary">Inactive / Hidden</span>
+                {% endif %}
+              </td>
+
+              <!-- Added date -->
+              <td style="font-size: 0.8rem; color: var(--text-muted);">
+                {{ product.created_at|date:"d M Y" }}
+              </td>
+
+              <!-- Action buttons -->
+              <td style="text-align: right;">
+                <div style="display: inline-flex; gap: 6px; align-items: center;">
+                  <!-- View product in shop -->
+                  <a href="{% url 'catalog:product_detail' product.slug %}" target="_blank" class="btn btn-secondary btn-sm" title="View in Shop">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                  </a>
+
+                  <!-- Edit product -->
+                  <a href="{% url 'seller:product_edit' product.id %}" class="btn btn-secondary btn-sm" title="Edit Product">
+                    <i class="fa-solid fa-pen"></i> Edit
+                  </a>
+
+                  <!-- Toggle active/inactive -->
+                  <a href="{% url 'seller:product_toggle' product.id %}" class="btn btn-secondary btn-sm" title="Activate / Deactivate">
+                    <i class="fa-solid fa-power-off" style="color: {% if product.is_active %}#059669{% else %}#9CA3AF{% endif %};"></i>
+                  </a>
+
+                  <!-- Delete product -->
+                  <form method="POST" action="{% url 'seller:product_delete' product.id %}" style="display: inline; margin: 0;" onsubmit="return confirm('Are you sure you want to delete/archive product {{ product.name|escapejs }}?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary btn-sm" title="Delete or Archive Product" style="color: #DC2626;">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 4rem 1.5rem; color: var(--text-muted);">
+                <div style="width: 64px; height: 64px; border-radius: 50%; background: #F1F5F3; color: #9CA3AF; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1rem;">
+                  <i class="fa-solid fa-basket-shopping"></i>
+                </div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">No products match your criteria</div>
+                <div style="font-size: 0.875rem; margin-bottom: 1.5rem;">Start selling by adding fresh groceries or adjust your filters above.</div>
+                <a href="{% url 'seller:product_add' %}" class="btn btn-primary btn-pill">
+                  <i class="fa-solid fa-plus"></i> Add New Product
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-top: 1px solid var(--bg-border); background: #FAFAFA; font-size: 0.85rem;">
+        <span style="color: var(--text-muted);">
+          Showing Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        <div style="display: flex; gap: 6px;">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if stock_filter %}&stock={{ stock_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-secondary btn-sm">
+              &laquo; Previous
+            </a>
+          {% endif %}
+          
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if stock_filter %}&stock={{ stock_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-secondary btn-sm">
+              Next &raquo;
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Order Confirmed #{{ order.order_id }} - FreshMart{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2.5rem; padding-bottom: 5rem; max-width: 820px;">
+  
+  <!-- Success Confirmation Banner Card -->
+  <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 3rem 2rem; text-align: center; box-shadow: var(--shadow-md); margin-bottom: 2rem;">
+    <div style="width: 72px; height: 72px; border-radius: 50%; background: #ECFDF5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 2.25rem; margin: 0 auto 1.25rem;">
+      <i class="fa-solid fa-circle-check"></i>
+    </div>
+    
+    <h1 style="font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem;">Order Successfully Placed!</h1>
+    <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 1.5rem;">
+      Thank you for shopping with FreshMart. Your order has been registered and is being prepared by our local store sellers.
+    </p>
+
+    <div style="display: inline-block; background: var(--bg-subtle); padding: 0.65rem 1.5rem; border-radius: var(--radius-pill); font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 2rem;">
+      Order ID: <strong style="color: var(--color-primary-dark);">{{ order.order_id }}</strong>
+    </div>
+
+    <!-- Quick Info Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; text-align: left; margin-bottom: 2.5rem; font-size: 0.85rem;">
+      
+      <!-- Payment info -->
+      <div style="background: #FAFAFA; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--bg-border);">
+        <strong style="color: var(--text-muted); display: block; font-size: 0.75rem; text-transform: uppercase;">Payment Details</strong>
+        <div style="font-weight: 700; margin-top: 4px;">{{ order.get_payment_method_display }}</div>
+        <div style="font-size: 0.8rem; margin-top: 2px;">
+          {% if order.payment_status == 'PAID' %}
+            <span style="color: #047857; font-weight: 700;"><i class="fa-solid fa-circle-check"></i> Paid & Verified</span>
+          {% else %}
+            <span style="color: #1D4ED8; font-weight: 700;"><i class="fa-solid fa-hand-holding-dollar"></i> Cash on Delivery (Pay at Doorstep)</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Delivery Slot -->
+      <div style="background: #FAFAFA; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--bg-border);">
+        <strong style="color: var(--text-muted); display: block; font-size: 0.75rem; text-transform: uppercase;">Delivery Slot & ETA</strong>
+        <div style="font-weight: 700; margin-top: 4px;">{{ order.delivery_slot }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">{{ order.delivery_date|date:"D, d M Y" }}</div>
+      </div>
+
+      <!-- Total Amount -->
+      <div style="background: #FAFAFA; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--bg-border);">
+        <strong style="color: var(--text-muted); display: block; font-size: 0.75rem; text-transform: uppercase;">Final Payable</strong>
+        <div style="font-weight: 800; font-size: 1.25rem; color: var(--color-primary-dark); margin-top: 2px;">₹{{ order.total_amount }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Order Date: {{ order.created_at|date:"d M Y" }}</div>
+      </div>
+    </div>
+
+    <!-- 3 Action Buttons -->
+    <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+      <a href="{% url 'orders:track' order.order_id %}" class="btn btn-primary btn-lg btn-pill">
+        <i class="fa-solid fa-map-location-dot"></i> Track Order Status
+      </a>
+      <a href="{% url 'orders:order_history' %}" class="btn btn-secondary btn-lg btn-pill">
+        <i class="fa-solid fa-receipt"></i> View in My Orders
+      </a>
+      <a href="{% url 'catalog:home' %}" class="btn btn-secondary btn-lg btn-pill">
+        <i class="fa-solid fa-basket-shopping"></i> Continue Shopping
+      </a>
+    </div>
+  </div>
+
+  <!-- Ordered Products Breakdown Card -->
+  <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 2rem;">
+    <h3 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 1.25rem;">Shipment Items Summary</h3>
+    
+    <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+      {% for item in order.items.all %}
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-border-light); padding-bottom: 0.85rem;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 52px; height: 52px; background: #FAFAFA; border-radius: var(--radius-sm); border: 1px solid var(--bg-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <img src="{{ item.image_url|default:'/static/images/placeholder_product.svg' }}" alt="{{ item.product_name }}" style="max-height: 85%; max-width: 85%; object-fit: contain;">
+            </div>
+            <div>
+              <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">{{ item.product_name }}</div>
+              <div style="font-size: 0.775rem; color: var(--text-muted);">
+                {{ item.unit_value }} &bull; Sold by: {{ item.seller.seller_profile.store_name|default:item.seller.username }}
+              </div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-weight: 800; font-size: 1rem; color: var(--text-main);">₹{{ item.total_price }}</div>
+            <div style="font-size: 0.775rem; color: var(--text-muted);">Qty: {{ item.quantity }} &times; ₹{{ item.unit_price }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Delivery Destination Snapshot -->
+    <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px dashed var(--bg-border); display: flex; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
+      <div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Delivery Destination</div>
+        <div style="font-weight: 700; margin-top: 4px;">{{ order.recipient_name }}</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px; max-width: 380px;">
+          {{ order.delivery_address_text }}
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+          Phone: {{ order.recipient_phone }}
+        </div>
+      </div>
+
+      <div style="text-align: right; min-width: 200px;">
+        <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 4px;">
+          <span style="color: var(--text-muted);">Subtotal:</span>
+          <span style="font-weight: 600;">₹{{ order.subtotal }}</span>
+        </div>
+        {% if order.discount_amount > 0 %}
+          <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 4px; color: #047857;">
+            <span>Discount Savings:</span>
+            <span style="font-weight: 600;">-₹{{ order.discount_amount }}</span>
+          </div>
+        {% endif %}
+        <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 6px;">
+          <span style="color: var(--text-muted);">Delivery Fee:</span>
+          <span>{% if order.delivery_fee == 0 %}<span class="badge badge-success">FREE</span>{% else %}₹{{ order.delivery_fee }}{% endif %}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 800; border-top: 1px solid var(--bg-border); padding-top: 6px;">
+          <span>Grand Total:</span>
+          <span style="color: var(--color-primary-dark);">₹{{ order.total_amount }}</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

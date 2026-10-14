@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ product.name }} - FreshMart{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 1.5rem; padding-bottom: 3rem;">
+  
+  <!-- Breadcrumb -->
+  <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+    <a href="{% url 'catalog:home' %}">Home</a> &rsaquo;
+    <a href="{% url 'catalog:product_list' %}">Shop</a> &rsaquo;
+    <a href="{% url 'catalog:product_list' %}?category={{ product.category.slug }}">{{ product.category.name }}</a> &rsaquo;
+    <span style="color: var(--text-main); font-weight: 600;">{{ product.name }}</span>
+  </div>
+
+  <div class="product-detail-layout">
+    
+    <!-- Left Column: Gallery -->
+    <div>
+      <div class="product-detail-img-box">
+        {% if product.discount_percentage > 0 %}
+          <span class="product-badge-discount" style="top: 1rem; left: 1rem; font-size: 0.85rem; padding: 0.35rem 0.75rem;">
+            {{ product.discount_percentage }}% OFF
+          </span>
+        {% endif %}
+        <img id="main-product-img" src="{{ product.primary_image_url }}" alt="{{ product.name }}" style="max-height: 90%; max-width: 90%; object-fit: contain;">
+      </div>
+
+      <!-- Thumbnails -->
+      <div style="display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem;">
+        <div onclick="document.getElementById('main-product-img').src='{{ product.primary_image_url }}'" 
+             style="width: 70px; height: 70px; border: 2px solid var(--color-primary); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; cursor: pointer; background: #FAFAFA;">
+          <img src="{{ product.primary_image_url }}" style="max-height: 80%; max-width: 80%; object-fit: contain;">
+        </div>
+        {% for img in product.images.all %}
+          {% if not img.is_primary %}
+            <div onclick="document.getElementById('main-product-img').src='{{ img.image.url }}'" 
+                 style="width: 70px; height: 70px; border: 1px solid var(--bg-border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; cursor: pointer; background: #FAFAFA;">
+              <img src="{{ img.image.url }}" style="max-height: 80%; max-width: 80%; object-fit: contain;">
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Right Column: Product Information & Action -->
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+          <span style="font-size: 0.85rem; font-weight: 700; color: var(--color-primary-dark); text-transform: uppercase; letter-spacing: 0.5px;">
+            {{ product.brand|default:"Farm Fresh Produce" }}
+          </span>
+          <h1 style="font-size: 1.85rem; font-weight: 800; margin: 0.35rem 0 0.5rem;">{{ product.name }}</h1>
+          <div style="font-size: 0.95rem; color: var(--text-muted); font-weight: 500;">
+            Unit / Pack Size: <strong style="color: var(--text-main);">{{ product.unit_value }}</strong>
+          </div>
+        </div>
+        
+        <button type="button" 
+                class="product-wishlist-btn {% if in_wishlist %}active{% endif %}" 
+                onclick="toggleWishlist({{ product.id }}, this)" 
+                style="position: static; width: 42px; height: 42px; font-size: 1.25rem;">
+          <i class="fa-solid fa-heart"></i>
+        </button>
+      </div>
+
+      <!-- Price Box -->
+      <div style="background: var(--bg-page); border: 1px solid var(--bg-border); border-radius: var(--radius-md); padding: 1.25rem; margin: 1.25rem 0;">
+        <div style="display: flex; align-items: baseline; gap: 1rem;">
+          <span style="font-size: 2.25rem; font-weight: 800; color: var(--text-main);">₹{{ product.selling_price }}</span>
+          {% if product.mrp > product.selling_price %}
+            <span style="font-size: 1.25rem; color: var(--text-muted); text-decoration: line-through;">MRP: ₹{{ product.mrp }}</span>
+            <span style="background: #DC2626; color: white; font-size: 0.75rem; font-weight: 800; padding: 2px 8px; border-radius: 4px;">
+              SAVE ₹{{ product.mrp|add:"-0"|floatformat:2 }}
+            </span>
+          {% endif %}
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+          (Inclusive of all applicable taxes)
+        </div>
+      </div>
+
+      <!-- Stock Status -->
+      <div style="margin-bottom: 1.5rem;">
+        {% if product.is_in_stock %}
+          <div style="display: inline-flex; align-items: center; gap: 6px; color: #047857; background: #ECFDF5; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;">
+            <i class="fa-solid fa-circle-check"></i> In Stock ({{ product.current_stock_count }} available)
+          </div>
+        {% else %}
+          <div style="display: inline-flex; align-items: center; gap: 6px; color: #B91C1C; background: #FEF2F2; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;">
+            <i class="fa-solid fa-circle-xmark"></i> Currently Out of Stock
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Description -->
+      <div style="margin-bottom: 1.75rem;">
+        <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem;">Description</h4>
+        <p style="font-size: 0.925rem; color: var(--text-secondary); line-height: 1.6;">
+          {{ product.description|default:"Sourced fresh from certified organic farmers and local growers. Carefully inspected for peak freshness, quality, and natural flavor." }}
+        </p>
+      </div>
+
+      <!-- Key Specifications Table -->
+      <div class="product-specs-grid">
+        <div style="padding: 0.75rem; background: #FAFAFA; border-radius: var(--radius-sm);">
+          <strong style="color: var(--text-muted); display: block;">Source & Origin</strong>
+          <span>{{ product.origin }}</span>
+        </div>
+        <div style="padding: 0.75rem; background: #FAFAFA; border-radius: var(--radius-sm);">
+          <strong style="color: var(--text-muted); display: block;">Freshness Standard</strong>
+          <span>{{ product.freshness_info }}</span>
+        </div>
+        <div style="padding: 0.75rem; background: #FAFAFA; border-radius: var(--radius-sm);">
+          <strong style="color: var(--text-muted); display: block;">Storage Recommendation</strong>
+          <span>{{ product.storage_instructions }}</span>
+        </div>
+        <div style="padding: 0.75rem; background: #FAFAFA; border-radius: var(--radius-sm);">
+          <strong style="color: var(--text-muted); display: block;">Fulfillment Store</strong>
+          <span>{{ product.seller.seller_profile.store_name|default:product.seller.username }}</span>
+        </div>
+      </div>
+
+      <!-- Action Row: Quantity + Add to Cart -->
+      {% if product.is_in_stock %}
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <div class="quantity-control" style="padding: 2px;">
+            <button type="button" class="qty-btn" onclick="let q=document.getElementById('detail-qty'); if(q.value>1) q.value--;">-</button>
+            <input type="number" id="detail-qty" value="1" min="1" max="{{ product.current_stock_count }}" class="qty-input">
+            <button type="button" class="qty-btn" onclick="let q=document.getElementById('detail-qty'); if(q.value < {{ product.current_stock_count }}) q.value++;">+</button>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-lg" style="flex-grow: 1;" onclick="addToCart({{ product.id }}, parseInt(document.getElementById('detail-qty').value))">
+            <i class="fa-solid fa-cart-plus"></i> Add to Cart
+          </button>
+        </div>
+      {% endif %}
+
+    </div>
+
+  </div>
+
+  <!-- Customer Reviews Section -->
+  <section style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 3rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <div>
+        <h3 style="font-size: 1.25rem; font-weight: 800;">Customer Ratings & Reviews</h3>
+        <p class="text-muted" style="font-size: 0.85rem;">Verified buyer testimonials</p>
+      </div>
+      {% if user.is_authenticated %}
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('review-form-box').scrollIntoView({behavior: 'smooth'})">
+          <i class="fa-solid fa-pen"></i> Write a Review
+        </button>
+      {% endif %}
+    </div>
+
+    <!-- Reviews List -->
+    <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+      {% for review in product.reviews.all %}
+        <div style="border-bottom: 1px solid var(--bg-border); padding-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+            <span style="font-weight: 700; font-size: 0.9rem;">
+              {{ review.user.first_name|default:review.user.username }}
+              {% if review.is_verified_purchase %}
+                <span class="badge badge-success" style="font-size: 0.7rem; margin-left: 6px;">Verified Purchase</span>
+              {% endif %}
+            </span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">{{ review.created_at|date:"M d, Y" }}</span>
+          </div>
+          <div style="color: #F59E0B; font-size: 0.85rem; margin-bottom: 0.4rem;">
+            {% for i in "12345" %}
+              {% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}
+            {% endfor %}
+          </div>
+          <p style="font-size: 0.875rem; color: var(--text-secondary);">{{ review.comment }}</p>
+        </div>
+      {% empty %}
+        <p class="text-muted" style="font-size: 0.9rem;">No reviews yet for this product. Be the first to share your experience!</p>
+      {% endfor %}
+    </div>
+
+    <!-- Add Review Form -->
+    {% if user.is_authenticated %}
+      <div id="review-form-box" style="background: var(--bg-subtle); border-radius: var(--radius-md); padding: 1.5rem;">
+        <h4 style="font-size: 1rem; margin-bottom: 1rem;">Share Your Experience</h4>
+        <form method="POST">
+          {% csrf_token %}
+          <div class="form-group">
+            <label class="form-label">Rating</label>
+            <select name="rating" class="form-select" style="max-width: 200px;">
+              <option value="5">★★★★★ 5 - Excellent</option>
+              <option value="4">★★★★☆ 4 - Good</option>
+              <option value="3">★★★☆☆ 3 - Average</option>
+              <option value="2">★★☆☆☆ 2 - Below Expectations</option>
+              <option value="1">★☆☆☆☆ 1 - Poor</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Your Review</label>
+            <textarea name="comment" rows="3" class="form-control" placeholder="Tell other grocery shoppers about the freshness, taste, and packaging..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Submit Review</button>
+        </form>
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- Similar Products -->
+  {% if similar_products %}
+    <section>
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Similar Items You Might Like</h2>
+          <p class="text-muted" style="font-size: 0.85rem;">More choices from {{ product.category.name }}</p>
+        </div>
+      </div>
+      <div class="product-grid">
+        {% for sim in similar_products %}
+          {% include 'buyer/includes/product_card.html' with product=sim %}
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+</div>
+{% endblock %}

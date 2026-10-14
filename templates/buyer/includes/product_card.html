@@ -1,0 +1,87 @@
+{% load static %}
+{% load cart_tags %}
+<div class="product-card" id="product-card-{{ product.id }}">
+  <!-- Discount Badge -->
+  {% if product.discount_percentage > 0 %}
+    <span class="product-badge-discount">{{ product.discount_percentage }}% OFF</span>
+  {% endif %}
+
+  <!-- Wishlist Toggle -->
+  <button type="button" 
+          class="product-wishlist-btn {% if product.id in user_wishlist_ids %}active{% endif %}" 
+          onclick="toggleWishlist({{ product.id }}, this)" 
+          title="Add to Wishlist">
+    <i class="fa-solid fa-heart"></i>
+  </button>
+
+  <!-- Product Image -->
+  <a href="{% url 'catalog:product_detail' product.slug %}" class="product-image-container">
+    <img src="{{ product.primary_image_url }}" alt="{{ product.name }}" loading="lazy">
+  </a>
+
+  <!-- Brand & Name -->
+  <span class="product-brand">{{ product.brand|default:"Farm Fresh" }}</span>
+  <h3 class="product-name">
+    <a href="{% url 'catalog:product_detail' product.slug %}">{{ product.name }}</a>
+  </h3>
+
+  <div class="product-unit">{{ product.unit_value|default:"1 unit" }}</div>
+
+  <!-- Price & Status -->
+  <div class="product-price-row">
+    <span class="selling-price">₹{{ product.selling_price }}</span>
+    {% if product.mrp > product.selling_price %}
+      <span class="mrp-price">₹{{ product.mrp }}</span>
+    {% endif %}
+  </div>
+
+  <!-- Stock & Action -->
+  <div class="product-footer-action">
+    {% if product.is_in_stock %}
+      {% if product.is_low_stock %}
+        <div style="font-size: 0.725rem; color: #D97706; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+          <i class="fa-solid fa-triangle-exclamation"></i> Only {{ product.current_stock_count }} left!
+        </div>
+      {% endif %}
+
+      {% with current_qty=cart_items_map|get_item:product.id %}
+        <div class="product-cart-action-wrap" id="cart-wrap-{{ product.id }}">
+          
+          <!-- Default Add Button (visible if 0 in cart) -->
+          <button type="button" 
+                  class="btn-add-cart {% if current_qty > 0 %}is-hidden{% endif %}" 
+                  id="add-btn-{{ product.id }}" 
+                  onclick="handleCartAction({{ product.id }}, 1)">
+            <i class="fa-solid fa-plus"></i> Add to Cart
+          </button>
+
+          <!-- Interactive Stepper Counter (visible if > 0 in cart) -->
+          <div class="product-qty-stepper {% if current_qty == 0 %}is-hidden{% endif %}" 
+               id="stepper-{{ product.id }}">
+            <button type="button" 
+                    class="stepper-btn minus" 
+                    onclick="handleCartAction({{ product.id }}, -1)" 
+                    aria-label="Decrease quantity">
+              <i class="fa-solid fa-minus"></i>
+            </button>
+            <span class="stepper-val" id="qty-val-{{ product.id }}">
+              {{ current_qty|default:1 }}
+            </span>
+            <button type="button" 
+                    class="stepper-btn plus" 
+                    onclick="handleCartAction({{ product.id }}, 1)" 
+                    aria-label="Increase quantity">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+
+        </div>
+      {% endwith %}
+
+    {% else %}
+      <button type="button" class="btn btn-secondary btn-sm" disabled style="width: 100%; color: #EF4444; border-color: #FECACA; background: #FEF2F2; font-weight: 700; cursor: not-allowed;">
+        <i class="fa-solid fa-circle-xmark"></i> Out of Stock
+      </button>
+    {% endif %}
+  </div>
+</div>

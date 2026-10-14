@@ -1,0 +1,127 @@
+{% extends 'admin_dashboard/base_admin.html' %}
+{% load static %}
+
+{% block title %}All Orders & Dispatch - Admin Portal{% endblock %}
+
+{% block admin_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Platform Orders & Dispatch Control</h1>
+      <p class="dashboard-subtitle">Monitor orders across all seller sub-orders, assign delivery agents, and review live statuses</p>
+    </div>
+    <a href="{% url 'admin_dashboard:export_csv' %}" class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-file-csv"></i> Download CSV Export
+    </a>
+  </div>
+
+  <!-- Status Filter Pills -->
+  <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+    <a href="{% url 'admin_dashboard:orders' %}" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-secondary{% endif %}">
+      All Orders
+    </a>
+    <a href="?status=ORDER_PLACED" class="btn btn-sm {% if status_filter == 'ORDER_PLACED' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Placed
+    </a>
+    <a href="?status=ORDER_CONFIRMED" class="btn btn-sm {% if status_filter == 'ORDER_CONFIRMED' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Confirmed
+    </a>
+    <a href="?status=PREPARING" class="btn btn-sm {% if status_filter == 'PREPARING' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Preparing Produce
+    </a>
+    <a href="?status=PACKED" class="btn btn-sm {% if status_filter == 'PACKED' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Packed
+    </a>
+    <a href="?status=READY_FOR_PICKUP" class="btn btn-sm {% if status_filter == 'READY_FOR_PICKUP' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Ready for Dispatch
+    </a>
+    <a href="?status=OUT_FOR_DELIVERY" class="btn btn-sm {% if status_filter == 'OUT_FOR_DELIVERY' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Out for Delivery
+    </a>
+    <a href="?status=DELIVERED" class="btn btn-sm {% if status_filter == 'DELIVERED' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Delivered
+    </a>
+  </div>
+
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order Ref</th>
+            <th>Customer</th>
+            <th>Delivery Slot & Pin</th>
+            <th>Amount</th>
+            <th>Payment</th>
+            <th>Current Status</th>
+            <th>Assign Delivery Driver</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr>
+              <td>
+                <strong style="color: var(--text-main);">#{{ order.order_id }}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ order.created_at|date:"d M, h:i A" }}</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">{{ order.recipient_name }}</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ order.recipient_phone }}</div>
+              </td>
+              <td>
+                <div style="font-weight: 600; font-size: 0.85rem;">{{ order.delivery_slot }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">PIN: {{ order.pin_code }}</div>
+              </td>
+              <td><strong style="font-size: 1.05rem; color: var(--color-primary-dark);">₹{{ order.total_amount }}</strong></td>
+              <td>
+                <div style="font-weight: 600; font-size: 0.85rem;">{{ order.get_payment_method_display }}</div>
+                <div style="font-size: 0.75rem; color: #047857;">{{ order.get_payment_status_display }}</div>
+              </td>
+              <td>
+                <span class="badge {{ order.status_badge_class }}">
+                  {{ order.get_status_display }}
+                </span>
+              </td>
+              <td>
+                <form action="{% url 'admin_dashboard:assign_delivery' order.order_id %}" method="POST" style="display: flex; gap: 4px; align-items: center; margin: 0;">
+                  {% csrf_token %}
+                  <select name="delivery_person_id" class="form-select" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; width: 140px;" required>
+                    <option value="">-- Choose Agent --</option>
+                    {% for driver in delivery_agents %}
+                      <option value="{{ driver.id }}" {% if order.delivery_assignment.delivery_person.id == driver.id %}selected{% endif %}>
+                        {{ driver.get_full_name|default:driver.username }} ({{ driver.active_assignments_count|default:"0" }} active)
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.35rem 0.6rem; font-size: 0.75rem;">
+                    {% if order.delivery_assignment %}Reassign{% else %}Assign{% endif %}
+                  </button>
+                </form>
+                {% if order.delivery_assignment %}
+                  <div style="font-size: 0.75rem; color: #047857; margin-top: 2px;">
+                    Assigned: <strong>{{ order.delivery_assignment.delivery_person.get_full_name|default:order.delivery_assignment.delivery_person.username }}</strong>
+                  </div>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <a href="{% url 'orders:track' order.order_id %}" target="_blank" class="btn btn-secondary btn-sm" title="Inspect Tracking">
+                  <i class="fa-solid fa-map-location-dot"></i>
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                No orders found under this status.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

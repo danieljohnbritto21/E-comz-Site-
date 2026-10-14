@@ -1,0 +1,169 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}Inventory Management - Seller Dashboard{% endblock %}
+
+{% block seller_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Inventory Control & Stock Audit</h1>
+      <p class="dashboard-subtitle">Monitor physical inventory, adjust stock levels, track restocks, and review ledger movements</p>
+    </div>
+  </div>
+
+  <!-- Stock Quick Adjustment Modal / Box -->
+  <div class="form-card" style="margin-bottom: 2.5rem; background: #F8FAF9; border: 1.5px dashed #CBD5E1;">
+    <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+      <i class="fa-solid fa-boxes-packing" style="color: var(--color-primary-dark);"></i> Quick Stock Inward / Adjustment
+    </h3>
+
+    <form method="POST" class="inventory-form-grid">
+      {% csrf_token %}
+      
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Select Produce / Product</label>
+        <select name="product_id" class="form-select" required>
+          <option value="">-- Choose Item --</option>
+          {% for p in products %}
+            <option value="{{ p.id }}">{{ p.name }} (Current: {{ p.stock_record.current_stock }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Quantity Change (+/-)</label>
+        <input type="number" name="quantity_change" class="form-control" placeholder="+20 or -5" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Reason Code</label>
+        <select name="change_type" class="form-select">
+          <option value="RESTOCK">Stock Inward / Restock</option>
+          <option value="DAMAGE">Damaged Produce Disposal</option>
+          <option value="MANUAL">Manual Stock Audit Correction</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Notes / Remarks</label>
+        <input type="text" name="reason" class="form-control" placeholder="e.g. Received morning batch #5">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="height: 42px;">
+        <i class="fa-solid fa-check"></i> Post Adjustment
+      </button>
+    </form>
+  </div>
+
+  <!-- Live Stock Table -->
+  <div class="table-card" style="margin-bottom: 2.5rem;">
+    <div class="table-card-header">
+      <h3 style="font-size: 1.15rem; font-weight: 800;">Produce Stock Status</h3>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Category</th>
+            <th>Current Units</th>
+            <th>Alert Threshold</th>
+            <th>Stock Health</th>
+            <th>Last Restocked</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products %}
+            <tr>
+              <td>
+                <strong>{{ p.name }}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ p.unit_value }} &bull; SKU: {{ p.sku }}</div>
+              </td>
+              <td>{{ p.category.name }}</td>
+              <td>
+                <span style="font-size: 1.15rem; font-weight: 800; {% if p.stock_record.current_stock <= 0 %}color: #DC2626;{% elif p.stock_record.current_stock <= p.stock_record.low_stock_threshold %}color: #D97706;{% else %}color: #047857;{% endif %}">
+                  {{ p.stock_record.current_stock }}
+                </span>
+              </td>
+              <td>{{ p.stock_record.low_stock_threshold }} units</td>
+              <td>
+                {% if p.stock_record.current_stock <= 0 %}
+                  <span class="badge badge-danger">Out of Stock</span>
+                {% elif p.stock_record.current_stock <= p.stock_record.low_stock_threshold %}
+                  <span class="badge badge-warning">Low Stock Warning</span>
+                {% else %}
+                  <span class="badge badge-success">Healthy Stock</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 0.8rem; color: var(--text-muted);">
+                {{ p.stock_record.last_restocked_at|date:"d M Y, h:i A" }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Movement Audit Trail -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <h3 style="font-size: 1.15rem; font-weight: 800;">
+        <i class="fa-solid fa-clock-rotate-left" style="color: var(--color-primary);"></i> Stock Movement Ledger
+      </h3>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Product</th>
+            <th>Type</th>
+            <th>Delta</th>
+            <th>Stock (Before &rarr; After)</th>
+            <th>Audit Notes</th>
+            <th>Initiated By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in recent_movements %}
+            <tr>
+              <td style="font-size: 0.8rem; color: var(--text-muted);">
+                {{ m.created_at|date:"d M Y, h:i A" }}
+              </td>
+              <td><strong>{{ m.product.name }}</strong></td>
+              <td>
+                <span class="badge 
+                  {% if m.change_type == 'RESTOCK' %}badge-success
+                  {% elif m.change_type == 'SALE' %}badge-info
+                  {% elif m.change_type == 'CANCEL_RESTORE' %}badge-placed
+                  {% elif m.change_type == 'DAMAGE' %}badge-danger
+                  {% else %}badge-secondary{% endif %}">
+                  {{ m.get_change_type_display }}
+                </span>
+              </td>
+              <td style="font-weight: 800; {% if m.quantity > 0 %}color: #047857;{% else %}color: #DC2626;{% endif %}">
+                {% if m.quantity > 0 %}+{{ m.quantity }}{% else %}{{ m.quantity }}{% endif %}
+              </td>
+              <td>{{ m.stock_before }} &rarr; <strong>{{ m.stock_after }}</strong></td>
+              <td style="font-size: 0.85rem; color: var(--text-secondary);">{{ m.notes|default:"-" }}</td>
+              <td style="font-size: 0.8rem;">{{ m.created_by.username|default:"System" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                No inventory movement records yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

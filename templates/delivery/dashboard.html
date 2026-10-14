@@ -1,0 +1,161 @@
+{% extends 'delivery/base_delivery.html' %}
+{% load static %}
+
+{% block title %}Delivery Fleet Tasks - FreshMart{% endblock %}
+
+{% block delivery_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">My Assigned Delivery Orders</h1>
+      <p class="dashboard-subtitle">Pick up packed orders from store counters and navigate to customer addresses</p>
+    </div>
+  </div>
+
+  <!-- Metric Summary Cards -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-blue"><i class="fa-solid fa-clipboard-list"></i></div>
+      <div>
+        <div class="metric-label">Today's Assigned</div>
+        <div class="metric-value">{{ today_assigned }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-amber"><i class="fa-solid fa-box-open"></i></div>
+      <div>
+        <div class="metric-label">Pending Pickups</div>
+        <div class="metric-value" style="color: #D97706;">{{ pending_pickups }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-purple"><i class="fa-solid fa-motorcycle"></i></div>
+      <div>
+        <div class="metric-label">En Route</div>
+        <div class="metric-value">{{ active_deliveries }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-house-chimney-check"></i></div>
+      <div>
+        <div class="metric-label">Delivered</div>
+        <div class="metric-value" style="color: #047857;">{{ delivered_orders }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div>
+        <div class="metric-label">Failed Handover</div>
+        <div class="metric-value" style="color: #DC2626;">{{ failed_deliveries }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-star"></i></div>
+      <div>
+        <div class="metric-label">Completion Rate</div>
+        <div class="metric-value">{{ success_rate }}%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Jobs Table -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <h3 style="font-size: 1.15rem; font-weight: 800;">Active Delivery Tasks</h3>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order Ref</th>
+            <th>Location / Destination</th>
+            <th>Contact Phone</th>
+            <th>Scheduled Slot</th>
+            <th>COD Due</th>
+            <th>Current Stage</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in active_jobs %}
+            <tr>
+              <td>
+                <strong style="color: var(--text-main); font-size: 0.95rem;">#{{ job.order.order_id }}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Assigned {{ job.assigned_at|timesince }} ago</div>
+              </td>
+              <td>
+                {% if job.is_customer_details_unlocked %}
+                  <div style="font-weight: 700; color: var(--text-main);">{{ job.order.recipient_name }}</div>
+                  <div style="font-size: 0.8rem; color: var(--text-secondary); max-width: 250px;">{{ job.order.delivery_address_text }}</div>
+                {% else %}
+                  <div style="font-weight: 700; color: #4338CA;">
+                    <i class="fa-solid fa-store"></i> {{ job.order.sub_orders.first.seller.seller_profile.store_name|default:"Seller Store" }}
+                  </div>
+                  <div style="font-size: 0.8rem; color: var(--text-secondary); max-width: 250px;">
+                    Pickup: {{ job.order.sub_orders.first.seller.seller_profile.pickup_address|default:"Pickup at store counter" }}
+                  </div>
+                  <span class="badge badge-warning" style="font-size: 0.7rem; margin-top: 2px;">
+                    <i class="fa-solid fa-user-shield"></i> Customer Details Locked
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                {% if job.is_customer_details_unlocked %}
+                  <a href="tel:{{ job.order.recipient_phone }}" style="color: var(--color-primary-dark); font-weight: 700;">
+                    <i class="fa-solid fa-phone"></i> {{ job.order.recipient_phone }}
+                  </a>
+                {% else %}
+                  <span style="font-size: 0.8rem; color: var(--text-muted);">
+                    <i class="fa-solid fa-lock"></i> Store pickup first
+                  </span>
+                {% endif %}
+              </td>
+              <td><strong>{{ job.order.delivery_slot }}</strong></td>
+              <td>
+                {% if job.order.payment_method == 'COD' and job.order.payment_status != 'PAID' %}
+                  <span style="font-weight: 800; color: #DC2626; font-size: 0.95rem;">
+                    ₹{{ job.order.total_amount }} (COD)
+                  </span>
+                {% else %}
+                  <span class="badge badge-success">Prepaid (₹0 Due)</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge 
+                  {% if job.status == 'ASSIGNED' %}badge-warning
+                  {% elif job.status == 'ACCEPTED' %}badge-info
+                  {% elif job.status == 'PICKED_UP' %}badge-packed
+                  {% elif job.status == 'OUT_FOR_DELIVERY' %}badge-out
+                  {% else %}badge-secondary{% endif %}">
+                  {{ job.get_status_display }}
+                </span>
+              </td>
+              <td style="text-align: right;">
+                <a href="{% url 'delivery:order_detail' job.id %}" class="btn btn-primary btn-sm">
+                  <i class="fa-solid fa-arrow-right"></i> Open Task
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <i class="fa-solid fa-mug-hot" style="font-size: 2.5rem; margin-bottom: 0.75rem; color: #CBD5E1;"></i>
+                <div style="font-size: 1rem; font-weight: 700; color: var(--text-main);">No active tasks right now</div>
+                <div style="font-size: 0.85rem; margin-top: 4px;">You're caught up! New dispatch assignments will appear here automatically.</div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

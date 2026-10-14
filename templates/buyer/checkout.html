@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Checkout - FreshMart{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+  
+  <h1 style="font-size: 1.85rem; font-weight: 800; margin-bottom: 1.75rem;">
+    <i class="fa-solid fa-lock" style="color: var(--color-primary);"></i> Secure Checkout
+  </h1>
+
+  {% if not user.is_authenticated %}
+  <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: var(--radius-md); padding: 0.9rem 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 10px; color: #166534; font-weight: 600; font-size: 0.95rem;">
+      <i class="fa-solid fa-circle-user" style="font-size: 1.25rem; color: #15803D;"></i>
+      <span>Already have a FreshMart account? Sign in for saved addresses, or checkout directly below.</span>
+    </div>
+    <a href="{% url 'accounts:login' %}?next={% url 'orders:checkout' %}" class="btn btn-outline btn-sm" style="font-weight: 700; white-space: nowrap; border-color: #16A34A; color: #15803D;">
+      <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In
+    </a>
+  </div>
+  {% endif %}
+
+  <form method="POST" action="{% url 'orders:checkout' %}" id="checkout-form">
+    {% csrf_token %}
+
+    <div class="checkout-grid">
+      
+      <!-- Left Column: Customer Details, Address, Scheduling & Payment -->
+      <div style="display: flex; flex-direction: column; gap: 1.75rem;">
+        
+        <!-- A. Customer Details Card -->
+        <div class="form-card">
+          <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
+            <span style="background: var(--color-primary-subtle); color: var(--color-primary-dark); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">1</span>
+            Customer Details
+          </h2>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Full Name *</label>
+              <input type="text" name="customer_name" class="form-control" placeholder="Your full name" value="{{ customer_name }}" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mobile Number *</label>
+              <input type="text" name="customer_phone" class="form-control" placeholder="10-digit mobile number" value="{{ customer_phone }}" required>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Email Address *</label>
+            <input type="email" name="customer_email" class="form-control" placeholder="Order updates and digital receipt" value="{{ customer_email }}" required>
+          </div>
+        </div>
+
+        <!-- B. Delivery Address Card -->
+        <div class="form-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+              <span style="background: var(--color-primary-subtle); color: var(--color-primary-dark); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">2</span>
+              Delivery Address
+            </h2>
+          </div>
+
+          {% if addresses %}
+            <div style="margin-bottom: 1.25rem;">
+              <label class="form-label">Select Saved Delivery Address:</label>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                {% for addr in addresses %}
+                  <label style="display: flex; align-items: flex-start; gap: 10px; padding: 1rem; border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); cursor: pointer; transition: var(--transition-fast);">
+                    <input type="radio" name="address_id" value="{{ addr.id }}" {% if forloop.first %}checked{% endif %} style="margin-top: 4px;" onchange="toggleNewAddress(false)">
+                    <div>
+                      <div style="font-weight: 700; font-size: 0.95rem;">
+                        {{ addr.full_name }} <span class="badge badge-secondary">{{ addr.get_address_type_display }}</span>
+                      </div>
+                      <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">
+                        {{ addr.formatted }}
+                      </div>
+                      <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+                        Phone: {{ addr.phone_number }}
+                      </div>
+                    </div>
+                  </label>
+                {% endfor %}
+                <label style="display: flex; align-items: center; gap: 10px; padding: 0.75rem 1rem; border: 1.5px dashed var(--bg-border); border-radius: var(--radius-md); cursor: pointer;">
+                  <input type="radio" name="address_id" value="" id="use-new-addr-radio" onchange="toggleNewAddress(true)">
+                  <span style="font-weight: 600; font-size: 0.9rem; color: var(--color-primary-dark);">+ Deliver to a Different / New Address</span>
+                </label>
+              </div>
+            </div>
+          {% endif %}
+
+          <!-- New Address Fields -->
+          <div id="new-address-fields" style="{% if addresses %}display: none; border-top: 1px dashed var(--bg-border); padding-top: 1.25rem;{% endif %}">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Recipient Name *</label>
+                <input type="text" name="full_name" class="form-control" placeholder="Recipient Name" value="{{ customer_name }}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone Number *</label>
+                <input type="text" name="phone_number" class="form-control" placeholder="10-digit mobile number" value="{{ customer_phone }}">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">House / Flat / Building No. *</label>
+                <input type="text" name="house_number" class="form-control" placeholder="e.g. Flat 402, Green Heights">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Street / Colony *</label>
+                <input type="text" name="street" class="form-control" placeholder="e.g. MG Road, Sector 4">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Area / Locality *</label>
+                <input type="text" name="area" class="form-control" placeholder="e.g. Downtown Central">
+              </div>
+              <div class="form-group">
+                <label class="form-label">City *</label>
+                <input type="text" name="city" class="form-control" placeholder="City" value="Central City">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">State *</label>
+                <input type="text" name="state" class="form-control" placeholder="State" value="State">
+              </div>
+              <div class="form-group">
+                <label class="form-label">PIN Code *</label>
+                <input type="text" name="pin_code" class="form-control" placeholder="e.g. 110001">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Landmark (Optional)</label>
+                <input type="text" name="landmark" class="form-control" placeholder="Nearby park, school, or store">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Address Type</label>
+                <select name="address_type" class="form-select">
+                  <option value="HOME">Home</option>
+                  <option value="WORK">Office / Work</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- C. Delivery Scheduling Card -->
+        <div class="form-card">
+          <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
+            <span style="background: var(--color-primary-subtle); color: var(--color-primary-dark); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">3</span>
+            Delivery Scheduling
+          </h2>
+
+          <!-- Delivery Date -->
+          <div class="form-group">
+            <label class="form-label">Delivery Date:</label>
+            <div style="display: flex; gap: 12px; margin-bottom: 1rem; flex-wrap: wrap;">
+              <label style="border: 1.5px solid var(--color-primary); background: var(--color-primary-subtle); padding: 0.65rem 1.25rem; border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <input type="radio" name="delivery_date" value="today" checked>
+                <span style="font-weight: 700; font-size: 0.9rem;">Today (Fast Delivery)</span>
+              </label>
+              <label style="border: 1.5px solid var(--bg-border); background: #ffffff; padding: 0.65rem 1.25rem; border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <input type="radio" name="delivery_date" value="tomorrow">
+                <span style="font-weight: 700; font-size: 0.9rem;">Tomorrow</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Delivery Slots -->
+          <div class="form-group">
+            <label class="form-label">Available Time Slots:</label>
+            <div class="delivery-slot-grid">
+              <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <input type="radio" name="delivery_slot" value="07:00 AM - 10:00 AM" checked>
+                <div>
+                  <div style="font-weight: 700; font-size: 0.875rem;">07:00 AM - 10:00 AM</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">Early Morning Fresh</div>
+                </div>
+              </label>
+
+              <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <input type="radio" name="delivery_slot" value="10:00 AM - 01:00 PM">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.875rem;">10:00 AM - 01:00 PM</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">Midday Standard</div>
+                </div>
+              </label>
+
+              <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <input type="radio" name="delivery_slot" value="02:00 PM - 05:00 PM">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.875rem;">02:00 PM - 05:00 PM</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">Afternoon Dispatch</div>
+                </div>
+              </label>
+
+              <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <input type="radio" name="delivery_slot" value="06:00 PM - 09:00 PM">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.875rem;">06:00 PM - 09:00 PM</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">Evening Express</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Drop-off Instructions (Optional)</label>
+            <input type="text" name="delivery_instructions" class="form-control" placeholder="e.g. Ring the bell, leave package with society security...">
+          </div>
+        </div>
+
+        <!-- D. Payment Method Selection Card -->
+        <div class="form-card">
+          <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
+            <span style="background: var(--color-primary-subtle); color: var(--color-primary-dark); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">4</span>
+            Select Payment Method
+          </h2>
+
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            
+            <!-- Cash on Delivery -->
+            <label style="border: 1.5px solid var(--color-primary); background: var(--color-primary-subtle); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="payment_method" value="COD" checked>
+                <div>
+                  <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">Cash on Delivery (Pay at Doorstep)</div>
+                  <div style="font-size: 0.8rem; color: var(--text-secondary);">Pay cash or scan UPI QR upon delivery inspection</div>
+                </div>
+              </div>
+              <i class="fa-solid fa-money-bill-wave" style="font-size: 1.35rem; color: var(--color-primary-dark);"></i>
+            </label>
+
+            <!-- UPI -->
+            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="payment_method" value="UPI">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Instant UPI (BHIM / Any UPI App)</div>
+                  <div style="font-size: 0.8rem; color: var(--text-muted);">Zero convenience fee & instant verification</div>
+                </div>
+              </div>
+              <i class="fa-solid fa-qrcode" style="font-size: 1.35rem; color: #2563EB;"></i>
+            </label>
+
+            <!-- Google Pay -->
+            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="payment_method" value="GPAY">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Google Pay</div>
+                  <div style="font-size: 0.8rem; color: var(--text-muted);">Quick checkout through Google Pay gateway</div>
+                </div>
+              </div>
+              <i class="fa-brands fa-google-pay" style="font-size: 1.6rem; color: #1E40AF;"></i>
+            </label>
+
+            <!-- PhonePe -->
+            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="payment_method" value="PHONEPE">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">PhonePe Gateway</div>
+                  <div style="font-size: 0.8rem; color: var(--text-muted);">Seamless PhonePe app integration</div>
+                </div>
+              </div>
+              <i class="fa-solid fa-mobile-screen-button" style="font-size: 1.35rem; color: #7C3AED;"></i>
+            </label>
+
+            <!-- Debit / Credit Cards -->
+            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="payment_method" value="CARD">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Debit / Credit Card</div>
+                  <div style="font-size: 0.8rem; color: var(--text-muted);">Visa, MasterCard, RuPay with 256-bit bank encryption</div>
+                </div>
+              </div>
+              <i class="fa-solid fa-credit-card" style="font-size: 1.35rem; color: #059669;"></i>
+            </label>
+
+            <!-- Net Banking -->
+            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="payment_method" value="NETBANKING">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Net Banking</div>
+                  <div style="font-size: 0.8rem; color: var(--text-muted);">All major Indian retail banks supported</div>
+                </div>
+              </div>
+              <i class="fa-solid fa-building-columns" style="font-size: 1.35rem; color: #D97706;"></i>
+            </label>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Order Summary (Recalculated on Backend) -->
+      <div>
+        <div class="order-summary-card">
+          <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">Order Summary</h3>
+
+          <!-- Items Mini List -->
+          <div style="max-height: 240px; overflow-y: auto; margin-bottom: 1.25rem; border-bottom: 1px solid var(--bg-border); padding-bottom: 0.75rem;">
+            {% for item in cart_items %}
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.875rem;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <img src="{{ item.product.primary_image_url }}" alt="{{ item.product.name }}" style="width: 36px; height: 36px; object-fit: contain; background: #FAFAFA; border-radius: 4px; border: 1px solid var(--bg-border);">
+                  <div>
+                    <div style="font-weight: 600; color: var(--text-main);">{{ item.product.name }}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.quantity }} x ₹{{ item.product.selling_price }}</div>
+                  </div>
+                </div>
+                <div style="font-weight: 700;">₹{{ item.line_total }}</div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="summary-row">
+            <span>Items Subtotal</span>
+            <span style="font-weight: 600;">₹{{ cart.subtotal }}</span>
+          </div>
+
+          {% if cart.total_discount > 0 %}
+            <div class="summary-row" style="color: #047857; font-weight: 600;">
+              <span>MRP Discount Savings</span>
+              <span>-₹{{ cart.total_discount }}</span>
+            </div>
+          {% endif %}
+
+          <div class="summary-row">
+            <span>Delivery Charges</span>
+            <span>
+              {% if cart.delivery_fee == 0 %}
+                <span class="badge badge-success">FREE</span>
+              {% else %}
+                ₹{{ cart.delivery_fee }}
+              {% endif %}
+            </span>
+          </div>
+
+          <div class="summary-row">
+            <span>Applicable Taxes (GST)</span>
+            <span style="color: var(--text-muted);">Included</span>
+          </div>
+
+          <div class="summary-total-row">
+            <span>Final Payable Amount</span>
+            <span style="color: var(--color-primary-dark);">₹{{ cart.grand_total }}</span>
+          </div>
+
+          <!-- Place Order Button with Anti-duplicate Protection -->
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1.5rem; font-weight: 800; font-size: 1.05rem;" id="place-order-btn">
+            <i class="fa-solid fa-bag-shopping"></i> Place Order Now (₹{{ cart.grand_total }})
+          </button>
+
+          <div style="margin-top: 1.25rem; font-size: 0.75rem; color: var(--text-muted); text-align: center; line-height: 1.4;">
+            <i class="fa-solid fa-shield-check" style="color: var(--color-primary-dark);"></i> 100% Quality & Freshness Guarantee. Secure Server-Side Order Processing.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </form>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleNewAddress(show) {
+  const box = document.getElementById('new-address-fields');
+  if (box) {
+    box.style.display = show ? 'block' : 'none';
+  }
+}
+
+// Anti-duplicate click protection
+document.getElementById('checkout-form').addEventListener('submit', function() {
+  const btn = document.getElementById('place-order-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing Order Safely...';
+});
+</script>
+{% endblock %}

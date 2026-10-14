@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Secure Payment - FreshMart Gateway{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2.5rem; padding-bottom: 4rem; max-width: 680px;">
+  
+  <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-md);">
+    
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-border); padding-bottom: 1.25rem; margin-bottom: 1.75rem;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--color-primary-subtle); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; margin: 0;">FreshMart Pay</h2>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">
+            <i class="fa-solid fa-lock"></i> 256-Bit SSL Encrypted Test Mode Gateway
+          </div>
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Payable Amount</span>
+        <strong style="font-size: 1.5rem; color: var(--color-primary-dark);">₹{{ order.total_amount }}</strong>
+      </div>
+    </div>
+
+    <!-- Order summary chip -->
+    <div style="background: #FAFAFA; border: 1px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.75rem; font-size: 0.875rem;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <span style="color: var(--text-muted);">Order Reference:</span>
+        <strong>#{{ order.order_id }}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <span style="color: var(--text-muted);">Customer:</span>
+        <span>{{ order.recipient_name }} ({{ order.recipient_phone }})</span>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: var(--text-muted);">Payment Mode:</span>
+        <strong style="color: var(--color-primary-dark);">{{ order.get_payment_method_display }}</strong>
+      </div>
+    </div>
+
+    <!-- Payment Method Interactive Simulation -->
+    {% if order.payment_method == 'UPI' or order.payment_method == 'GPAY' or order.payment_method == 'PHONEPE' %}
+      <div style="text-align: center; padding: 1.5rem; border: 1.5px dashed var(--color-primary); background: var(--color-primary-subtle); border-radius: var(--radius-md); margin-bottom: 1.75rem;">
+        <div style="font-size: 0.9rem; font-weight: 700; color: var(--color-primary-darker); margin-bottom: 0.75rem;">
+          Scan QR via Google Pay / PhonePe / Paytm / BHIM
+        </div>
+        <div style="display: inline-block; background: #ffffff; padding: 12px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-bottom: 0.75rem;">
+          <i class="fa-solid fa-qrcode" style="font-size: 8rem; color: #111827;"></i>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">
+          Virtual UPI ID: <strong>freshmart.store@upi</strong>
+        </div>
+      </div>
+    {% elif order.payment_method == 'CARD' %}
+      <div style="padding: 1.5rem; border: 1px solid var(--bg-border); background: #FAFAFA; border-radius: var(--radius-md); margin-bottom: 1.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <span style="font-weight: 700; font-size: 0.9rem;">Test Card Pre-filled</span>
+          <span style="display: flex; gap: 8px; font-size: 1.35rem; color: #6B7280;">
+            <i class="fa-brands fa-cc-visa" style="color: #1A1F71;"></i>
+            <i class="fa-brands fa-cc-mastercard" style="color: #EB001B;"></i>
+          </span>
+        </div>
+        <div style="font-family: monospace; font-size: 1.1rem; letter-spacing: 2px; margin-bottom: 0.5rem; color: var(--text-main);">
+          4242 &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; 4242
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted);">
+          <span>CARD HOLDER: {{ order.recipient_name|upper }}</span>
+          <span>EXP: 12/28 | CVV: &bull;&bull;&bull;</span>
+        </div>
+      </div>
+    {% else %}
+      <div style="padding: 1.25rem; border: 1px solid var(--bg-border); background: #FAFAFA; border-radius: var(--radius-md); margin-bottom: 1.75rem;">
+        <div style="font-weight: 700; margin-bottom: 0.5rem;">Net Banking Gateway Simulator</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+          Connected to Retail Banking Portal (HDFC / ICICI / SBI / Axis Bank Test Sandbox).
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Action Forms -->
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <!-- Success / Authorize Button -->
+      <form method="POST" action="{% url 'orders:payment_verify' order.order_id %}" id="pay-success-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="success">
+        <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; font-weight: 800; font-size: 1.05rem;" id="btn-pay-success">
+          <i class="fa-solid fa-lock"></i> Authorize & Complete Payment (₹{{ order.total_amount }})
+        </button>
+      </form>
+
+      <!-- Failure / Cancel Button -->
+      <form method="POST" action="{% url 'orders:payment_verify' order.order_id %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="cancel">
+        <button type="submit" class="btn btn-secondary" style="width: 100%; color: #DC2626; border-color: #FECACA;">
+          <i class="fa-solid fa-xmark"></i> Simulate Payment Failure / Decline
+        </button>
+      </form>
+    </div>
+
+    <div style="margin-top: 1.5rem; text-align: center; font-size: 0.75rem; color: var(--text-muted);">
+      <i class="fa-solid fa-circle-info"></i> In this local development mode, clicking Authorize performs a trusted server-side signature verification and sets your order to <strong>PAID</strong>, notifying the seller immediately.
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('pay-success-form').addEventListener('submit', function() {
+  const btn = document.getElementById('btn-pay-success');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifying with Bank Gateway...';
+});
+</script>
+{% endblock %}

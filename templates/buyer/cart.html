@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Shopping Basket - FreshMart{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+  
+  <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 1.5rem;">
+    <h1 style="font-size: 1.75rem; font-weight: 800;">My Shopping Basket</h1>
+    <span style="color: var(--text-muted); font-size: 0.95rem;">({{ cart.total_items }} item{{ cart.total_items|pluralize }})</span>
+  </div>
+
+  {% if cart_items %}
+    {% if has_stock_error %}
+      <div class="alert alert-danger">
+        <span><i class="fa-solid fa-triangle-exclamation"></i> Some items in your basket currently exceed our available stock. Please adjust quantities before checkout.</span>
+      </div>
+    {% endif %}
+
+    <div class="cart-layout">
+      
+      <!-- Cart Items List -->
+      <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+        <div class="cart-table-head" style="display: grid; grid-template-columns: 80px 2fr 1fr 1fr auto; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--bg-border); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
+          <span>Item</span>
+          <span>Product Details</span>
+          <span style="text-align: center;">Quantity</span>
+          <span style="text-align: right;">Total</span>
+          <span></span>
+        </div>
+
+        {% for item in cart_items %}
+          <div class="cart-item-row" id="cart-item-{{ item.id }}">
+            <div class="cart-item-img">
+              <img src="{{ item.product.primary_image_url }}" alt="{{ item.product.name }}">
+            </div>
+            
+            <div class="cart-item-info">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                <a href="{% url 'catalog:product_detail' item.product.slug %}" style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">
+                  {{ item.product.name }}
+                </a>
+                <button type="button" class="cart-item-remove-mobile" onclick="removeCartItem({{ item.id }})" style="background: none; border: none; color: #9CA3AF; cursor: pointer; font-size: 1.1rem; padding: 2px 6px;" title="Remove">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+                {{ item.product.unit_value }} &bull; ₹{{ item.product.selling_price }} each
+              </div>
+              {% if not item.is_available %}
+                <div style="font-size: 0.75rem; color: #DC2626; font-weight: 700; margin-top: 4px;">
+                  Only {{ item.product.current_stock_count }} available in stock!
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="cart-item-qty-col" style="text-align: center;">
+              <div class="quantity-control">
+                <button type="button" class="qty-btn" onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'-1' }})">-</button>
+                <input type="text" value="{{ item.quantity }}" readonly class="qty-input">
+                <button type="button" class="qty-btn" onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'1' }})">+</button>
+              </div>
+            </div>
+
+            <div class="cart-item-total-col" style="text-align: right; font-weight: 800; font-size: 1.05rem;">
+              <span class="cart-item-total-label" style="display: none; font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Subtotal: </span>
+              ₹{{ item.line_total }}
+            </div>
+
+            <div class="cart-item-remove-col" style="text-align: right;">
+              <button type="button" onclick="removeCartItem({{ item.id }})" style="background: none; border: none; color: #9CA3AF; cursor: pointer; font-size: 1.1rem; padding: 6px;" title="Remove">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        {% endfor %}
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
+          <a href="{% url 'catalog:product_list' %}" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-arrow-left"></i> Continue Shopping
+          </a>
+          <span style="font-size: 0.85rem; color: var(--text-muted);">
+            <i class="fa-solid fa-shield-check" style="color: #10B981;"></i> Safe and contactless delivery guaranteed
+          </span>
+        </div>
+      </div>
+
+      <!-- Order Summary Card -->
+      <div>
+        <div class="order-summary-card">
+          <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">Order Summary</h3>
+          
+          <div class="summary-row">
+            <span>Items Subtotal</span>
+            <span style="font-weight: 600;">₹{{ cart.subtotal }}</span>
+          </div>
+
+          {% if cart.total_discount > 0 %}
+            <div class="summary-row" style="color: #047857; font-weight: 600;">
+              <span>Total MRP Discount</span>
+              <span>-₹{{ cart.total_discount }}</span>
+            </div>
+          {% endif %}
+
+          <div class="summary-row">
+            <span>Delivery Fee</span>
+            <span>
+              {% if cart.delivery_fee == 0 %}
+                <span class="badge badge-success">FREE</span>
+              {% else %}
+                ₹{{ cart.delivery_fee }}
+              {% endif %}
+            </span>
+          </div>
+
+          {% if cart.delivery_fee > 0 %}
+            <div style="background: #FEF3C7; border-radius: var(--radius-sm); padding: 0.5rem; font-size: 0.775rem; color: #92400E; margin-bottom: 1rem;">
+              <i class="fa-solid fa-circle-info"></i> Add items worth <strong>₹{{ 499|add:"-0" }}</strong> or more for <strong>FREE Delivery</strong>!
+            </div>
+          {% endif %}
+
+          <div class="summary-total-row">
+            <span>Payable Amount</span>
+            <span style="color: var(--color-primary-dark);">₹{{ cart.grand_total }}</span>
+          </div>
+
+          <div style="margin-top: 1.5rem;">
+            {% if has_stock_error %}
+              <button class="btn btn-secondary btn-lg" style="width: 100%; opacity: 0.6; cursor: not-allowed;" disabled>
+                Resolve Stock Errors to Checkout
+              </button>
+            {% else %}
+              <a href="{% url 'orders:checkout' %}" class="btn btn-primary btn-lg" style="width: 100%; font-weight: 800;">
+                Proceed to Checkout <i class="fa-solid fa-arrow-right"></i>
+              </a>
+            {% endif %}
+          </div>
+
+          <!-- Trust Badges -->
+          <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--bg-border); display: flex; flex-direction: column; gap: 8px; font-size: 0.8rem; color: var(--text-secondary);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-bolt" style="color: #F59E0B;"></i> Superfast 30-min doorstep arrival
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-rotate-left" style="color: #10B981;"></i> Hassle-free same day replacements
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  {% else %}
+    <!-- Empty Cart State -->
+    <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 4rem 2rem; text-align: center; max-width: 540px; margin: 2rem auto;">
+      <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--color-primary-subtle); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center; font-size: 2.25rem; margin: 0 auto 1.5rem;">
+        <i class="fa-solid fa-basket-shopping"></i>
+      </div>
+      <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Your shopping basket is empty</h2>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">
+        Fill it with farm fresh fruits, crisp vegetables, fresh dairy, and pantry groceries.
+      </p>
+      <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-lg btn-pill">
+        <i class="fa-solid fa-cart-plus"></i> Browse Grocery Aisles
+      </a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

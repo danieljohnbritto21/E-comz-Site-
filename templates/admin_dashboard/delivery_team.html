@@ -1,0 +1,133 @@
+{% extends 'admin_dashboard/base_admin.html' %}
+{% load static %}
+
+{% block title %}Delivery Fleet - Admin Portal{% endblock %}
+
+{% block admin_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Delivery Fleet Operations</h1>
+      <p class="dashboard-subtitle">Manage dedicated delivery agents, vehicle fleet, and provision authorized courier accounts</p>
+    </div>
+    <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('add-driver-card').scrollIntoView({behavior: 'smooth'})">
+      <i class="fa-solid fa-plus"></i> Provision New Driver Account
+    </button>
+  </div>
+
+  <!-- Delivery Personnel Table -->
+  <div class="table-card" style="margin-bottom: 2.5rem;">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Agent Name</th>
+            <th>Vehicle & License</th>
+            <th>Phone</th>
+            <th>Fleet Status</th>
+            <th>Deliveries Completed</th>
+            <th>Account Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for driver in drivers %}
+            <tr>
+              <td>
+                <div style="font-weight: 700;">{{ driver.user.get_full_name|default:driver.user.username }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">@{{ driver.user.username }}</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">{{ driver.get_vehicle_type_display }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ driver.vehicle_number|default:"No plate registered" }}</div>
+              </td>
+              <td>
+                <a href="tel:{{ driver.user.phone_number }}" style="font-weight: 600; color: var(--color-primary-dark);">
+                  {{ driver.user.phone_number|default:"-" }}
+                </a>
+              </td>
+              <td>
+                <span class="badge 
+                  {% if driver.current_status == 'AVAILABLE' %}badge-success
+                  {% elif driver.current_status == 'ON_DELIVERY' %}badge-warning
+                  {% else %}badge-secondary{% endif %}">
+                  {{ driver.get_current_status_display }}
+                </span>
+              </td>
+              <td>
+                <strong style="color: #047857; font-size: 1.05rem;">{{ driver.total_deliveries_completed }} orders</strong>
+              </td>
+              <td style="font-size: 0.8rem; color: var(--text-muted);">{{ driver.created_at|date:"d M Y" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                No delivery agents registered yet. Provision an account below!
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Provision Delivery Agent Form -->
+  <div class="form-card" id="add-driver-card" style="max-width: 760px;">
+    <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
+      <i class="fa-solid fa-user-plus" style="color: var(--color-primary-dark);"></i> Provision New Delivery Agent Account
+    </h3>
+
+    <form method="POST">
+      {% csrf_token %}
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">First Name *</label>
+          <input type="text" name="first_name" class="form-control" placeholder="Agent First Name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name</label>
+          <input type="text" name="last_name" class="form-control" placeholder="Last Name">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Login Username *</label>
+          <input type="text" name="username" class="form-control" placeholder="e.g. driver_rajesh" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mobile Phone Number *</label>
+          <input type="text" name="phone_number" class="form-control" placeholder="+91 98765 00000" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Vehicle Type</label>
+          <select name="vehicle_type" class="form-select">
+            <option value="BIKE">Motorcycle / Bike</option>
+            <option value="SCOOTER">Scooter</option>
+            <option value="BICYCLE">Bicycle</option>
+            <option value="VAN">Delivery Van</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vehicle Registration Number</label>
+          <input type="text" name="vehicle_number" class="form-control" placeholder="e.g. DL 01 AB 1234">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password *</label>
+        <input type="password" name="password" class="form-control" placeholder="Create temporary driver password" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg" style="margin-top: 0.5rem;">
+        <i class="fa-solid fa-motorcycle"></i> Authorize & Create Delivery Account
+      </button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

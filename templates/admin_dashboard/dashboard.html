@@ -1,0 +1,187 @@
+{% extends 'admin_dashboard/base_admin.html' %}
+{% load static %}
+
+{% block title %}Administrator Dashboard - FreshMart{% endblock %}
+
+{% block admin_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Platform Master Overview</h1>
+      <p class="dashboard-subtitle">Real-time marketplace KPIs across customers, vendors, deliveries, and catalog products</p>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <a href="{% url 'admin_dashboard:export_csv' %}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-file-csv"></i> Export Sales CSV
+      </a>
+      <a href="{% url 'admin_dashboard:orders' %}" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-receipt"></i> Manage Dispatch
+      </a>
+    </div>
+  </div>
+
+  <!-- Metric Cards Grid -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-users"></i></div>
+      <div>
+        <div class="metric-label">Total Buyers</div>
+        <div class="metric-value">{{ total_buyers }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-purple"><i class="fa-solid fa-store"></i></div>
+      <div>
+        <div class="metric-label">Sellers (Active)</div>
+        <div class="metric-value">{{ total_sellers }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-blue"><i class="fa-solid fa-motorcycle"></i></div>
+      <div>
+        <div class="metric-label">Delivery Fleet</div>
+        <div class="metric-value">{{ total_delivery }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-amber"><i class="fa-solid fa-clock"></i></div>
+      <div>
+        <div class="metric-label">Pending Approval</div>
+        <div class="metric-value" style="color: #D97706;">{{ pending_sellers_count }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-boxes-stacked"></i></div>
+      <div>
+        <div class="metric-label">Active Products</div>
+        <div class="metric-value">{{ active_products }} <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">/ {{ total_products }}</span></div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div>
+        <div class="metric-label">Out of Stock</div>
+        <div class="metric-value" style="color: #DC2626;">{{ out_of_stock_products }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-purple"><i class="fa-solid fa-cart-shopping"></i></div>
+      <div>
+        <div class="metric-label">Total Orders</div>
+        <div class="metric-value">{{ total_orders }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-amber"><i class="fa-solid fa-truck-ramp-box"></i></div>
+      <div>
+        <div class="metric-label">In-Flight Orders</div>
+        <div class="metric-value">{{ pending_orders }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+      <div>
+        <div class="metric-label">Today's Volume</div>
+        <div class="metric-value">₹{{ today_sales }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-sack-dollar"></i></div>
+      <div>
+        <div class="metric-label">Monthly Gross</div>
+        <div class="metric-value">₹{{ monthly_revenue }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending Seller Applications Alert -->
+  {% if pending_sellers %}
+    <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <span style="font-weight: 700; color: #92400E; font-size: 0.95rem;">
+          <i class="fa-solid fa-bell"></i> Pending Seller Registrations Awaiting Verification
+        </span>
+        <a href="{% url 'admin_dashboard:sellers' %}" style="font-size: 0.8rem; font-weight: 700; color: #B45309;">Review Sellers &rsaquo;</a>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        {% for s in pending_sellers %}
+          <div style="background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #FDE68A; font-size: 0.8rem;">
+            <strong>{{ s.store_name }}</strong> ({{ s.user.email }})
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Recent Orders Table -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <h3 style="font-size: 1.15rem; font-weight: 800;">Recent Platform Orders</h3>
+      <a href="{% url 'admin_dashboard:orders' %}" class="btn btn-secondary btn-sm">View All Orders</a>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order Ref</th>
+            <th>Buyer</th>
+            <th>Destination Address</th>
+            <th>Amount</th>
+            <th>Payment</th>
+            <th>Order Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in recent_orders %}
+            <tr>
+              <td>
+                <strong>#{{ order.order_id }}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ order.created_at|date:"d M, h:i A" }}</div>
+              </td>
+              <td>
+                <div style="font-weight: 600;">{{ order.recipient_name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ order.recipient_phone }}</div>
+              </td>
+              <td style="font-size: 0.8rem; max-width: 250px;">{{ order.delivery_address_text }}</td>
+              <td><strong style="font-size: 1.05rem; color: var(--color-primary-dark);">₹{{ order.total_amount }}</strong></td>
+              <td>
+                <div style="font-weight: 600; font-size: 0.85rem;">{{ order.get_payment_method_display }}</div>
+                <div style="font-size: 0.75rem; color: #047857;">{{ order.get_payment_status_display }}</div>
+              </td>
+              <td>
+                <span class="badge {{ order.status_badge_class }}">
+                  {{ order.get_status_display }}
+                </span>
+              </td>
+              <td>
+                <a href="{% url 'orders:track' order.order_id %}" target="_blank" class="btn btn-secondary btn-sm" title="Track Live">
+                  <i class="fa-solid fa-map-location-dot"></i> Track
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                No orders placed on the platform yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

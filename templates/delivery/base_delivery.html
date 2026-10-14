@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="dashboard-layout">
+  
+  <!-- Left Sidebar -->
+  <aside class="dashboard-sidebar" id="delivery-sidebar">
+    
+    <!-- Mobile Sidebar Toggle Bar (Visible on mobile screens) -->
+    <div class="sidebar-mobile-bar">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div class="sidebar-avatar" style="width: 32px; height: 32px; font-size: 0.85rem; background: #EFF6FF; color: #2563EB;">
+          <i class="fa-solid fa-motorcycle"></i>
+        </div>
+        <div style="font-weight: 700; font-size: 0.9rem;">Delivery Fleet</div>
+      </div>
+      <button type="button" class="sidebar-toggle-btn" onclick="toggleDashboardSidebar()" aria-label="Toggle Delivery Navigation">
+        <i class="fa-solid fa-bars"></i>
+        <span>Menu</span>
+      </button>
+    </div>
+
+    <div class="sidebar-user-card">
+      <div class="sidebar-avatar" style="background: #EFF6FF; color: #2563EB;">
+        {{ user.first_name|first|default:"D" }}
+      </div>
+      <div>
+        <div class="sidebar-user-name">{{ user.get_full_name|default:user.username }}</div>
+        <div class="sidebar-user-role"><i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i> Delivery Agent</div>
+      </div>
+    </div>
+
+    <ul class="sidebar-menu">
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <a href="{% url 'delivery:dashboard' %}">
+          <i class="fa-solid fa-gauge-high"></i>
+          <span>Active Tasks</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'history' %}active{% endif %}">
+        <a href="{% url 'delivery:history' %}">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>Delivery History</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item" style="margin-top: auto; border-top: 1px solid var(--bg-border); padding-top: 0.5rem;">
+        <a href="{% url 'accounts:logout' %}" style="color: #DC2626;">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span>Sign Out</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- Main Area -->
+  <main class="dashboard-main">
+    {% block delivery_content %}{% endblock %}
+  </main>
+
+</div>
+{% endblock %}

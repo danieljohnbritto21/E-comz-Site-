@@ -1,0 +1,85 @@
+{% extends 'delivery/base_delivery.html' %}
+{% load static %}
+
+{% block title %}Delivery History - FreshMart{% endblock %}
+
+{% block delivery_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Past Delivery Logs & Reconciliations</h1>
+      <p class="dashboard-subtitle">History of completed deliveries, failed attempts, and cash collected</p>
+    </div>
+    <div style="background: #ffffff; border: 1px solid var(--bg-border); padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 700;">
+      Total COD Collected: <strong style="color: var(--color-primary-dark);">₹{{ total_cod_collected }}</strong>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order Ref</th>
+            <th>Customer</th>
+            <th>Delivered At</th>
+            <th>Outcome</th>
+            <th>COD Collected</th>
+            <th>Proof / Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in history %}
+            <tr>
+              <td><strong>#{{ h.order.order_id }}</strong></td>
+              <td>
+                <div style="font-weight: 600;">{{ h.order.recipient_name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ h.order.pin_code }}</div>
+              </td>
+              <td>
+                {% if h.delivered_time %}
+                  {{ h.delivered_time|date:"d M Y, h:i A" }}
+                {% else %}
+                  {{ h.updated_at|date:"d M Y, h:i A" }}
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge {% if h.status == 'DELIVERED' %}badge-success{% else %}badge-danger{% endif %}">
+                  {{ h.get_status_display }}
+                </span>
+              </td>
+              <td>
+                {% for att in h.attempts.all %}
+                  {% if att.cod_collected %}
+                    <span style="font-weight: 800; color: #047857;">₹{{ att.cod_amount }}</span>
+                  {% endif %}
+                {% empty %}
+                  -
+                {% endfor %}
+              </td>
+              <td style="font-size: 0.85rem; color: var(--text-secondary);">
+                {% for att in h.attempts.all %}
+                  {% if att.proof_of_delivery %}
+                    <div>{{ att.proof_of_delivery }}</div>
+                  {% endif %}
+                  {% if att.failure_reason %}
+                    <div style="color: #DC2626;">{{ att.get_failure_reason_display }}: {{ att.notes }}</div>
+                  {% endif %}
+                {% endfor %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                No past deliveries recorded yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

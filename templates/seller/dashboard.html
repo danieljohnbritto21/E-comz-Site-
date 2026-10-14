@@ -1,0 +1,155 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}Seller Dashboard - FreshMart{% endblock %}
+
+{% block seller_content %}
+<div>
+  <!-- Header -->
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Seller Overview</h1>
+      <p class="dashboard-subtitle">Monitor live store performance, produce stock health, and customer fulfillments</p>
+    </div>
+    <a href="{% url 'seller:product_add' %}" class="btn btn-primary btn-pill">
+      <i class="fa-solid fa-plus"></i> Add New Product
+    </a>
+  </div>
+
+  <!-- Summary Metric Cards -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-boxes-stacked"></i></div>
+      <div>
+        <div class="metric-label">Active Products</div>
+        <div class="metric-value">{{ active_products }} <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">/ {{ total_products }}</span></div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-amber"><i class="fa-solid fa-bell"></i></div>
+      <div>
+        <div class="metric-label">Low Stock Alerts</div>
+        <div class="metric-value" style="color: #D97706;">{{ low_stock }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-red"><i class="fa-solid fa-circle-xmark"></i></div>
+      <div>
+        <div class="metric-label">Out of Stock</div>
+        <div class="metric-value" style="color: #DC2626;">{{ out_of_stock }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-blue"><i class="fa-solid fa-clock"></i></div>
+      <div>
+        <div class="metric-label">Pending Orders</div>
+        <div class="metric-value">{{ pending_orders }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-purple"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+      <div>
+        <div class="metric-label">Today's Sales</div>
+        <div class="metric-value">₹{{ today_sales }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-sack-dollar"></i></div>
+      <div>
+        <div class="metric-label">Monthly Gross</div>
+        <div class="metric-value">₹{{ monthly_revenue }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Low Stock Warning Banner -->
+  {% if low_stock_products %}
+    <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <span style="font-weight: 700; color: #92400E; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-triangle-exclamation"></i> Immediate Restock Recommended
+        </span>
+        <a href="{% url 'seller:inventory' %}" style="font-size: 0.8rem; font-weight: 700; color: #B45309;">Go to Inventory &rsaquo;</a>
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        {% for prod in low_stock_products %}
+          <div style="background: #ffffff; padding: 6px 12px; border-radius: 6px; border: 1px solid #FDE68A; font-size: 0.8rem; display: flex; align-items: center; gap: 8px;">
+            <span>{{ prod.name }}</span>
+            <span class="badge {% if prod.stock_record.current_stock == 0 %}badge-danger{% else %}badge-warning{% endif %}">
+              {{ prod.stock_record.current_stock }} left
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Recent Fulfillment Requests -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <h3 style="font-size: 1.15rem; font-weight: 800;">Recent Fulfillment Jobs</h3>
+      <a href="{% url 'seller:orders' %}" class="btn btn-secondary btn-sm">View All Orders</a>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order Ref</th>
+            <th>Customer</th>
+            <th>Items</th>
+            <th>Total Amount</th>
+            <th>Delivery Slot</th>
+            <th>Fulfillment Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sub in recent_sub_orders %}
+            <tr>
+              <td>
+                <strong>#{{ sub.order.order_id }}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ sub.created_at|date:"d M, h:i A" }}</div>
+              </td>
+              <td>
+                {{ sub.order.recipient_name }}
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ sub.order.recipient_phone }}</div>
+              </td>
+              <td>{{ sub.items.count }} product{{ sub.items.count|pluralize }}</td>
+              <td><strong>₹{{ sub.subtotal }}</strong></td>
+              <td>{{ sub.order.delivery_slot }}</td>
+              <td>
+                <span class="badge 
+                  {% if sub.status == 'PENDING' %}badge-warning
+                  {% elif sub.status == 'ACCEPTED' or sub.status == 'PREPARING' %}badge-info
+                  {% elif sub.status == 'PACKED' or sub.status == 'READY_FOR_PICKUP' %}badge-success
+                  {% elif sub.status == 'REJECTED' or sub.status == 'CANCELLED' %}badge-danger
+                  {% else %}badge-secondary{% endif %}">
+                  {{ sub.get_status_display }}
+                </span>
+              </td>
+              <td>
+                <a href="{% url 'seller:order_detail' sub.order.order_id %}" class="btn btn-primary btn-sm">
+                  Manage & Pack
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                No customer orders received yet. Once buyers order your products, they will appear here!
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

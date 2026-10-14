@@ -1,0 +1,73 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}Sales & Reports - Seller Dashboard{% endblock %}
+
+{% block seller_content %}
+<div>
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Sales & Financial Reports</h1>
+      <p class="dashboard-subtitle">Real-time revenue analytics, order completions, and bestseller metrics</p>
+    </div>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+      <div>
+        <div class="metric-label">Total Store Revenue</div>
+        <div class="metric-value">₹{{ total_revenue }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-blue"><i class="fa-solid fa-receipt"></i></div>
+      <div>
+        <div class="metric-label">Total Sub-Orders</div>
+        <div class="metric-value">{{ total_orders_count }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-purple"><i class="fa-solid fa-circle-check"></i></div>
+      <div>
+        <div class="metric-label">Completed Deliveries</div>
+        <div class="metric-value">{{ completed_orders_count }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h3 style="font-size: 1.1rem; font-weight: 800;">Top Performing Produce / Items</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product Name</th>
+            <th>Total Units Sold</th>
+            <th>Revenue Generated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in top_items %}
+            <tr>
+              <td><strong>{{ item.product_name }}</strong></td>
+              <td><span class="badge badge-success">{{ item.units_sold }} units</span></td>
+              <td><strong style="color: var(--color-primary-dark);">₹{{ item.total_sales }}</strong></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="3" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                No sales data recorded yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

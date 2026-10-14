@@ -1,0 +1,412 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}FreshMart - Online Grocery Marketplace{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Fresh fruits, organic vegetables, dairy, grains, and daily essentials delivered to your doorstep in 30 minutes.{% endblock %}">
+
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Design System CSS -->
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Top Announcement Bar -->
+  <div class="top-bar">
+    <div class="container top-bar-inner">
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <span class="top-bar-notice"><i class="fa-solid fa-bolt" style="color: #F59E0B;"></i> Superfast 30-min grocery delivery in your neighborhood</span>
+        <span class="top-bar-divider" style="color: #CBD5E1;">|</span>
+        <span class="top-bar-support"><i class="fa-solid fa-phone"></i> Support: +91 98765 43210</span>
+      </div>
+      <div class="top-bar-actions" style="display: flex; align-items: center; gap: 18px;">
+        {% if user.is_authenticated %}
+          {% if user.role == 'ADMIN' or user.is_superuser %}
+            <a href="{% url 'admin_dashboard:dashboard' %}" style="color: var(--color-primary-dark); font-weight: 700;">
+              <i class="fa-solid fa-shield-halved"></i> Admin Portal
+            </a>
+          {% elif user.role == 'SELLER' %}
+            <a href="{% url 'seller:dashboard' %}" style="color: var(--color-primary-dark); font-weight: 700;">
+              <i class="fa-solid fa-store"></i> Seller Dashboard
+            </a>
+          {% elif user.role == 'DELIVERY' %}
+            <a href="{% url 'delivery:dashboard' %}" style="color: var(--color-primary-dark); font-weight: 700;">
+              <i class="fa-solid fa-motorcycle"></i> Delivery Fleet
+            </a>
+          {% endif %}
+        {% else %}
+          <a href="{% url 'accounts:register_seller' %}"><i class="fa-solid fa-shop"></i> Sell on FreshMart</a>
+        {% endif %}
+        <span style="color: #CBD5E1;">|</span>
+        <span><i class="fa-solid fa-location-dot" style="color: #10B981;"></i> Deliver to: <strong>Downtown (110001)</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Navigation Header -->
+  <header class="site-header">
+    <div class="container">
+      <div class="navbar-main">
+        <div class="navbar-grid">
+          
+          <!-- Logo & Mobile Menu Toggle -->
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button type="button" class="mobile-menu-toggle-btn" id="mobile-menu-toggle" onclick="openMobileDrawer()" aria-label="Open Navigation Menu">
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <a href="{% url 'catalog:home' %}" class="brand-logo" id="logo-link">
+              <i class="fa-solid fa-basket-shopping" style="color: var(--color-primary);"></i>
+              Fresh<span>Mart</span>
+            </a>
+          </div>
+
+          <!-- Search Bar with Live Suggestions -->
+          <div class="search-box">
+            <form action="{% url 'catalog:product_list' %}" method="GET" style="margin: 0;">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input type="text" name="q" id="main-search-input" class="search-input" 
+                     placeholder="Search fresh vegetables, fruits, dairy, snacks, drinks..." 
+                     autocomplete="off" value="{{ request.GET.q }}">
+            </form>
+            <div id="search-suggestions" style="display: none; position: absolute; top: 105%; left: 0; right: 0; background: #ffffff; border: 1px solid #E5E7EB; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 1100; max-height: 340px; overflow-y: auto;">
+            </div>
+          </div>
+
+          <!-- User Actions & Cart -->
+          <div class="nav-actions">
+            {% if user.is_authenticated %}
+              <!-- Notifications Dropdown -->
+              <div class="nav-action-desktop" style="position: relative; display: inline-block;">
+                <a href="{% url 'notifications:list' %}" class="nav-action-btn" title="Notifications">
+                  <i class="fa-regular fa-bell" style="font-size: 1.15rem;"></i>
+                  {% if unread_notifications_count > 0 %}
+                    <span class="badge-counter">{{ unread_notifications_count }}</span>
+                  {% endif %}
+                </a>
+              </div>
+
+              <!-- User Profile Dropdown -->
+              <div class="nav-action-desktop" style="position: relative; display: inline-block;">
+                <a href="{% url 'accounts:role_redirect' %}" class="nav-action-btn">
+                  <i class="fa-regular fa-circle-user" style="font-size: 1.15rem; color: var(--color-primary-dark);"></i>
+                  <span>{{ user.first_name|default:user.username }}</span>
+                  <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+                </a>
+              </div>
+
+              <a href="{% url 'accounts:logout' %}" class="nav-action-btn nav-action-desktop" title="Sign Out">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+              </a>
+            {% else %}
+              <a href="{% url 'accounts:login' %}" class="nav-action-btn nav-action-desktop">
+                <i class="fa-regular fa-user"></i>
+                <span>Sign In</span>
+              </a>
+              <a href="{% url 'accounts:register_buyer' %}" class="btn btn-primary btn-sm btn-pill nav-action-desktop">
+                Register
+              </a>
+            {% endif %}
+
+            <!-- Shopping Cart Button -->
+            <a href="{% url 'cart:view_cart' %}" class="btn btn-primary btn-pill btn-nav-cart" style="gap: 0.6rem;">
+              <i class="fa-solid fa-cart-shopping"></i>
+              <span class="cart-count-badge" style="background: #ffffff; color: var(--color-primary-dark); border-radius: 999px; padding: 2px 7px; font-size: 0.75rem; font-weight: 800;">
+                {{ nav_cart_count|default:0 }}
+              </span>
+              {% if nav_cart_subtotal > 0 %}
+                <span class="nav-cart-price" style="font-size: 0.85rem; font-weight: 700;">₹{{ nav_cart_subtotal }}</span>
+              {% endif %}
+            </a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Strip -->
+    <div class="category-nav-strip">
+      <div class="container">
+        <ul class="category-nav-list">
+          <li class="category-nav-item {% if not request.resolver_match.kwargs.category_slug and request.resolver_match.url_name == 'product_list' and not request.GET.category %}active{% endif %}">
+            <a href="{% url 'catalog:product_list' %}">
+              <i class="fa-solid fa-border-all"></i> All Products
+            </a>
+          </li>
+          {% for cat in nav_categories %}
+            <li class="category-nav-item {% if request.GET.category == cat.slug or request.resolver_match.kwargs.category_slug == cat.slug %}active{% endif %}">
+              <a href="{% url 'catalog:product_list' %}?category={{ cat.slug }}">
+                <i class="fa-solid {{ cat.icon|default:'fa-basket-shopping' }}"></i> {{ cat.name }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </header>
+
+  <!-- Flash Messages Banner -->
+  <div class="container" style="margin-top: 1rem;">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }}">
+          <span><i class="fa-solid fa-circle-info"></i> {{ message }}</span>
+          <button type="button" onclick="this.parentElement.remove()" style="background: none; border: none; font-size: 1.1rem; cursor: pointer; color: inherit;">&times;</button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <!-- Page Content Block -->
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="brand-logo" style="margin-bottom: 0.75rem;">
+            <i class="fa-solid fa-basket-shopping" style="color: var(--color-primary);"></i>
+            Fresh<span>Mart</span>
+          </div>
+          <p>Your one-stop destination for freshly picked farm vegetables, fruits, dairy, and pantry groceries. Delivered fresh to your home with guaranteed quality.</p>
+          <div style="display: flex; gap: 12px; margin-top: 1.25rem;">
+            <a href="#" style="width: 36px; height: 36px; border-radius: 50%; background: #F1F5F3; display: flex; align-items: center; justify-content: center; color: var(--color-primary-dark);"><i class="fa-brands fa-facebook-f"></i></a>
+            <a href="#" style="width: 36px; height: 36px; border-radius: 50%; background: #F1F5F3; display: flex; align-items: center; justify-content: center; color: var(--color-primary-dark);"><i class="fa-brands fa-instagram"></i></a>
+            <a href="#" style="width: 36px; height: 36px; border-radius: 50%; background: #F1F5F3; display: flex; align-items: center; justify-content: center; color: var(--color-primary-dark);"><i class="fa-brands fa-x-twitter"></i></a>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="footer-title">Top Categories</h4>
+          <ul class="footer-links">
+            <li><a href="{% url 'catalog:product_list' %}?category=vegetables">Farm Fresh Vegetables</a></li>
+            <li><a href="{% url 'catalog:product_list' %}?category=fruits">Fresh Fruits</a></li>
+            <li><a href="{% url 'catalog:product_list' %}?category=dairy-products">Dairy & Breakfast</a></li>
+            <li><a href="{% url 'catalog:product_list' %}?category=rice-and-grains">Rice & Grains</a></li>
+            <li><a href="{% url 'catalog:product_list' %}?category=cooking-oil">Cooking Oil & Ghee</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-title">Marketplace Roles</h4>
+          <ul class="footer-links">
+            <li><a href="{% url 'accounts:login' %}">Customer Login</a></li>
+            <li><a href="{% url 'accounts:register_buyer' %}">Customer Registration</a></li>
+            <li><a href="{% url 'accounts:register_seller' %}">Become a FreshMart Seller</a></li>
+            <li><a href="{% url 'accounts:login' %}">Seller Dashboard Login</a></li>
+            <li><a href="{% url 'accounts:login' %}">Delivery Fleet Login</a></li>
+            <li><a href="{% url 'accounts:login' %}">Admin Control Center</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="footer-title">Customer Care</h4>
+          <ul class="footer-links">
+            <li><a href="{% url 'orders:order_history' %}">Track My Orders</a></li>
+            <li><a href="#">Shipping & Delivery Policies</a></li>
+            <li><a href="#">Freshness Guarantee & Returns</a></li>
+            <li><a href="#">Terms & Conditions</a></li>
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Contact & Help Desk</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 FreshMart Grocery E-Commerce Platform. All rights reserved.</div>
+        <div style="display: flex; gap: 20px;">
+          <span><i class="fa-solid fa-lock"></i> 256-Bit SSL Encrypted</span>
+          <span><i class="fa-solid fa-shield-heart"></i> 100% Quality Assurance</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating Bottom Cart Dock (Instant Visibility for Buyer) -->
+  <div id="floating-cart-bar" class="floating-cart-bar {% if nav_cart_count > 0 %}is-visible{% endif %}">
+    <div class="container floating-cart-inner">
+      <div class="floating-cart-left">
+        <div class="floating-cart-icon-bubble">
+          <i class="fa-solid fa-basket-shopping"></i>
+          <span class="floating-cart-badge" id="float-badge">{{ nav_cart_count }}</span>
+        </div>
+        <div>
+          <div class="floating-cart-items-text">
+            <span id="float-cart-count">{{ nav_cart_count }}</span> <span id="float-cart-unit">Item{{ nav_cart_count|pluralize }}</span> in Basket
+          </div>
+          <div class="floating-cart-price-text">
+            Total: <strong>₹<span id="float-cart-subtotal">{{ nav_cart_subtotal }}</span></strong>
+          </div>
+        </div>
+      </div>
+      
+      <div class="floating-cart-right">
+        <a href="{% url 'cart:view_cart' %}" class="btn-floating-view-cart">
+          <span>View Basket</span>
+          <i class="fa-solid fa-bag-shopping"></i>
+        </a>
+        <a href="{% url 'orders:checkout' %}" class="btn-floating-checkout">
+          <span>Checkout</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Slide-Out Navigation Drawer -->
+  <aside id="mobile-nav-drawer" class="mobile-drawer" aria-label="Mobile Navigation Drawer">
+    <div class="mobile-drawer-header">
+      <div class="brand-logo" style="font-size: 1.3rem;">
+        <i class="fa-solid fa-basket-shopping" style="color: var(--color-primary);"></i>
+        Fresh<span>Mart</span>
+      </div>
+      <button type="button" class="mobile-drawer-close-btn" onclick="closeMobileDrawer()" aria-label="Close navigation menu">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- User Profile or Sign-In Strip -->
+    <div class="mobile-drawer-user">
+      {% if user.is_authenticated %}
+        <div class="mobile-user-card">
+          <div class="mobile-user-avatar">
+            {{ user.first_name|first|default:user.username|first|upper }}
+          </div>
+          <div>
+            <div class="mobile-user-name">{{ user.get_full_name|default:user.username }}</div>
+            <div class="mobile-user-role">
+              {% if user.role == 'ADMIN' or user.is_superuser %}
+                <span class="badge" style="background: #F3E8FF; color: #7C3AED;">Admin</span>
+              {% elif user.role == 'SELLER' %}
+                <span class="badge badge-success">Seller Merchant</span>
+              {% elif user.role == 'DELIVERY' %}
+                <span class="badge badge-info">Delivery Fleet</span>
+              {% else %}
+                <span class="badge badge-secondary">FreshMart Customer</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div class="mobile-drawer-auth-buttons">
+          <a href="{% url 'accounts:login' %}" class="btn btn-primary btn-sm btn-pill" style="flex: 1; text-align: center;">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In
+          </a>
+          <a href="{% url 'accounts:register_buyer' %}" class="btn btn-secondary btn-sm btn-pill" style="flex: 1; text-align: center;">
+            Register
+          </a>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Scrollable Drawer Content -->
+    <div class="mobile-drawer-body">
+      <div class="mobile-drawer-heading">Customer Shopping</div>
+      <ul class="mobile-drawer-links">
+        <li>
+          <a href="{% url 'catalog:home' %}"><i class="fa-solid fa-house"></i> Home</a>
+        </li>
+        <li>
+          <a href="{% url 'catalog:product_list' %}"><i class="fa-solid fa-border-all"></i> All Products & Produce</a>
+        </li>
+        <li>
+          <a href="{% url 'cart:view_cart' %}">
+            <i class="fa-solid fa-cart-shopping"></i> My Shopping Basket
+            <span class="badge badge-success cart-count-badge" style="margin-left: auto;">{{ nav_cart_count|default:0 }}</span>
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'cart:view_wishlist' %}"><i class="fa-solid fa-heart"></i> Saved Wishlist</a>
+        </li>
+        {% if user.is_authenticated %}
+          <li>
+            <a href="{% url 'orders:order_history' %}"><i class="fa-solid fa-receipt"></i> My Order History</a>
+          </li>
+          <li>
+            <a href="{% url 'notifications:list' %}">
+              <i class="fa-regular fa-bell"></i> Notifications
+              {% if unread_notifications_count > 0 %}
+                <span class="badge badge-danger" style="margin-left: auto;">{{ unread_notifications_count }}</span>
+              {% endif %}
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+
+      <div class="mobile-drawer-heading">Marketplace Roles</div>
+      <ul class="mobile-drawer-links">
+        {% if user.is_authenticated %}
+          {% if user.role == 'ADMIN' or user.is_superuser %}
+            <li><a href="{% url 'admin_dashboard:dashboard' %}" style="color: #7C3AED; font-weight: 700;"><i class="fa-solid fa-shield-halved"></i> Admin Portal</a></li>
+          {% elif user.role == 'SELLER' %}
+            <li><a href="{% url 'seller:dashboard' %}" style="color: #059669; font-weight: 700;"><i class="fa-solid fa-store"></i> Seller Dashboard</a></li>
+          {% elif user.role == 'DELIVERY' %}
+            <li><a href="{% url 'delivery:dashboard' %}" style="color: #2563EB; font-weight: 700;"><i class="fa-solid fa-motorcycle"></i> Delivery Fleet</a></li>
+          {% endif %}
+          <li><a href="{% url 'accounts:logout' %}" style="color: #DC2626;"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out</a></li>
+        {% else %}
+          <li><a href="{% url 'accounts:login' %}"><i class="fa-solid fa-store"></i> Seller Login</a></li>
+          <li><a href="{% url 'accounts:register_seller' %}"><i class="fa-solid fa-shop"></i> Sell on FreshMart</a></li>
+          <li><a href="{% url 'accounts:login' %}"><i class="fa-solid fa-motorcycle"></i> Delivery Fleet Login</a></li>
+          <li><a href="{% url 'accounts:login' %}"><i class="fa-solid fa-shield-halved"></i> Admin Control Center</a></li>
+        {% endif %}
+      </ul>
+
+      <div class="mobile-drawer-heading">Shop Aisles</div>
+      <ul class="mobile-drawer-links mobile-drawer-categories">
+        {% for cat in nav_categories %}
+          <li>
+            <a href="{% url 'catalog:product_list' %}?category={{ cat.slug }}">
+              <i class="fa-solid {{ cat.icon|default:'fa-leaf' }}"></i> {{ cat.name }}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </aside>
+  <div id="mobile-drawer-overlay" class="mobile-drawer-overlay" onclick="closeMobileDrawer()"></div>
+
+  <!-- Mobile Bottom Navigation Bar (Fixed for Mobile Screens) -->
+  <nav class="mobile-bottom-nav" aria-label="Mobile Navigation Bar">
+    <a href="{% url 'catalog:home' %}" class="mobile-bottom-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+      <i class="fa-solid fa-house"></i>
+      <span>Home</span>
+    </a>
+    <a href="{% url 'catalog:product_list' %}" class="mobile-bottom-item {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}">
+      <i class="fa-solid fa-layer-group"></i>
+      <span>Shop</span>
+    </a>
+    <button type="button" class="mobile-bottom-item" onclick="focusMainSearch()" aria-label="Search Catalog">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <span>Search</span>
+    </button>
+    <a href="{% url 'cart:view_wishlist' %}" class="mobile-bottom-item {% if request.resolver_match.url_name == 'view_wishlist' %}active{% endif %}">
+      <i class="fa-solid fa-heart"></i>
+      <span>Wishlist</span>
+    </a>
+    <a href="{% url 'cart:view_cart' %}" class="mobile-bottom-item {% if request.resolver_match.url_name == 'view_cart' %}active{% endif %}">
+      <div class="mobile-bottom-cart-icon">
+        <i class="fa-solid fa-basket-shopping"></i>
+        <span class="mobile-bottom-badge cart-count-badge">{{ nav_cart_count|default:0 }}</span>
+      </div>
+      <span>Basket</span>
+    </a>
+  </nav>
+
+  <!-- Core JavaScript -->
+  <script src="{% static 'js/main.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

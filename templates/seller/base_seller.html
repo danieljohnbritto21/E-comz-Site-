@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="dashboard-layout">
+  
+  <!-- Left Sidebar -->
+  <aside class="dashboard-sidebar" id="seller-sidebar">
+    
+    <!-- Mobile Sidebar Toggle Bar (Visible on mobile screens) -->
+    <div class="sidebar-mobile-bar">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div class="sidebar-avatar" style="width: 32px; height: 32px; font-size: 0.85rem;">
+          {{ user.seller_profile.store_name|first|default:"S" }}
+        </div>
+        <div style="font-weight: 700; font-size: 0.9rem;">{{ user.seller_profile.store_name|default:user.username }}</div>
+      </div>
+      <button type="button" class="sidebar-toggle-btn" onclick="toggleSellerSidebar()" aria-label="Toggle Navigation">
+        <i class="fa-solid fa-bars"></i>
+        <span>Menu</span>
+      </button>
+    </div>
+
+    <!-- Desktop User Info Card -->
+    <div class="sidebar-user-card">
+      <div class="sidebar-avatar">
+        {{ user.seller_profile.store_name|first|default:"S" }}
+      </div>
+      <div>
+        <div class="sidebar-user-name">{{ user.seller_profile.store_name|default:user.username }}</div>
+        <div class="sidebar-user-role"><i class="fa-solid fa-store" style="color: #10B981;"></i> Seller Merchant</div>
+      </div>
+    </div>
+
+    <!-- 11 Sidebar Navigation Items -->
+    <ul class="sidebar-menu" id="seller-sidebar-menu">
+      
+      <!-- 1. Dashboard -->
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <a href="{% url 'seller:dashboard' %}">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+
+      <!-- 2. Add New Product -->
+      <li class="sidebar-menu-item {% if 'products/add' in request.path %}active{% endif %}">
+        <a href="{% url 'seller:product_add' %}">
+          <i class="fa-solid fa-circle-plus"></i>
+          <span>Add New Product</span>
+        </a>
+      </li>
+
+      <!-- 3. All Products -->
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}">
+        <a href="{% url 'seller:product_list' %}">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <span>All Products</span>
+        </a>
+      </li>
+
+      <!-- 4. Inventory Management -->
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'inventory' %}active{% endif %}">
+        <a href="{% url 'seller:inventory' %}">
+          <i class="fa-solid fa-warehouse"></i>
+          <span>Inventory Control</span>
+        </a>
+      </li>
+
+      <!-- 5. Order Management -->
+      <li class="sidebar-menu-item {% if 'orders' in request.path %}active{% endif %}">
+        <a href="{% url 'seller:orders' %}">
+          <i class="fa-solid fa-dolly"></i>
+          <span>Orders & Packing</span>
+        </a>
+      </li>
+
+      <!-- 6. Categories -->
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'categories' %}active{% endif %}">
+        <a href="{% url 'seller:categories' %}">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Categories</span>
+        </a>
+      </li>
+
+      <!-- 7. Offers & Discounts -->
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'offers' %}active{% endif %}">
+        <a href="{% url 'seller:offers' %}">
+          <i class="fa-solid fa-tags"></i>
+          <span>Offers & Discounts</span>
+        </a>
+      </li>
+
+      <!-- 8. Customers -->
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'customers' %}active{% endif %}">
+        <a href="{% url 'seller:customers' %}">
+          <i class="fa-solid fa-users"></i>
+          <span>Customers</span>
+        </a>
+      </li>
+
+      <!-- 9. Sales and Reports -->
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
+        <a href="{% url 'seller:reports' %}">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Sales & Reports</span>
+        </a>
+      </li>
+
+      <!-- 10. Notifications -->
+      <li class="sidebar-menu-item {% if 'notifications' in request.path %}active{% endif %}">
+        <a href="{% url 'notifications:list' %}">
+          <i class="fa-solid fa-bell"></i>
+          <span>Notifications</span>
+          {% if unread_notifications_count > 0 %}
+            <span class="badge badge-success" style="margin-left: auto; font-size: 0.7rem; padding: 2px 6px;">{{ unread_notifications_count }}</span>
+          {% endif %}
+        </a>
+      </li>
+
+      <!-- 11. Store Settings -->
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
+        <a href="{% url 'seller:settings' %}">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Store Settings</span>
+        </a>
+      </li>
+
+      <!-- Extra Utilities -->
+      <li class="sidebar-menu-item" style="margin-top: auto; border-top: 1px solid var(--bg-border); padding-top: 0.75rem;">
+        <a href="{% url 'catalog:home' %}">
+          <i class="fa-solid fa-store"></i>
+          <span>View Buyer Shop</span>
+        </a>
+      </li>
+
+      <li class="sidebar-menu-item">
+        <a href="{% url 'accounts:logout' %}" style="color: #DC2626;">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span>Sign Out</span>
+        </a>
+      </li>
+
+    </ul>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="dashboard-main">
+    {% block seller_content %}{% endblock %}
+  </main>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleSellerSidebar() {
+  const sidebar = document.getElementById('seller-sidebar');
+  if (sidebar) {
+    sidebar.classList.toggle('menu-open');
+  }
+}
+</script>
+{% endblock %}

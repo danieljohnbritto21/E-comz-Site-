@@ -1,0 +1,63 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}Offers and Discounts - Seller Dashboard{% endblock %}
+
+{% block seller_content %}
+<div>
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Offers & Discounts</h1>
+      <p class="dashboard-subtitle">Promotional pricing, discounted produce, and featured shop deals</p>
+    </div>
+    <a href="{% url 'seller:product_list' %}" class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-boxes-stacked"></i> All Products
+    </a>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h3 style="font-size: 1.1rem; font-weight: 800;">Discounted Products ({{ deals.count }})</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>MRP</th>
+            <th>Selling Price</th>
+            <th>Discount</th>
+            <th>Stock</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in deals %}
+            <tr>
+              <td>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <img src="{{ p.primary_image_url }}" alt="{{ p.name }}" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px; background: #FAFAFA;">
+                  <strong>{{ p.name }}</strong>
+                </div>
+              </td>
+              <td style="text-decoration: line-through; color: var(--text-muted);">₹{{ p.mrp }}</td>
+              <td><strong style="color: var(--color-primary-dark);">₹{{ p.selling_price }}</strong></td>
+              <td><span class="badge badge-success">{{ p.discount_percentage }}% OFF</span></td>
+              <td>{{ p.stock_record.current_stock }} in stock</td>
+              <td>
+                <a href="{% url 'seller:product_edit' p.id %}" class="btn btn-secondary btn-sm">Adjust Price</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                No discounted products right now. Set a selling price lower than MRP in the product edit form to feature deals!
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

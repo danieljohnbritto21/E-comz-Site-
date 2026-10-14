@@ -1,0 +1,292 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}Order #{{ sub_order.order.order_id }} - Store Fulfillment{% endblock %}
+
+{% block seller_content %}
+<div style="max-width: 960px; margin: 0 auto; padding-bottom: 2rem;">
+  
+  <!-- Header -->
+  <div class="dashboard-header">
+    <div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <h1 class="dashboard-title">Order #{{ sub_order.order.order_id }}</h1>
+        
+        <span class="badge 
+          {% if sub_order.status == 'PENDING' %}badge-warning
+          {% elif sub_order.status == 'ACCEPTED' or sub_order.status == 'PREPARING' %}badge-info
+          {% elif sub_order.status == 'PACKED' or sub_order.status == 'READY_FOR_PICKUP' %}badge-success
+          {% elif sub_order.status == 'HANDED_OVER' or sub_order.status == 'SHIPPED' %}badge-out
+          {% elif sub_order.status == 'DELIVERED' %}badge-delivered
+          {% elif sub_order.status == 'REJECTED' or sub_order.status == 'CANCELLED' %}badge-danger
+          {% else %}badge-secondary{% endif %}">
+          {{ sub_order.get_status_display }}
+        </span>
+
+        {% if sub_order.order.payment_status == 'PAID' %}
+          <span class="badge badge-success">
+            <i class="fa-solid fa-circle-check"></i> Paid Online (Verified)
+          </span>
+        {% elif sub_order.order.payment_method == 'COD' %}
+          <span class="badge badge-info" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;">
+            <i class="fa-solid fa-hand-holding-dollar"></i> Cash on Delivery (Doorstep Collection)
+          </span>
+        {% else %}
+          <span class="badge badge-warning">
+            <i class="fa-solid fa-clock"></i> Unverified Payment
+          </span>
+        {% endif %}
+      </div>
+      <p class="dashboard-subtitle">Placed {{ sub_order.created_at|date:"d M Y, h:i A" }} &bull; Same Order ID throughout platform</p>
+    </div>
+    <a href="{% url 'seller:orders' %}" class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-arrow-left"></i> All Orders
+    </a>
+  </div>
+
+  <!-- Fulfillment Workflow & Handover Progression Card -->
+  <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1.75rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+    <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 0.85rem; color: var(--text-main);">
+      Seller Fulfillment Workflow
+    </h3>
+
+    <!-- Warning banner if online payment unverified -->
+    {% if sub_order.order.payment_method != 'COD' and sub_order.order.payment_status != 'PAID' %}
+      <div style="background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; padding: 0.85rem 1.25rem; border-radius: var(--radius-md); font-size: 0.9rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span><strong>Awaiting Online Payment:</strong> Customer selected online payment which is pending. Fulfillment actions unlock once verified.</span>
+      </div>
+    {% endif %}
+
+    <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+      
+      {% if sub_order.status == 'PENDING' %}
+        <form method="POST" style="margin: 0;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="accept">
+          <button type="submit" class="btn btn-primary btn-lg">
+            <i class="fa-solid fa-check"></i> Accept Order
+          </button>
+        </form>
+
+        <button type="button" class="btn btn-secondary btn-lg" onclick="document.getElementById('reject-box').style.display='block'" style="color: #DC2626; border-color: #FECACA;">
+          <i class="fa-solid fa-xmark"></i> Reject Order
+        </button>
+
+      {% elif sub_order.status == 'ACCEPTED' %}
+        <form method="POST" style="margin: 0;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="start_preparing">
+          <button type="submit" class="btn btn-primary btn-lg">
+            <i class="fa-solid fa-seedling"></i> Start Preparing Produce
+          </button>
+        </form>
+
+      {% elif sub_order.status == 'PREPARING' %}
+        <form method="POST" style="margin: 0;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="mark_packed">
+          <button type="submit" class="btn btn-primary btn-lg">
+            <i class="fa-solid fa-box-archive"></i> Mark as Packed & Sealed
+          </button>
+        </form>
+
+      {% elif sub_order.status == 'PACKED' or sub_order.status == 'READY_FOR_PICKUP' %}
+        <!-- Packed / Ready state -> Handover to assigned delivery partner -->
+        <div style="width: 100%;">
+          {% if sub_order.order.delivery_assignment and sub_order.order.delivery_assignment.delivery_person %}
+            <!-- Assigned Driver Handover Verification Form -->
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-md); padding: 1.25rem;">
+              <h4 style="color: #166534; font-weight: 800; font-size: 1.05rem; margin-bottom: 6px;">
+                <i class="fa-solid fa-handshake"></i> Handover to Assigned Delivery Agent
+              </h4>
+              <p style="font-size: 0.875rem; color: #15803D; margin-bottom: 1rem;">
+                Delivery partner <strong>{{ sub_order.order.delivery_assignment.delivery_person.get_full_name|default:sub_order.order.delivery_assignment.delivery_person.username }}</strong> has arrived? Confirm the Order ID and hand over the packed produce.
+              </p>
+              
+              <form method="POST" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="confirm_handover">
+                <input type="text" name="order_id_verification" class="form-control" style="max-width: 280px; font-weight: 700; text-transform: uppercase;" placeholder="Order ID: {{ sub_order.order.order_id }}" value="{{ sub_order.order.order_id }}">
+                <button type="submit" class="btn btn-primary btn-lg" style="background: #16A34A; border-color: #16A34A;">
+                  <i class="fa-solid fa-check-double"></i> Confirm Handover to Delivery Partner
+                </button>
+              </form>
+            </div>
+          {% else %}
+            <!-- Awaiting delivery agent assignment by admin -->
+            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-md); padding: 1rem; color: #1E40AF; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <i class="fa-solid fa-spinner fa-spin"></i> <strong>Order Packed:</strong> Waiting for Admin/Dispatcher to assign a delivery partner.
+              </div>
+              <form method="POST" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="ready_pickup">
+                <button type="submit" class="btn btn-outline-primary btn-sm">
+                  <i class="fa-solid fa-bell"></i> Re-notify Dispatch Admin
+                </button>
+              </form>
+            </div>
+          {% endif %}
+        </div>
+
+      {% elif sub_order.status == 'HANDED_OVER' or sub_order.status == 'SHIPPED' %}
+        <!-- Handed over state -->
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; padding: 1rem 1.25rem; border-radius: var(--radius-md); width: 100%;">
+          <div style="font-weight: 800; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-motorcycle"></i> Handed Over / Out for Delivery
+          </div>
+          <div style="font-size: 0.875rem; margin-top: 4px; color: #15803D;">
+            Handed over to <strong>{{ sub_order.order.delivery_assignment.delivery_person.get_full_name|default:sub_order.order.delivery_assignment.delivery_person.username }}</strong>
+            {% if sub_order.handover_time %}at {{ sub_order.handover_time|date:"d M Y, h:i A" }}{% endif %}.
+          </div>
+        </div>
+
+      {% elif sub_order.status == 'DELIVERED' %}
+        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #047857; padding: 1rem 1.25rem; border-radius: var(--radius-md); font-weight: 700; width: 100%;">
+          <i class="fa-solid fa-circle-check"></i> Order delivered to customer doorstep successfully.
+        </div>
+
+      {% elif sub_order.status == 'REJECTED' %}
+        <div style="background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 1rem 1.25rem; border-radius: var(--radius-md); width: 100%;">
+          <strong>Order Rejected:</strong> {{ sub_order.rejection_reason|default:"Store unable to fulfill." }}
+        </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Rejection Dialog Form -->
+    <div id="reject-box" style="display: none; margin-top: 1.5rem; background: #FEF2F2; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid #FECACA;">
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="reject">
+        <label class="form-label" style="color: #991B1B; font-weight: 700;">Reason for Rejection *</label>
+        <textarea name="rejection_reason" rows="2" class="form-control" placeholder="Explain why store cannot fulfill (e.g. Harvest out of stock)..." required></textarea>
+        <div style="margin-top: 0.75rem; display: flex; gap: 8px;">
+          <button type="submit" class="btn btn-danger btn-sm">Confirm Rejection & Restore Stock</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('reject-box').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Store's Items Table -->
+  <div class="table-card" style="margin-bottom: 2rem;">
+    <div class="table-card-header">
+      <h3 style="font-size: 1.15rem; font-weight: 800;">Your Store Items to Pack ({{ sub_order.items.count }})</h3>
+      <span style="font-size: 1.15rem; font-weight: 800; color: var(--color-primary-dark);">Seller Total: ₹{{ sub_order.subtotal }}</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Pack Size</th>
+            <th>Unit Price</th>
+            <th>Quantity</th>
+            <th style="text-align: right;">Total Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in sub_order.items.all %}
+            <tr>
+              <td>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <img src="{{ item.image_url|default:'/static/images/placeholder_product.svg' }}" alt="{{ item.product_name }}" style="width: 44px; height: 44px; object-fit: contain; background: #FAFAFA; border-radius: 6px; border: 1px solid var(--bg-border);">
+                  <div>
+                    <div style="font-weight: 700; color: var(--text-main);">{{ item.product_name }}</div>
+                    {% if item.brand %}
+                      <div style="font-size: 0.75rem; color: var(--text-muted);">Brand: {{ item.brand }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              <td>{{ item.unit_value }}</td>
+              <td>₹{{ item.unit_price }}</td>
+              <td><span class="badge badge-secondary" style="font-size: 0.95rem; font-weight: 800;">{{ item.quantity }}</span></td>
+              <td style="text-align: right; font-weight: 800; color: var(--text-main);">₹{{ item.total_price }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Assigned Delivery Partner Card & Dispatch Info -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;" class="order-detail-grid">
+    
+    <!-- Assigned Delivery Partner -->
+    <div class="form-card">
+      <h4 style="font-size: 1.05rem; font-weight: 800; margin-bottom: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-motorcycle" style="color: var(--color-primary-dark);"></i> Assigned Delivery Partner
+      </h4>
+      
+      {% if sub_order.order.delivery_assignment and sub_order.order.delivery_assignment.delivery_person %}
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 50%; background: #DCFCE7; color: #15803D; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+            <i class="fa-solid fa-user-check"></i>
+          </div>
+          <div>
+            <div style="font-weight: 800; font-size: 1.05rem; color: var(--text-main);">
+              {{ sub_order.order.delivery_assignment.delivery_person.get_full_name|default:sub_order.order.delivery_assignment.delivery_person.username }}
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">
+              Agent ID: #DEL-{{ sub_order.order.delivery_assignment.delivery_person.id }}
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size: 0.9rem; margin-bottom: 6px;">
+          Phone: <strong>{{ sub_order.order.delivery_assignment.delivery_person.phone_number|default:"Available upon pickup" }}</strong>
+        </div>
+        <div style="font-size: 0.9rem; margin-bottom: 6px;">
+          Pickup Status: <span class="badge badge-info">{{ sub_order.order.delivery_assignment.get_status_display }}</span>
+        </div>
+        {% if sub_order.order.delivery_assignment.pickup_time %}
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 6px;">
+            <i class="fa-solid fa-clock"></i> Collected at: {{ sub_order.order.delivery_assignment.pickup_time|date:"d M Y, h:i A" }}
+          </div>
+        {% endif %}
+
+      {% else %}
+        <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; padding: 1.5rem; text-align: center; color: var(--text-muted);">
+          <i class="fa-solid fa-user-clock" style="font-size: 1.75rem; color: #94A3B8; margin-bottom: 8px; display: block;"></i>
+          No delivery partner assigned yet.<br>Admin will assign an available courier driver once packed.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Order & Dispatch Meta -->
+    <div class="form-card">
+      <h4 style="font-size: 1.05rem; font-weight: 800; margin-bottom: 0.85rem; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-receipt" style="color: var(--color-primary-dark);"></i> Order & Payment Info
+      </h4>
+      <div style="font-size: 0.9rem; margin-bottom: 6px;">
+        Order ID: <strong>#{{ sub_order.order.order_id }}</strong>
+      </div>
+      <div style="font-size: 0.9rem; margin-bottom: 6px;">
+        Target Slot: <strong>{{ sub_order.order.delivery_slot }}</strong>
+      </div>
+      <div style="font-size: 0.9rem; margin-bottom: 6px;">
+        Payment Method: <strong>{{ sub_order.order.get_payment_method_display }}</strong>
+      </div>
+      <div style="font-size: 0.9rem; margin-bottom: 6px;">
+        Payment Status: <strong>{{ sub_order.order.get_payment_status_display }}</strong>
+      </div>
+      {% if sub_order.order.transaction_id %}
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-family: monospace;">
+          Txn ID: {{ sub_order.order.transaction_id }}
+        </div>
+      {% endif %}
+      {% if sub_order.handover_time %}
+        <div style="margin-top: 10px; padding: 6px 10px; background: #ECFDF5; border-radius: 6px; font-size: 0.85rem; color: #047857;">
+          <i class="fa-solid fa-calendar-check"></i> Handed over: {{ sub_order.handover_time|date:"d M Y, h:i A" }}
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

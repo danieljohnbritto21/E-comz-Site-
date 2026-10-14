@@ -1,0 +1,226 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}Order Fulfillment - Seller Orders{% endblock %}
+
+{% block seller_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Seller Order Fulfillment ({{ total_sub_orders }})</h1>
+      <p class="dashboard-subtitle">Review incoming paid & COD grocery orders, prepare packaging, and notify delivery dispatch</p>
+    </div>
+  </div>
+
+  <!-- Search & Quick Filter Tabs -->
+  <div class="form-card" style="padding: 1.25rem; margin-bottom: 1.5rem;">
+    <form method="GET" action="{% url 'seller:orders' %}" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+      
+      <!-- Search Input -->
+      <div style="flex: 2; min-width: 220px; position: relative;">
+        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+        <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Search by Order ID (#ORD-...), Customer name, Phone..." style="padding-left: 2.25rem;">
+      </div>
+
+      <!-- Payment Filter -->
+      <div style="flex: 1; min-width: 160px;">
+        <select name="payment" class="form-select" onchange="this.form.submit()">
+          <option value="">All Payment Types</option>
+          <option value="paid" {% if payment_filter == 'paid' %}selected{% endif %}>Paid & Verified Online</option>
+          <option value="cod" {% if payment_filter == 'cod' %}selected{% endif %}>Cash on Delivery (Pay at Doorstep)</option>
+          <option value="pending" {% if payment_filter == 'pending' %}selected{% endif %}>Unverified / Pending</option>
+        </select>
+      </div>
+
+      <!-- Status Filter -->
+      <div style="flex: 1; min-width: 170px;">
+        <select name="status" class="form-select" onchange="this.form.submit()">
+          <option value="">All Fulfillment Stages</option>
+          <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>New / Pending ({{ pending_count }})</option>
+          <option value="ACCEPTED" {% if status_filter == 'ACCEPTED' %}selected{% endif %}>Accepted ({{ accepted_count }})</option>
+          <option value="PREPARING" {% if status_filter == 'PREPARING' %}selected{% endif %}>Preparing Produce ({{ preparing_count }})</option>
+          <option value="PACKED" {% if status_filter == 'PACKED' %}selected{% endif %}>Packed ({{ packed_count }})</option>
+          <option value="READY_FOR_PICKUP" {% if status_filter == 'READY_FOR_PICKUP' %}selected{% endif %}>Ready for Pickup ({{ ready_count }})</option>
+          <option value="DELIVERED" {% if status_filter == 'DELIVERED' %}selected{% endif %}>Delivered ({{ delivered_count }})</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 6px;">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-filter"></i> Filter
+        </button>
+        {% if search_query or payment_filter or status_filter %}
+          <a href="{% url 'seller:orders' %}" class="btn btn-secondary btn-sm" title="Clear Filters">
+            <i class="fa-solid fa-rotate-left"></i>
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Status Filter Pills Strip -->
+  <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 0.75rem; margin-bottom: 1.25rem;">
+    <a href="{% url 'seller:orders' %}" class="btn btn-sm {% if not status_filter and not payment_filter %}btn-primary{% else %}btn-secondary{% endif %}">
+      All ({{ total_sub_orders }})
+    </a>
+    <a href="?status=PENDING" class="btn btn-sm {% if status_filter == 'PENDING' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Pending Review ({{ pending_count }})
+    </a>
+    <a href="?status=ACCEPTED" class="btn btn-sm {% if status_filter == 'ACCEPTED' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Accepted ({{ accepted_count }})
+    </a>
+    <a href="?status=PREPARING" class="btn btn-sm {% if status_filter == 'PREPARING' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Preparing ({{ preparing_count }})
+    </a>
+    <a href="?status=PACKED" class="btn btn-sm {% if status_filter == 'PACKED' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Packed ({{ packed_count }})
+    </a>
+    <a href="?status=READY_FOR_PICKUP" class="btn btn-sm {% if status_filter == 'READY_FOR_PICKUP' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Ready for Pickup ({{ ready_count }})
+    </a>
+    <a href="?payment=paid" class="btn btn-sm {% if payment_filter == 'paid' %}btn-primary{% else %}btn-secondary{% endif %}" style="margin-left: auto;">
+      <i class="fa-solid fa-circle-check"></i> Paid Orders
+    </a>
+    <a href="?payment=cod" class="btn btn-sm {% if payment_filter == 'cod' %}btn-primary{% else %}btn-secondary{% endif %}">
+      <i class="fa-solid fa-hand-holding-dollar"></i> COD Orders
+    </a>
+  </div>
+
+  <!-- Orders Table Card -->
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order Ref & Date</th>
+            <th>Customer & Phone</th>
+            <th>Your Store's Items</th>
+            <th>Store Total</th>
+            <th>Payment Status</th>
+            <th>Delivery Schedule</th>
+            <th>Assigned Delivery Partner</th>
+            <th>Fulfillment State</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sub in sub_orders %}
+            <tr>
+              <!-- Order Ref & Date -->
+              <td>
+                <strong style="color: var(--text-main); font-size: 0.95rem;">#{{ sub.order.order_id }}</strong>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ sub.created_at|date:"d M Y, h:i A" }}</div>
+              </td>
+
+              <!-- Customer info -->
+              <td>
+                <div style="font-weight: 700; color: var(--text-main);">{{ sub.order.recipient_name }}</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ sub.order.recipient_phone }}</div>
+              </td>
+
+              <!-- Items preview -->
+              <td>
+                <div style="font-weight: 700;">{{ sub.items.count }} item{{ sub.items.count|pluralize }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  {% for i in sub.items.all|slice:":2" %}
+                    {{ i.quantity }}x {{ i.product_name }}{% if not forloop.last %}, {% endif %}
+                  {% endfor %}
+                  {% if sub.items.count > 2 %}...{% endif %}
+                </div>
+              </td>
+
+              <!-- Store subtotal -->
+              <td>
+                <strong style="font-size: 1.05rem; color: var(--color-primary-dark);">₹{{ sub.subtotal }}</strong>
+              </td>
+
+              <!-- Payment Status -->
+              <td>
+                {% if sub.order.payment_status == 'PAID' %}
+                  <span class="badge badge-success" style="display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="fa-solid fa-circle-check"></i> Paid Online
+                  </span>
+                  <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">{{ sub.order.get_payment_method_display }}</div>
+                {% elif sub.order.payment_method == 'COD' %}
+                  <span class="badge badge-info" style="display: inline-flex; align-items: center; gap: 4px; background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;">
+                    <i class="fa-solid fa-hand-holding-dollar"></i> Cash on Delivery
+                  </span>
+                  <div style="font-size: 0.7rem; color: #1D4ED8; margin-top: 2px;">Pay at Doorstep</div>
+                {% elif sub.order.payment_status == 'FAILED' %}
+                  <span class="badge badge-danger">
+                    <i class="fa-solid fa-circle-xmark"></i> Payment Failed
+                  </span>
+                {% else %}
+                  <span class="badge badge-warning">
+                    <i class="fa-solid fa-clock"></i> Unverified
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- Delivery schedule -->
+              <td>
+                <div style="font-weight: 600; font-size: 0.85rem;">{{ sub.order.delivery_slot }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">PIN: {{ sub.order.pin_code }}</div>
+              </td>
+
+              <!-- Assigned Delivery Partner -->
+              <td>
+                {% if sub.order.delivery_assignment and sub.order.delivery_assignment.delivery_person %}
+                  <div style="font-weight: 700; color: var(--text-main); font-size: 0.875rem;">
+                    <i class="fa-solid fa-motorcycle" style="color: #047857;"></i>
+                    {{ sub.order.delivery_assignment.delivery_person.get_full_name|default:sub.order.delivery_assignment.delivery_person.username }}
+                  </div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">
+                    Status: {{ sub.order.delivery_assignment.get_status_display }}
+                  </div>
+                  {% if sub.order.delivery_assignment.pickup_time %}
+                    <div style="font-size: 0.7rem; color: #059669;">
+                      Picked: {{ sub.order.delivery_assignment.pickup_time|date:"d M, h:i A" }}
+                    </div>
+                  {% endif %}
+                {% else %}
+                  <span class="badge badge-secondary" style="font-size: 0.75rem;">Unassigned</span>
+                {% endif %}
+              </td>
+
+              <!-- Fulfillment State -->
+              <td>
+                <span class="badge 
+                  {% if sub.status == 'PENDING' %}badge-warning
+                  {% elif sub.status == 'ACCEPTED' or sub.status == 'PREPARING' %}badge-info
+                  {% elif sub.status == 'PACKED' or sub.status == 'READY_FOR_PICKUP' %}badge-success
+                  {% elif sub.status == 'HANDED_OVER' or sub.status == 'SHIPPED' %}badge-out
+                  {% elif sub.status == 'DELIVERED' %}badge-delivered
+                  {% elif sub.status == 'REJECTED' or sub.status == 'CANCELLED' %}badge-danger
+                  {% else %}badge-secondary{% endif %}">
+                  {{ sub.get_status_display }}
+                </span>
+              </td>
+
+              <!-- Actions -->
+              <td style="text-align: right;">
+                <a href="{% url 'seller:order_detail' sub.order.order_id %}" class="btn btn-primary btn-sm">
+                  <i class="fa-solid fa-box-open"></i> Process Order
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 4rem 1.5rem; color: var(--text-muted);">
+                <div style="width: 64px; height: 64px; border-radius: 50%; background: #F1F5F3; color: #9CA3AF; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1rem;">
+                  <i class="fa-solid fa-clipboard-check"></i>
+                </div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem;">No orders matching this filter</div>
+                <div style="font-size: 0.875rem;">Orders placed by buyers for your store products will appear here automatically.</div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

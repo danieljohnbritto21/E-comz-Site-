@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="dashboard-layout">
+  
+  <!-- Left Sidebar -->
+  <aside class="dashboard-sidebar" id="admin-sidebar">
+    
+    <!-- Mobile Sidebar Toggle Bar (Visible on mobile screens) -->
+    <div class="sidebar-mobile-bar">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div class="sidebar-avatar" style="width: 32px; height: 32px; font-size: 0.85rem; background: #7C3AED; color: #ffffff;">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div style="font-weight: 700; font-size: 0.9rem;">Admin Portal</div>
+      </div>
+      <button type="button" class="sidebar-toggle-btn" onclick="toggleDashboardSidebar()" aria-label="Toggle Admin Navigation">
+        <i class="fa-solid fa-bars"></i>
+        <span>Menu</span>
+      </button>
+    </div>
+
+    <div class="sidebar-user-card" style="background: #F5F3FF; border: 1px solid #DDD6FE;">
+      <div class="sidebar-avatar" style="background: #7C3AED; color: #ffffff;">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div>
+        <div class="sidebar-user-name">{{ user.get_full_name|default:user.username }}</div>
+        <div class="sidebar-user-role" style="color: #6D28D9; font-weight: 700;">Platform Administrator</div>
+      </div>
+    </div>
+
+    <ul class="sidebar-menu">
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:dashboard' %}">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Dashboard Overview</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'orders' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:orders' %}">
+          <i class="fa-solid fa-receipt"></i>
+          <span>All Orders & Dispatch</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'buyers' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:buyers' %}">
+          <i class="fa-solid fa-users"></i>
+          <span>Buyers / Customers</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'sellers' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:sellers' %}">
+          <i class="fa-solid fa-store"></i>
+          <span>Sellers & Approvals</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'delivery_team' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:delivery_team' %}">
+          <i class="fa-solid fa-motorcycle"></i>
+          <span>Delivery Fleet</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'products' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:products' %}">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <span>All Marketplace Products</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'categories' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:categories' %}">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Categories</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:reports' %}">
+          <i class="fa-solid fa-file-invoice-dollar"></i>
+          <span>Financial Reports</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item" style="margin-top: auto; border-top: 1px solid var(--bg-border); padding-top: 0.5rem;">
+        <a href="{% url 'catalog:home' %}">
+          <i class="fa-solid fa-basket-shopping"></i>
+          <span>View Buyer Storefront</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item">
+        <a href="{% url 'accounts:logout' %}" style="color: #DC2626;">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span>Sign Out</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="dashboard-main">
+    {% block admin_content %}{% endblock %}
+  </main>
+
+</div>
+{% endblock %}

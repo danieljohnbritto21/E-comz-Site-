@@ -1,0 +1,84 @@
+{% extends 'admin_dashboard/base_admin.html' %}
+{% load static %}
+
+{% block title %}Sellers & Approvals - Admin Portal{% endblock %}
+
+{% block admin_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Seller Store Approvals & Management</h1>
+      <p class="dashboard-subtitle">Review vendor applications, authorize store publishing privileges, or suspend accounts</p>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Store & Owner</th>
+            <th>Pickup Address</th>
+            <th>Contact</th>
+            <th>Products Live</th>
+            <th>Approval State</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for seller in sellers %}
+            <tr>
+              <td>
+                <div style="font-weight: 700; font-size: 0.95rem;">{{ seller.store_name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                  Owner: {{ seller.user.get_full_name|default:seller.user.username }} (@{{ seller.user.username }})
+                </div>
+              </td>
+              <td style="font-size: 0.85rem; max-width: 250px;">
+                {{ seller.pickup_address }}, {{ seller.city }} - {{ seller.pin_code }}
+              </td>
+              <td>
+                <div style="font-size: 0.85rem;">{{ seller.user.email }}</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ seller.user.phone_number }}</div>
+              </td>
+              <td>
+                <strong>{{ seller.user.products.count }} products</strong>
+              </td>
+              <td>
+                {% if seller.is_approved %}
+                  <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Approved & Active</span>
+                {% else %}
+                  <span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Pending Review</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <form method="POST" style="display: inline-flex; gap: 6px; margin: 0;">
+                  {% csrf_token %}
+                  <input type="hidden" name="profile_id" value="{{ seller.id }}">
+                  {% if not seller.is_approved %}
+                    <button type="submit" name="action" value="approve" class="btn btn-primary btn-sm">
+                      <i class="fa-solid fa-check"></i> Approve Store
+                    </button>
+                  {% else %}
+                    <button type="submit" name="action" value="suspend" class="btn btn-secondary btn-sm" style="color: #DC2626; border-color: #FECACA;">
+                      <i class="fa-solid fa-ban"></i> Suspend
+                    </button>
+                  {% endif %}
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                No sellers registered yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}Customers - Seller Dashboard{% endblock %}
+
+{% block seller_content %}
+<div>
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Customer History</h1>
+      <p class="dashboard-subtitle">Recent buyers who purchased products from your store</p>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order Ref</th>
+            <th>Customer Name</th>
+            <th>Product Purchased</th>
+            <th>Qty</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Destination</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recent_buyers %}
+            <tr>
+              <td><a href="{% url 'seller:order_detail' item.order.order_id %}" style="color: var(--color-primary-dark); font-weight: 700;">#{{ item.order.order_id }}</a></td>
+              <td>
+                <div style="font-weight: 600;">{{ item.order.recipient_name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.order.recipient_phone }}</div>
+              </td>
+              <td>{{ item.product_name }}</td>
+              <td>{{ item.quantity }}</td>
+              <td><strong>₹{{ item.total_price }}</strong></td>
+              <td style="font-size: 0.8rem; color: var(--text-muted);">{{ item.created_at|date:"d M Y" }}</td>
+              <td style="font-size: 0.8rem; color: var(--text-secondary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.order.delivery_address_text }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                No customer orders received yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

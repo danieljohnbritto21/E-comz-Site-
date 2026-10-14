@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Order History - FreshMart{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+  
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.75rem;">
+    <div>
+      <h1 style="font-size: 1.75rem; font-weight: 800;">My Orders</h1>
+      <p class="text-muted" style="font-size: 0.9rem;">Track shipments, review past orders, or reorder essentials</p>
+    </div>
+    <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-sm btn-pill">
+      <i class="fa-solid fa-basket-shopping"></i> Order Groceries
+    </a>
+  </div>
+
+  {% if orders %}
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+      {% for order in orders %}
+        <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+          
+          <!-- Order Card Header -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bg-border); padding-bottom: 1rem; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-weight: 800; font-size: 1.05rem;">#{{ order.order_id }}</span>
+              <span class="badge {{ order.status_badge_class }}">{{ order.get_status_display }}</span>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted);">
+              Placed on {{ order.created_at|date:"d M Y, h:i A" }}
+            </div>
+          </div>
+
+          <!-- Items Row Preview -->
+          <div class="order-history-grid">
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              {% for item in order.items.all|slice:":3" %}
+                <div style="display: flex; align-items: center; gap: 10px; font-size: 0.875rem;">
+                  <img src="{{ item.image_url|default:'/static/images/placeholder_product.svg' }}" style="width: 32px; height: 32px; object-fit: contain; background: #FAFAFA; border-radius: 4px;">
+                  <span><strong>{{ item.quantity }}x</strong> {{ item.product_name }}</span>
+                </div>
+              {% endfor %}
+              {% if order.items.count > 3 %}
+                <span style="font-size: 0.775rem; color: var(--text-muted); font-weight: 600;">+ {{ order.items.count|add:"-3" }} more item{{ order.items.count|add:"-3"|pluralize }}</span>
+              {% endif %}
+            </div>
+
+            <div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Payment</div>
+              <div style="font-weight: 700; font-size: 0.9rem;">{{ order.get_payment_method_display }}</div>
+              <div style="font-size: 0.8rem; color: #047857; font-weight: 600;">{{ order.get_payment_status_display }}</div>
+            </div>
+
+            <div style="text-align: right;">
+              <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Total Amount</div>
+              <div style="font-size: 1.35rem; font-weight: 800; color: var(--color-primary-dark);">₹{{ order.total_amount }}</div>
+              <a href="{% url 'orders:track' order.order_id %}" class="btn btn-outline-primary btn-sm" style="margin-top: 0.5rem;">
+                <i class="fa-solid fa-map-location-dot"></i> Live Tracking
+              </a>
+            </div>
+          </div>
+
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 4rem 2rem; text-align: center; max-width: 500px; margin: 2rem auto;">
+      <i class="fa-solid fa-box-open" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+      <h2 style="font-size: 1.35rem; margin-bottom: 0.5rem;">No orders yet</h2>
+      <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 1.5rem;">
+        When you place an order, you will be able to track live status updates here.
+      </p>
+      <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-sm btn-pill">Start Shopping</a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends 'admin_dashboard/base_admin.html' %}
+{% load static %}
+
+{% block title %}Grocery Categories - Admin Portal{% endblock %}
+
+{% block admin_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Grocery Categories & Aisles</h1>
+      <p class="dashboard-subtitle">Manage storefront taxonomy and create new product departments</p>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: flex-start;">
+    
+    <!-- Categories List -->
+    <div class="table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Icon</th>
+              <th>Category Name</th>
+              <th>Slug</th>
+              <th>Total Products</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cat in categories %}
+              <tr>
+                <td>
+                  <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary-subtle); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid {{ cat.icon|default:'fa-leaf' }}"></i>
+                  </div>
+                </td>
+                <td><strong>{{ cat.name }}</strong></td>
+                <td style="font-size: 0.8rem; color: var(--text-muted);">{{ cat.slug }}</td>
+                <td>{{ cat.products.count }} products</td>
+                <td><span class="badge badge-success">Active</span></td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                  No categories created yet.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Create Category Form -->
+    <div class="form-card">
+      <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 1.25rem;">
+        <i class="fa-solid fa-plus-circle" style="color: var(--color-primary-dark);"></i> Add New Category
+      </h3>
+
+      <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Category Name *</label>
+          <input type="text" name="name" class="form-control" placeholder="e.g. Exotic Fruits" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">FontAwesome Icon Class</label>
+          <input type="text" name="icon" class="form-control" placeholder="e.g. fa-apple-whole, fa-bottle-droplet" value="fa-basket-shopping">
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+            Supports FontAwesome 6 icons (e.g. fa-carrot, fa-leaf, fa-cheese)
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea name="description" rows="2" class="form-control" placeholder="Category summary..."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+          Create Category
+        </button>
+      </form>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

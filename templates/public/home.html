@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}FreshMart - Fresh Fruits, Vegetables & Grocery Online{% endblock %}
+
+{% block content %}
+<div class="container">
+  
+  <!-- Hero Banner -->
+  <div class="hero-banner">
+    <div>
+      <div class="hero-tag">
+        <i class="fa-solid fa-seedling"></i> 100% Organic & Farm Fresh
+      </div>
+      <h1 class="hero-title">
+        Daily Groceries Delivered <br>
+        Fresh In <span>30 Minutes</span>
+      </h1>
+      <p class="hero-subtitle">
+        Order farm-picked vegetables, seasonal fruits, dairy essentials, and everyday pantry items from certified local growers and top brands.
+      </p>
+      <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-lg btn-pill">
+          <i class="fa-solid fa-basket-shopping"></i> Start Shopping
+        </a>
+        <a href="{% url 'catalog:product_list' %}?stock=in_stock" class="btn btn-secondary btn-lg btn-pill">
+          <i class="fa-solid fa-percent" style="color: var(--color-primary-dark);"></i> Today's Best Deals
+        </a>
+      </div>
+
+      <div class="hero-features">
+        <div class="hero-feature-item">
+          <div class="hero-feature-icon"><i class="fa-solid fa-truck-fast"></i></div>
+          <span>30 Min Delivery</span>
+        </div>
+        <div class="hero-feature-item">
+          <div class="hero-feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
+          <span>Direct Farm Sourced</span>
+        </div>
+        <div class="hero-feature-item">
+          <div class="hero-feature-icon"><i class="fa-solid fa-wallet"></i></div>
+          <span>Cash on Delivery</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center; position: relative;">
+      <div style="background: rgba(255,255,255,0.7); backdrop-filter: blur(8px); border-radius: var(--radius-xl); padding: 2rem; border: 1px solid rgba(255,255,255,0.8); box-shadow: var(--shadow-lg);">
+        <i class="fa-solid fa-carrot" style="font-size: 5rem; color: #10B981; margin-bottom: 1rem;"></i>
+        <h3 style="font-size: 1.35rem; margin-bottom: 0.5rem;">Harvested at 5:00 AM</h3>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Arrives crisp, chilled, and chemical-free at your dining table.
+        </p>
+        <div style="display: inline-flex; align-items: center; gap: 8px; background: #ffffff; padding: 6px 14px; border-radius: var(--radius-pill); font-size: 0.825rem; font-weight: 700; color: #047857; box-shadow: var(--shadow-sm);">
+          <i class="fa-solid fa-circle-check"></i> Quality & Weight Guaranteed
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Categories Section -->
+  <section style="margin-bottom: 3.5rem;">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Shop by Category</h2>
+        <p class="text-muted" style="font-size: 0.9rem;">Handpicked fresh essentials across all grocery aisles</p>
+      </div>
+      <a href="{% url 'catalog:product_list' %}" class="section-link">
+        Explore All Aisles <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+    <div class="category-cards-grid">
+      {% for cat in categories %}
+        <a href="{% url 'catalog:product_list' %}?category={{ cat.slug }}" class="cat-card">
+          <div class="cat-card-icon">
+            <i class="fa-solid {{ cat.icon|default:'fa-leaf' }}"></i>
+          </div>
+          <span class="cat-card-title">{{ cat.name }}</span>
+        </a>
+      {% empty %}
+        <div class="cat-card">
+          <div class="cat-card-icon"><i class="fa-solid fa-carrot"></i></div>
+          <span class="cat-card-title">Vegetables</span>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Featured Products Grid -->
+  <section style="margin-bottom: 3.5rem;">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Featured Fresh Deals</h2>
+        <p class="text-muted" style="font-size: 0.9rem;">Freshly stocked items with highest buyer demand</p>
+      </div>
+      <a href="{% url 'catalog:product_list' %}" class="section-link">
+        View All <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+    <div class="product-grid">
+      {% for product in featured_products %}
+        {% include 'buyer/includes/product_card.html' with product=product user_wishlist_ids=user_wishlist_ids %}
+      {% empty %}
+        <p class="text-muted" style="grid-column: 1 / -1; text-align: center; padding: 2rem;">
+          No featured products yet. Please seed demo data or log in as a seller to add products!
+        </p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Promotional Banner Strip -->
+  <section style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius: var(--radius-lg); padding: 2.5rem; color: #ffffff; margin-bottom: 3.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
+    <div>
+      <div style="background: rgba(255,255,255,0.2); display: inline-block; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.8rem; font-weight: 700; margin-bottom: 0.75rem;">
+        LIMITED TIME DEAL
+      </div>
+      <h2 style="font-size: 2rem; color: #ffffff; margin-bottom: 0.5rem;">Flat 20% Off On First Order</h2>
+      <p style="opacity: 0.9; font-size: 1rem;">Use coupon code <strong style="background: #ffffff; color: #047857; padding: 2px 8px; border-radius: 4px; font-weight: 800;">FRESH20</strong> at checkout on minimum orders of ₹499.</p>
+    </div>
+    <a href="{% url 'catalog:product_list' %}" class="btn btn-secondary btn-lg btn-pill" style="color: #047857; font-weight: 800;">
+      Claim Offer Now <i class="fa-solid fa-arrow-right"></i>
+    </a>
+  </section>
+
+  <!-- Best Sellers -->
+  <section style="margin-bottom: 3.5rem;">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Best-Selling Daily Staples</h2>
+        <p class="text-muted" style="font-size: 0.9rem;">Customer favorites purchased again and again</p>
+      </div>
+      <a href="{% url 'catalog:product_list' %}?sort=popular" class="section-link">
+        Explore Bestsellers <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+    <div class="product-grid">
+      {% for product in best_sellers %}
+        {% include 'buyer/includes/product_card.html' with product=product user_wishlist_ids=user_wishlist_ids %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Fresh Arrivals -->
+  <section style="margin-bottom: 3.5rem;">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">Recently Harvested & Stocked</h2>
+        <p class="text-muted" style="font-size: 0.9rem;">Latest additions direct from our farmer community</p>
+      </div>
+      <a href="{% url 'catalog:product_list' %}?sort=newest" class="section-link">
+        See All Fresh <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+    <div class="product-grid">
+      {% for product in fresh_arrivals %}
+        {% include 'buyer/includes/product_card.html' with product=product user_wishlist_ids=user_wishlist_ids %}
+      {% endfor %}
+    </div>
+  </section>
+
+</div>
+{% endblock %}

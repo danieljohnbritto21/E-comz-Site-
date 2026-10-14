@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Payment Failed - FreshMart{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 3.5rem; padding-bottom: 5rem; max-width: 650px;">
+  
+  <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 3rem 2rem; text-align: center; box-shadow: var(--shadow-md);">
+    
+    <div style="width: 72px; height: 72px; border-radius: 50%; background: #FEF2F2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 2.25rem; margin: 0 auto 1.25rem;">
+      <i class="fa-solid fa-circle-xmark"></i>
+    </div>
+    
+    <h1 style="font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem; color: #991B1B;">Payment Authorization Failed</h1>
+    <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem;">
+      Your payment was not completed or was declined by the bank. Any reserved inventory items have been safely returned to store stock.
+    </p>
+
+    <div style="background: #FAFAFA; border: 1px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 2rem; font-size: 0.85rem; text-align: left;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <span style="color: var(--text-muted);">Order Reference:</span>
+        <strong>#{{ order.order_id }}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <span style="color: var(--text-muted);">Amount:</span>
+        <strong style="color: #991B1B;">₹{{ order.total_amount }}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: var(--text-muted);">Payment Method:</span>
+        <span>{{ order.get_payment_method_display }}</span>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+      <a href="{% url 'cart:view_cart' %}" class="btn btn-primary btn-lg btn-pill">
+        <i class="fa-solid fa-cart-shopping"></i> Return to Basket & Retry
+      </a>
+      <a href="{% url 'catalog:home' %}" class="btn btn-secondary btn-lg btn-pill">
+        <i class="fa-solid fa-store"></i> Continue Shopping
+      </a>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

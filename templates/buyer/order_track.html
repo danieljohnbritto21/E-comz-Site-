@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Track Order #{{ order.order_id }} - FreshMart{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+  
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <h1 style="font-size: 1.85rem; font-weight: 800;">Track Shipment</h1>
+        <span class="badge {{ order.status_badge_class }}" style="font-size: 0.85rem;">
+          {{ order.get_status_display }}
+        </span>
+      </div>
+      <p class="text-muted" style="font-size: 0.9rem; margin-top: 4px;">
+        Order ID: <strong>{{ order.order_id }}</strong> &bull; Placed on {{ order.created_at|date:"M d, Y h:i A" }}
+      </p>
+    </div>
+
+    <div>
+      {% if order.status == 'ORDER_PLACED' or order.status == 'ORDER_CONFIRMED' or order.status == 'PREPARING' %}
+        <form method="POST" action="{% url 'orders:cancel_order' order.order_id %}" onsubmit="return confirm('Are you sure you wish to cancel this order? Items will be returned to inventory.');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-secondary btn-sm" style="color: #DC2626; border-color: #FECACA;">
+            <i class="fa-solid fa-ban"></i> Cancel Order
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Active Delivery OTP Banner for Buyer -->
+  {% if active_otp %}
+    <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 14px; color: #047857; box-shadow: var(--shadow-sm);">
+      <div style="width: 44px; height: 44px; border-radius: 50%; background: #D1FAE5; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; color: #059669;">
+        <i class="fa-solid fa-mobile-screen-button"></i>
+      </div>
+      <div>
+        <div style="font-weight: 800; font-size: 1.05rem;">Delivery Verification Code Dispatched</div>
+        <div style="font-size: 0.875rem; color: #065F46; margin-top: 2px;">
+          A secure 6-digit delivery verification OTP has been sent via SMS to your registered phone (ending in <strong>...{{ order.recipient_phone|slice:"-4:" }}</strong>). Please verify your items upon arrival and share this code with the delivery partner to complete your order.
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Stepper Timeline Card -->
+  <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 2.5rem 2rem; box-shadow: var(--shadow-sm); margin-bottom: 2.5rem;">
+    
+    {% if order.status == 'CANCELLED' %}
+      <div style="text-align: center; padding: 2rem; background: #FEF2F2; border-radius: var(--radius-md); border: 1px solid #FECACA;">
+        <i class="fa-solid fa-circle-xmark" style="font-size: 3rem; color: #DC2626; margin-bottom: 0.75rem;"></i>
+        <h3 style="color: #991B1B; font-size: 1.35rem;">This Order Was Cancelled</h3>
+        <p style="color: #7F1D1D; font-size: 0.9rem; margin-top: 4px;">Items have been safely returned to store inventory.</p>
+      </div>
+    {% elif order.status == 'FAILED_DELIVERY' %}
+      <div style="text-align: center; padding: 2rem; background: #FFFBEB; border-radius: var(--radius-md); border: 1px solid #FDE68A;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size: 3rem; color: #D97706; margin-bottom: 0.75rem;"></i>
+        <h3 style="color: #92400E; font-size: 1.35rem;">Delivery Attempt Unsuccessful</h3>
+        <p style="color: #78350F; font-size: 0.9rem; margin-top: 4px;">Our delivery agent could not complete handover. Customer support will reach out for reschedule.</p>
+      </div>
+    {% else %}
+      <div class="stepper-timeline">
+        <!-- 1. Placed -->
+        <div class="stepper-step {% if current_idx >= 0 %}completed{% endif %} {% if current_idx == 0 %}active{% endif %}">
+          <div class="step-circle"><i class="fa-solid fa-check"></i></div>
+          <span class="step-label">Order Placed</span>
+        </div>
+
+        <!-- 2. Confirmed -->
+        <div class="stepper-step {% if current_idx >= 1 %}completed{% endif %} {% if current_idx == 1 %}active{% endif %}">
+          <div class="step-circle"><i class="fa-solid fa-receipt"></i></div>
+          <span class="step-label">Confirmed</span>
+        </div>
+
+        <!-- 3. Preparing -->
+        <div class="stepper-step {% if current_idx >= 2 %}completed{% endif %} {% if current_idx == 2 %}active{% endif %}">
+          <div class="step-circle"><i class="fa-solid fa-seedling"></i></div>
+          <span class="step-label">Preparing Produce</span>
+        </div>
+
+        <!-- 4. Packed -->
+        <div class="stepper-step {% if current_idx >= 3 %}completed{% endif %} {% if current_idx == 3 %}active{% endif %}">
+          <div class="step-circle"><i class="fa-solid fa-box-archive"></i></div>
+          <span class="step-label">Packed & Sealed</span>
+        </div>
+
+        <!-- 5. Ready for Pickup -->
+        <div class="stepper-step {% if current_idx >= 4 %}completed{% endif %} {% if current_idx == 4 %}active{% endif %}">
+          <div class="step-circle"><i class="fa-solid fa-dolly"></i></div>
+          <span class="step-label">Ready for Pickup</span>
+        </div>
+
+        <!-- 6. Out for Delivery -->
+        <div class="stepper-step {% if current_idx >= 5 %}completed{% endif %} {% if current_idx == 5 %}active{% endif %}">
+          <div class="step-circle"><i class="fa-solid fa-motorcycle"></i></div>
+          <span class="step-label">Out for Delivery</span>
+        </div>
+
+        <!-- 7. Delivered -->
+        <div class="stepper-step {% if current_idx >= 6 %}completed{% endif %} {% if current_idx == 6 %}active{% endif %}">
+          <div class="step-circle"><i class="fa-solid fa-house-chimney-user"></i></div>
+          <span class="step-label">Delivered</span>
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+
+  <div class="order-track-layout">
+    
+    <!-- Left Column: Activity Log & Items -->
+    <div style="display: flex; flex-direction: column; gap: 2rem;">
+      
+      <!-- Real-time Status History Log -->
+      <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1.75rem;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 1.25rem;">
+          <i class="fa-solid fa-timeline" style="color: var(--color-primary);"></i> Shipment Audit Trail
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 1rem; border-left: 2px solid #E5E7EB; margin-left: 10px; padding-left: 20px;">
+          {% for hist in order.status_history.all %}
+            <div style="position: relative;">
+              <div style="position: absolute; left: -26px; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--color-primary); border: 2px solid white;"></div>
+              <div style="font-weight: 700; font-size: 0.9rem;">{{ hist.status }}</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">
+                {{ hist.created_at|date:"M d, Y h:i A" }}
+                {% if hist.updated_by %} &bull; by {{ hist.updated_by.get_full_name|default:hist.updated_by.username }} ({{ hist.updated_by.get_role_display }}){% endif %}
+              </div>
+              {% if hist.comment %}
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px; background: #FAFAFA; padding: 6px 10px; border-radius: 6px;">
+                  {{ hist.comment }}
+                </p>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Items List -->
+      <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1.75rem;">
+        <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 1rem;">Items ({{ order.items.count }})</h3>
+        {% for item in order.items.all %}
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--bg-border-light);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <img src="{{ item.image_url|default:'/static/images/placeholder_product.svg' }}" style="width: 44px; height: 44px; object-fit: contain; background: #FAFAFA; border-radius: 4px;">
+              <div>
+                <div style="font-weight: 600; font-size: 0.9rem;">{{ item.product_name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Sold by {{ item.seller.seller_profile.store_name|default:item.seller.username }}</div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-weight: 700; font-size: 0.95rem;">₹{{ item.total_price }}</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.quantity }} x ₹{{ item.unit_price }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+    </div>
+
+    <!-- Right Column: Delivery Agent & Destination -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+      
+      <!-- Delivery Partner Card -->
+      <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+        <h3 style="font-size: 1.05rem; font-weight: 800; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-motorcycle" style="color: var(--color-primary);"></i> Delivery Partner
+        </h3>
+
+        {% if order.delivery_assignment %}
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">
+            <div style="width: 46px; height: 46px; border-radius: 50%; background: var(--color-primary-subtle); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem;">
+              {{ order.delivery_assignment.delivery_person.first_name|first|default:"D" }}
+            </div>
+            <div>
+              <div style="font-weight: 700; font-size: 0.95rem;">
+                {{ order.delivery_assignment.delivery_person.get_full_name|default:order.delivery_assignment.delivery_person.username }}
+              </div>
+              <div style="font-size: 0.8rem; color: #047857; font-weight: 600;">
+                <i class="fa-solid fa-shield-halved"></i> Verified Delivery Agent
+              </div>
+            </div>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-secondary); background: #FAFAFA; padding: 10px; border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 4px;">
+            <div>Vehicle: <strong>{{ order.delivery_assignment.delivery_person.delivery_profile.get_vehicle_type_display|default:"Express Bike" }}</strong></div>
+            <div>Contact: <strong>{{ order.delivery_assignment.delivery_person.phone_number|default:"+91 98765 00000" }}</strong></div>
+            <div>Delivery Status: <strong style="color: var(--color-primary-dark);">{{ order.delivery_assignment.get_status_display }}</strong></div>
+          </div>
+        {% else %}
+          <div style="text-align: center; padding: 1.5rem 0; color: var(--text-muted);">
+            <i class="fa-solid fa-clock-rotate-left" style="font-size: 2rem; margin-bottom: 0.5rem; color: #F59E0B;"></i>
+            <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Order in Preparation</div>
+            <div style="font-size: 0.8rem; margin-top: 2px;">A delivery partner will be dispatched as soon as produce packaging is complete.</div>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Destination Card -->
+      <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+        <h3 style="font-size: 1.05rem; font-weight: 800; margin-bottom: 1rem;">
+          <i class="fa-solid fa-location-dot" style="color: #10B981;"></i> Delivery Address
+        </h3>
+        <div style="font-weight: 700; font-size: 0.9rem;">{{ order.recipient_name }}</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">
+          {{ order.delivery_address_text }}
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+          Phone: {{ order.recipient_phone }}
+        </div>
+        <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--bg-border); font-size: 0.85rem;">
+          Slot: <strong>{{ order.delivery_slot }}</strong>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

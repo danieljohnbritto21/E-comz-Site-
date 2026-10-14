@@ -1,0 +1,91 @@
+{% extends 'admin_dashboard/base_admin.html' %}
+{% load static %}
+
+{% block title %}Sales Reports - Admin Portal{% endblock %}
+
+{% block admin_content %}
+<div>
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Platform Sales & Financial Reports</h1>
+      <p class="dashboard-subtitle">Audited financial metrics, vendor-wise sales contributions, and spreadsheet exports</p>
+    </div>
+    <a href="{% url 'admin_dashboard:export_csv' %}" class="btn btn-primary btn-pill">
+      <i class="fa-solid fa-file-csv"></i> Download CSV Sales Report
+    </a>
+  </div>
+
+  <!-- Financial Cards Grid -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-sack-dollar"></i></div>
+      <div>
+        <div class="metric-label">Gross Platform Sales</div>
+        <div class="metric-value">₹{{ gross_sales }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-purple"><i class="fa-solid fa-receipt"></i></div>
+      <div>
+        <div class="metric-label">Paid / Confirmed Orders</div>
+        <div class="metric-value">{{ total_orders }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-house-chimney-check"></i></div>
+      <div>
+        <div class="metric-label">Delivered Orders</div>
+        <div class="metric-value" style="color: #047857;">{{ delivered_count }}</div>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-red"><i class="fa-solid fa-ban"></i></div>
+      <div>
+        <div class="metric-label">Cancelled Orders</div>
+        <div class="metric-value" style="color: #DC2626;">{{ cancelled_count }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seller-wise Sales Contribution Table -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <h3 style="font-size: 1.15rem; font-weight: 800;">Vendor-wise Sales Contribution</h3>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Store Brand</th>
+            <th>Seller Username</th>
+            <th>Fulfilled Orders</th>
+            <th style="text-align: right;">Total Gross Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in seller_sales %}
+            <tr>
+              <td><strong>{{ row.seller__seller_profile__store_name|default:row.seller__username }}</strong></td>
+              <td>@{{ row.seller__username }}</td>
+              <td>{{ row.order_count }} sub-orders</td>
+              <td style="text-align: right;"><strong style="font-size: 1.1rem; color: var(--color-primary-dark);">₹{{ row.total_subtotal }}</strong></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                No vendor sales records yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

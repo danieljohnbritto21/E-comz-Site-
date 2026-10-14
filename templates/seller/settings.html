@@ -1,0 +1,67 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}Store Settings - Seller Dashboard{% endblock %}
+
+{% block seller_content %}
+<div style="max-width: 760px;">
+  
+  <div class="dashboard-header">
+    <div>
+      <h1 class="dashboard-title">Store & Pickup Settings</h1>
+      <p class="dashboard-subtitle">Configure your grocery storefront, dispatch address, contact details, and dispatch lead times</p>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <form method="POST">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="form-label">Store Brand Name *</label>
+        <input type="text" name="store_name" class="form-control" value="{{ profile.store_name }}" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Store Tagline / Description</label>
+        <textarea name="store_description" rows="2" class="form-control" placeholder="Describe your grocery specialties...">{{ profile.store_description }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Pickup & Warehouse Address *</label>
+        <textarea name="pickup_address" rows="2" class="form-control" required>{{ profile.pickup_address }}</textarea>
+        <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 4px;">
+          Delivery partners will navigate here to collect packed orders.
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">City *</label>
+          <input type="text" name="city" class="form-control" value="{{ profile.city }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">PIN Code *</label>
+          <input type="text" name="pin_code" class="form-control" value="{{ profile.pin_code }}" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Store Phone Number</label>
+          <input type="text" name="store_phone" class="form-control" value="{{ profile.store_phone }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Packaging Preparation Time (minutes)</label>
+          <input type="number" name="preparation_time_minutes" class="form-control" value="{{ profile.preparation_time_minutes }}">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg" style="margin-top: 1rem;">
+        <i class="fa-solid fa-floppy-disk"></i> Save Settings
+      </button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
