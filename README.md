@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # FreshMart - Multi-Role Grocery E-Commerce Platform
 
 A multi-role grocery marketplace web application built with **HTML5, CSS3, Vanilla JavaScript, Django, and PostgreSQL-readiness**. Features a modern, high-contrast, responsive white-and-emerald-green user interface with real frontend-to-backend database synchronization across all four user roles.
@@ -114,3 +115,7 @@ Run the test suite covering role access, inventory safety, checkout, delivery, a
 python manage.py test
 ```
 Result: **7 passed (0 failures, 0 errors)**.
+=======
+# E-comz-Site-
+A Django-based single-store grocery e-commerce platform with customer shopping, product management, inventory control, and seller dashboard.
+>>>>>>> 02a8cae52c2ce94f32f9213c1e298b374feb205a
