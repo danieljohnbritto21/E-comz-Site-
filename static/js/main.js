@@ -15,10 +15,16 @@ function getCookie(name) {
       }
     }
   }
+  if (!cookieValue && name === 'csrftoken') {
+    const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    if (csrfInput) cookieValue = csrfInput.value;
+  }
   return cookieValue;
 }
 
-const csrftoken = getCookie('csrftoken');
+function getCsrfToken() {
+  return getCookie('csrftoken') || '';
+}
 
 // Toast Notification System with Optional Link
 function showToast(message, type = 'success', actionUrl = null, actionText = 'View Basket') {
@@ -138,12 +144,22 @@ function updateCartUI(data) {
 
 // Handle In-Place Product Card Action (+Add, [+] increment, [-] decrement)
 async function handleCartAction(productId, delta) {
+  // If user is signed out or not a Customer, immediately restrict and navigate to login
+  const isCustomer = window.FRESHMART_USER && window.FRESHMART_USER.isAuthenticated && window.FRESHMART_USER.role === 'BUYER';
+  if (!isCustomer) {
+    const qty = delta > 0 ? delta : 1;
+    const nextUrl = window.location.pathname + window.location.search;
+    const baseLogin = (window.FRESHMART_USER && window.FRESHMART_USER.loginUrl) ? window.FRESHMART_USER.loginUrl : '/auth/login/';
+    window.location.href = `${baseLogin}?role=BUYER&next=${encodeURIComponent(nextUrl)}&pending_product_id=${productId}&pending_qty=${qty}`;
+    return;
+  }
+
   try {
     const response = await fetch('/cart/add/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': csrftoken,
+        'X-CSRFToken': getCsrfToken(),
         'X-Requested-With': 'XMLHttpRequest'
       },
       body: JSON.stringify({ product_id: productId, delta: delta })
@@ -157,6 +173,8 @@ async function handleCartAction(productId, delta) {
       } else if (data.item_quantity === 0) {
         showToast('Item removed from basket', 'info');
       }
+    } else if (response.status === 401 && data.require_login) {
+      window.location.href = data.login_url || '/auth/login/?role=BUYER';
     } else {
       showToast(data.error || 'Could not update basket', 'danger');
     }
@@ -168,12 +186,22 @@ async function handleCartAction(productId, delta) {
 
 // Add to Cart (Standard / Detail page)
 async function addToCart(productId, quantity = 1) {
+  // If user is signed out or not a Customer, immediately restrict and navigate to login
+  const isCustomer = window.FRESHMART_USER && window.FRESHMART_USER.isAuthenticated && window.FRESHMART_USER.role === 'BUYER';
+  if (!isCustomer) {
+    const qty = quantity > 0 ? quantity : 1;
+    const nextUrl = window.location.pathname + window.location.search;
+    const baseLogin = (window.FRESHMART_USER && window.FRESHMART_USER.loginUrl) ? window.FRESHMART_USER.loginUrl : '/auth/login/';
+    window.location.href = `${baseLogin}?role=BUYER&next=${encodeURIComponent(nextUrl)}&pending_product_id=${productId}&pending_qty=${qty}`;
+    return;
+  }
+
   try {
     const response = await fetch('/cart/add/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': csrftoken,
+        'X-CSRFToken': getCsrfToken(),
         'X-Requested-With': 'XMLHttpRequest'
       },
       body: JSON.stringify({ product_id: productId, quantity: quantity })
@@ -183,6 +211,8 @@ async function addToCart(productId, quantity = 1) {
     if (response.ok && data.success) {
       updateCartUI(data);
       showToast(data.message || 'Added to cart!', 'success', '/cart/', 'View Basket');
+    } else if (response.status === 401 && data.require_login) {
+      window.location.href = data.login_url || '/auth/login/?role=BUYER';
     } else {
       showToast(data.error || 'Failed to add item', 'danger');
     }
@@ -200,7 +230,7 @@ async function updateCartItem(itemId, newQty) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRFToken': csrftoken,
+        'X-CSRFToken': getCsrfToken(),
         'X-Requested-With': 'XMLHttpRequest'
       },
       body: JSON.stringify({ quantity: newQty })
@@ -224,7 +254,7 @@ async function removeCartItem(itemId) {
     const response = await fetch(`/cart/remove/${itemId}/`, {
       method: 'POST',
       headers: {
-        'X-CSRFToken': csrftoken,
+        'X-CSRFToken': getCsrfToken(),
         'X-Requested-With': 'XMLHttpRequest'
       }
     });
@@ -242,11 +272,18 @@ async function removeCartItem(itemId) {
 
 // Toggle Wishlist
 async function toggleWishlist(productId, btnElement) {
+  if (window.FRESHMART_USER && !window.FRESHMART_USER.isAuthenticated) {
+    const nextUrl = window.location.pathname + window.location.search;
+    const baseLogin = window.FRESHMART_USER.loginUrl || '/auth/login/';
+    window.location.href = `${baseLogin}?role=BUYER&next=${encodeURIComponent(nextUrl)}`;
+    return;
+  }
+
   try {
     const response = await fetch(`/buyer/wishlist/toggle/${productId}/`, {
       method: 'POST',
       headers: {
-        'X-CSRFToken': csrftoken,
+        'X-CSRFToken': getCsrfToken(),
         'X-Requested-With': 'XMLHttpRequest'
       }
     });

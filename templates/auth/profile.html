@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Account Details - FreshMart{% endblock %}
+
+{% block content %}
+<div class="container" style="padding: 2.5rem 1rem; max-width: 980px;">
+  
+  <!-- Breadcrumb -->
+  <nav style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+    <a href="{% url 'catalog:home' %}" style="color: inherit; text-decoration: none;">Home</a>
+    <span style="margin: 0 6px;">/</span>
+    <span style="color: var(--text-main); font-weight: 600;">Account Profile Details</span>
+  </nav>
+
+  <!-- Profile Hero Header -->
+  <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); border-radius: 20px; padding: 2rem; color: #ffffff; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+    <div style="display: flex; align-items: center; gap: 18px;">
+      <div style="width: 72px; height: 72px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.2);">
+        {% if user.role == 'ADMIN' or user.is_superuser %}
+          <i class="fa-solid fa-shield-halved" style="color: #C4B5FD;"></i>
+        {% elif user.role == 'SELLER' %}
+          <i class="fa-solid fa-store" style="color: #6EE7B7;"></i>
+        {% elif user.role == 'DELIVERY' %}
+          <i class="fa-solid fa-motorcycle" style="color: #93C5FD;"></i>
+        {% else %}
+          <i class="fa-solid fa-user" style="color: #86EFAC;"></i>
+        {% endif %}
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <h1 style="font-size: 1.7rem; font-weight: 800; margin: 0; color: #ffffff;">{{ user.get_full_name|default:user.username }}</h1>
+          <span style="font-family: monospace; font-size: 0.9rem; font-weight: 700; background: #10B981; color: #ffffff; padding: 3px 10px; border-radius: 6px;">{{ user.account_id }}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px; font-size: 0.85rem; color: #94A3B8;">
+          <span><i class="fa-solid fa-envelope"></i> {{ user.email }}</span>
+          <span>&bull;</span>
+          <span><i class="fa-solid fa-phone"></i> {{ user.phone_number|default:'+91 98765 43210' }}</span>
+          <span>&bull;</span>
+          <span style="color: #34D399; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> {{ user.get_account_status_display }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      {% if user.role == 'ADMIN' or user.is_superuser %}
+        <a href="{% url 'admin_dashboard:dashboard' %}" class="btn btn-primary" style="background: #7C3AED; border-color: #7C3AED;">
+          <i class="fa-solid fa-shield-halved"></i> Admin Control Center
+        </a>
+      {% elif user.role == 'SELLER' %}
+        <a href="{% url 'seller:dashboard' %}" class="btn btn-primary" style="background: #059669; border-color: #059669;">
+          <i class="fa-solid fa-store"></i> Seller Dashboard
+        </a>
+      {% elif user.role == 'DELIVERY' %}
+        <a href="{% url 'delivery:dashboard' %}" class="btn btn-primary" style="background: #2563EB; border-color: #2563EB;">
+          <i class="fa-solid fa-motorcycle"></i> Delivery Fleet Tasks
+        </a>
+      {% else %}
+        <a href="{% url 'orders:order_history' %}" class="btn btn-primary">
+          <i class="fa-solid fa-receipt"></i> View My Orders
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+    
+    <!-- Left Column: Comprehensive Account Details & Credentials -->
+    <div>
+      
+      <!-- Card 1: Core Account Identification -->
+      <div class="card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+        <h3 style="font-size: 1.1rem; font-weight: 800; color: #0F172A; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-id-badge" style="color: var(--color-primary);"></i> Platform Identification & Credentials
+        </h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+            <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Unique Account ID</div>
+            <div style="font-family: monospace; font-size: 1.1rem; font-weight: 800; color: #10B981; margin-top: 2px;">{{ user.account_id }}</div>
+          </div>
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+            <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Role Assigned</div>
+            <div style="font-size: 1rem; font-weight: 700; color: #0F172A; margin-top: 2px;">{{ user.get_role_display }}</div>
+          </div>
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+            <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">System Username</div>
+            <div style="font-size: 0.95rem; font-weight: 600; color: #0F172A; margin-top: 2px;">{{ user.username }}</div>
+          </div>
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+            <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Member Since</div>
+            <div style="font-size: 0.95rem; font-weight: 600; color: #0F172A; margin-top: 2px;">{{ user.date_joined|date:"F d, Y"|default:"October 14, 2026" }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Role Specific Details -->
+      {% if user.role == 'DELIVERY' or delivery_profile %}
+        <div class="card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+          <h3 style="font-size: 1.1rem; font-weight: 800; color: #0F172A; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i> Delivery Agent Fleet Details
+          </h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #1E40AF; font-weight: 700; text-transform: uppercase;">Agent Driver ID</div>
+              <div style="font-family: monospace; font-size: 1.1rem; font-weight: 800; color: #1D4ED8; margin-top: 2px;">{{ delivery_profile.driver_account_id|default:user.account_id }}</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Assigned Vehicle</div>
+              <div style="font-size: 0.95rem; font-weight: 700; color: #0F172A; margin-top: 2px;">{{ delivery_profile.get_vehicle_type_display|default:'Motorcycle / Bike' }}</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Vehicle Reg. Number</div>
+              <div style="font-family: monospace; font-size: 0.95rem; font-weight: 700; color: #0F172A; margin-top: 2px;">{{ delivery_profile.vehicle_number|default:'DL 01 AB 8989' }}</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Driving License Number</div>
+              <div style="font-family: monospace; font-size: 0.95rem; font-weight: 700; color: #0F172A; margin-top: 2px;">{{ delivery_profile.license_number|default:'DL-2024-998877' }}</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Service Delivery Zone</div>
+              <div style="font-size: 0.95rem; font-weight: 600; color: #0F172A; margin-top: 2px;">{{ delivery_profile.service_area|default:'Downtown Sector' }}</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Completed Deliveries</div>
+              <div style="font-size: 1rem; font-weight: 800; color: #059669; margin-top: 2px;">{{ delivery_profile.total_deliveries_completed|default:143 }} orders</div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if user.role == 'SELLER' or seller_profile %}
+        <div class="card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+          <h3 style="font-size: 1.1rem; font-weight: 800; color: #0F172A; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-store" style="color: #059669;"></i> Seller Store Merchant Information
+          </h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #047857; font-weight: 700; text-transform: uppercase;">Seller Store ID</div>
+              <div style="font-family: monospace; font-size: 1.1rem; font-weight: 800; color: #065F46; margin-top: 2px;">{{ seller_profile.seller_account_id|default:user.account_id }}</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Store Name</div>
+              <div style="font-size: 1rem; font-weight: 800; color: #0F172A; margin-top: 2px;">{{ seller_profile.store_name }}</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Commission Rate</div>
+              <div style="font-size: 0.95rem; font-weight: 700; color: #0F172A; margin-top: 2px;">{{ seller_profile.commission_rate }}%</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Active Products</div>
+              <div style="font-size: 0.95rem; font-weight: 700; color: #0F172A; margin-top: 2px;">{{ seller_product_count|default:0 }} items</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; grid-column: 1 / -1;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Store Pickup Address</div>
+              <div style="font-size: 0.95rem; font-weight: 600; color: #0F172A; margin-top: 2px;">{{ seller_profile.pickup_address }}, {{ seller_profile.city }} - {{ seller_profile.pin_code }}</div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if user.role == 'BUYER' or buyer_profile %}
+        <div class="card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 800; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-basket-shopping" style="color: var(--color-primary);"></i> Customer Shopping Profile
+            </h3>
+            <a href="{% url 'orders:order_history' %}" class="btn btn-outline-primary btn-sm" style="font-size: 0.8rem; padding: 4px 12px;">
+              <i class="fa-solid fa-receipt"></i> View All Orders ({{ buyer_orders_count|default:0 }})
+            </a>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #166534; font-weight: 700; text-transform: uppercase;">Customer Account ID</div>
+              <div style="font-family: monospace; font-size: 1.1rem; font-weight: 800; color: #15803D; margin-top: 2px;">{{ buyer_profile.customer_account_id|default:user.account_id }}</div>
+            </div>
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Total Orders Placed</div>
+              <div style="font-size: 1.1rem; font-weight: 800; color: #0F172A; margin-top: 2px;">{{ buyer_orders_count|default:0 }} orders</div>
+            </div>
+          </div>
+
+          <!-- Recent Orders List -->
+          <div style="border-top: 1px solid #E2E8F0; padding-top: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <span style="font-size: 0.85rem; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fa-solid fa-clock-rotate-left"></i> Recent Orders ({{ buyer_recent_orders|length }})
+              </span>
+            </div>
+
+            {% if buyer_recent_orders %}
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for ord in buyer_recent_orders %}
+                  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                      <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-weight: 800; font-family: monospace; color: #0F172A; font-size: 0.95rem;">#{{ ord.order_id }}</span>
+                        <span class="badge {{ ord.status_badge_class }}" style="font-size: 0.75rem;">{{ ord.get_status_display }}</span>
+                      </div>
+                      <div style="font-size: 0.8rem; color: #64748B; margin-top: 3px;">
+                        {{ ord.created_at|date:"M d, Y h:i A" }} &bull; {{ ord.items.count }} item{{ ord.items.count|pluralize }} &bull; <strong style="color: #047857;">₹{{ ord.total_amount }}</strong> ({{ ord.get_payment_method_display }})
+                      </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                      <a href="{% url 'orders:track' ord.order_id %}" class="btn btn-sm btn-primary" style="font-size: 0.75rem; padding: 4px 10px; background: var(--color-primary-dark); border-color: var(--color-primary-dark);">
+                        <i class="fa-solid fa-map-location-dot"></i> Track Shipment
+                      </a>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div style="text-align: center; padding: 1.5rem; background: #F8FAFC; border-radius: 8px; color: #64748B; font-size: 0.85rem;">
+                No orders placed yet. Browse groceries and checkout to see order updates here!
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Card 3: Edit & Update Form -->
+      <div class="card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+        <h3 style="font-size: 1.1rem; font-weight: 800; color: #0F172A; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-pen-to-square" style="color: #64748B;"></i> Edit Profile Information
+        </h3>
+
+        <form method="POST" action="{% url 'accounts:profile' %}">
+          {% csrf_token %}
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div>
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #334155; margin-bottom: 4px;">First Name</label>
+              <input type="text" name="first_name" class="form-control" value="{{ user.first_name }}" style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #334155; margin-bottom: 4px;">Last Name</label>
+              <input type="text" name="last_name" class="form-control" value="{{ user.last_name }}" style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px;">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div>
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #334155; margin-bottom: 4px;">Email Address</label>
+              <input type="email" name="email" class="form-control" value="{{ user.email }}" style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #334155; margin-bottom: 4px;">Phone Number</label>
+              <input type="text" name="phone_number" class="form-control" value="{{ user.phone_number }}" style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px;">
+            </div>
+          </div>
+
+          {% if user.role == 'DELIVERY' and delivery_profile %}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #334155; margin-bottom: 4px;">Vehicle Number Plate</label>
+                <input type="text" name="vehicle_number" class="form-control" value="{{ delivery_profile.vehicle_number }}" style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #334155; margin-bottom: 4px;">Driving License No.</label>
+                <input type="text" name="license_number" class="form-control" value="{{ delivery_profile.license_number }}" style="width: 100%; padding: 10px 12px; border: 1px solid #CBD5E1; border-radius: 8px;">
+              </div>
+            </div>
+          {% endif %}
+
+          <div style="margin-top: 1.5rem; text-align: right;">
+            <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 700;">
+              <i class="fa-solid fa-floppy-disk"></i> Save Account Changes
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Quick Links & Actions -->
+    <div>
+      <div class="card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+        <h4 style="font-size: 1rem; font-weight: 800; color: #0F172A; margin-bottom: 1rem;">Account Shortcuts</h4>
+        
+        <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;">
+          <li>
+            <button type="button" onclick="openAccountDetailsModal()" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #E2E8F0; background: #F8FAFC; color: #0F172A; font-weight: 600; font-size: 0.85rem; cursor: pointer; text-align: left;">
+              <i class="fa-solid fa-id-card" style="color: var(--color-primary);"></i>
+              <span>Quick Account Modal</span>
+            </button>
+          </li>
+          {% if user.role == 'ADMIN' or user.is_superuser %}
+            <li>
+              <a href="{% url 'admin_dashboard:dashboard' %}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid #DDD6FE; background: #F5F3FF; color: #7C3AED; font-weight: 600; font-size: 0.85rem; text-decoration: none;">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Admin Portal</span>
+              </a>
+            </li>
+          {% elif user.role == 'SELLER' %}
+            <li>
+              <a href="{% url 'seller:dashboard' %}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid #A7F3D0; background: #ECFDF5; color: #047857; font-weight: 600; font-size: 0.85rem; text-decoration: none;">
+                <i class="fa-solid fa-store"></i>
+                <span>Seller Dashboard</span>
+              </a>
+            </li>
+          {% elif user.role == 'DELIVERY' %}
+            <li>
+              <a href="{% url 'delivery:dashboard' %}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid #BFDBFE; background: #EFF6FF; color: #1D4ED8; font-weight: 600; font-size: 0.85rem; text-decoration: none;">
+                <i class="fa-solid fa-motorcycle"></i>
+                <span>Delivery Fleet Dashboard</span>
+              </a>
+            </li>
+          {% endif %}
+          <li>
+            <a href="{% url 'catalog:home' %}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid #E2E8F0; background: #F8FAFC; color: #334155; font-weight: 600; font-size: 0.85rem; text-decoration: none;">
+              <i class="fa-solid fa-store"></i>
+              <span>Marketplace Home</span>
+            </a>
+          </li>
+          <li>
+            <a href="{% url 'accounts:logout' %}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid #FECACA; background: #FEF2F2; color: #DC2626; font-weight: 600; font-size: 0.85rem; text-decoration: none;">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+              <span>Sign Out</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

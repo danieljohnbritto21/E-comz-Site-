@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 
 urlpatterns = [
     # Technical Django Admin
@@ -12,6 +13,9 @@ urlpatterns = [
 
     # Authentication & User Accounts
     path('auth/', include('apps.accounts.urls', namespace='accounts')),
+    path('accounts/profile/', RedirectView.as_view(pattern_name='accounts:profile', permanent=False)),
+    path('accounts/', RedirectView.as_view(pattern_name='accounts:profile', permanent=False)),
+    path('account/', RedirectView.as_view(pattern_name='accounts:profile', permanent=False)),
 
     # Seller Dashboard & Product Management
     path('seller/', include('apps.catalog.seller_urls', namespace='seller')),

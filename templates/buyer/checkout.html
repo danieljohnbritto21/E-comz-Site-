@@ -40,17 +40,17 @@
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Full Name *</label>
-              <input type="text" name="customer_name" class="form-control" placeholder="Your full name" value="{{ customer_name }}" required>
+              <input type="text" name="customer_name" id="id_customer_name" class="form-control" placeholder="Your full name" value="{{ customer_name|default:full_name }}" required>
             </div>
             <div class="form-group">
               <label class="form-label">Mobile Number *</label>
-              <input type="text" name="customer_phone" class="form-control" placeholder="10-digit mobile number" value="{{ customer_phone }}" required>
+              <input type="tel" name="customer_phone" id="id_customer_phone" class="form-control" placeholder="10-digit mobile number" value="{{ customer_phone|default:phone_number }}" required>
             </div>
           </div>
 
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">Email Address *</label>
-            <input type="email" name="customer_email" class="form-control" placeholder="Order updates and digital receipt" value="{{ customer_email }}" required>
+            <label class="form-label">Email Address (Optional for guest)</label>
+            <input type="email" name="customer_email" id="id_customer_email" class="form-control" placeholder="Order updates and digital receipt" value="{{ customer_email }}">
           </div>
         </div>
 
@@ -69,7 +69,7 @@
               <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                 {% for addr in addresses %}
                   <label style="display: flex; align-items: flex-start; gap: 10px; padding: 1rem; border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); cursor: pointer; transition: var(--transition-fast);">
-                    <input type="radio" name="address_id" value="{{ addr.id }}" {% if forloop.first %}checked{% endif %} style="margin-top: 4px;" onchange="toggleNewAddress(false)">
+                    <input type="radio" name="address_id" value="{{ addr.id }}" {% if address_id == addr.id|stringformat:"s" or not address_id and forloop.first %}checked{% endif %} style="margin-top: 4px;" onchange="toggleNewAddress(false)">
                     <div>
                       <div style="font-weight: 700; font-size: 0.95rem;">
                         {{ addr.full_name }} <span class="badge badge-secondary">{{ addr.get_address_type_display }}</span>
@@ -84,7 +84,7 @@
                   </label>
                 {% endfor %}
                 <label style="display: flex; align-items: center; gap: 10px; padding: 0.75rem 1rem; border: 1.5px dashed var(--bg-border); border-radius: var(--radius-md); cursor: pointer;">
-                  <input type="radio" name="address_id" value="" id="use-new-addr-radio" onchange="toggleNewAddress(true)">
+                  <input type="radio" name="address_id" value="" id="use-new-addr-radio" {% if address_id == "" and house_number %}checked{% endif %} onchange="toggleNewAddress(true)">
                   <span style="font-weight: 600; font-size: 0.9rem; color: var(--color-primary-dark);">+ Deliver to a Different / New Address</span>
                 </label>
               </div>
@@ -92,62 +92,62 @@
           {% endif %}
 
           <!-- New Address Fields -->
-          <div id="new-address-fields" style="{% if addresses %}display: none; border-top: 1px dashed var(--bg-border); padding-top: 1.25rem;{% endif %}">
+          <div id="new-address-fields" style="{% if addresses and address_id != '' and not house_number %}display: none;{% endif %} border-top: 1px dashed var(--bg-border); padding-top: 1.25rem;">
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Recipient Name *</label>
-                <input type="text" name="full_name" class="form-control" placeholder="Recipient Name" value="{{ customer_name }}">
+                <input type="text" name="full_name" id="id_full_name" class="form-control" placeholder="Recipient Name" value="{{ full_name|default:customer_name }}">
               </div>
               <div class="form-group">
                 <label class="form-label">Phone Number *</label>
-                <input type="text" name="phone_number" class="form-control" placeholder="10-digit mobile number" value="{{ customer_phone }}">
+                <input type="tel" name="phone_number" id="id_phone_number" class="form-control" placeholder="10-digit mobile number" value="{{ phone_number|default:customer_phone }}">
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">House / Flat / Building No. *</label>
-                <input type="text" name="house_number" class="form-control" placeholder="e.g. Flat 402, Green Heights">
+                <input type="text" name="house_number" id="id_house_number" class="form-control" placeholder="e.g. Flat 402, Green Heights" value="{{ house_number }}">
               </div>
               <div class="form-group">
                 <label class="form-label">Street / Colony *</label>
-                <input type="text" name="street" class="form-control" placeholder="e.g. MG Road, Sector 4">
+                <input type="text" name="street" id="id_street" class="form-control" placeholder="e.g. MG Road, Sector 4" value="{{ street }}">
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Area / Locality *</label>
-                <input type="text" name="area" class="form-control" placeholder="e.g. Downtown Central">
+                <input type="text" name="area" id="id_area" class="form-control" placeholder="e.g. Downtown Central" value="{{ area }}">
               </div>
               <div class="form-group">
                 <label class="form-label">City *</label>
-                <input type="text" name="city" class="form-control" placeholder="City" value="Central City">
+                <input type="text" name="city" id="id_city" class="form-control" placeholder="City" value="{{ city|default:'Central City' }}">
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">State *</label>
-                <input type="text" name="state" class="form-control" placeholder="State" value="State">
+                <input type="text" name="state" id="id_state" class="form-control" placeholder="State" value="{{ state|default:'State' }}">
               </div>
               <div class="form-group">
                 <label class="form-label">PIN Code *</label>
-                <input type="text" name="pin_code" class="form-control" placeholder="e.g. 110001">
+                <input type="text" name="pin_code" id="id_pin_code" class="form-control" placeholder="e.g. 110001" value="{{ pin_code }}">
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Landmark (Optional)</label>
-                <input type="text" name="landmark" class="form-control" placeholder="Nearby park, school, or store">
+                <input type="text" name="landmark" id="id_landmark" class="form-control" placeholder="Nearby park, school, or store" value="{{ landmark }}">
               </div>
               <div class="form-group">
                 <label class="form-label">Address Type</label>
-                <select name="address_type" class="form-select">
-                  <option value="HOME">Home</option>
-                  <option value="WORK">Office / Work</option>
-                  <option value="OTHER">Other</option>
+                <select name="address_type" id="id_address_type" class="form-select">
+                  <option value="HOME" {% if address_type == 'HOME' %}selected{% endif %}>Home</option>
+                  <option value="WORK" {% if address_type == 'WORK' %}selected{% endif %}>Office / Work</option>
+                  <option value="OTHER" {% if address_type == 'OTHER' %}selected{% endif %}>Other</option>
                 </select>
               </div>
             </div>
@@ -166,11 +166,11 @@
             <label class="form-label">Delivery Date:</label>
             <div style="display: flex; gap: 12px; margin-bottom: 1rem; flex-wrap: wrap;">
               <label style="border: 1.5px solid var(--color-primary); background: var(--color-primary-subtle); padding: 0.65rem 1.25rem; border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_date" value="today" checked>
+                <input type="radio" name="delivery_date" value="today" {% if delivery_date == 'today' or not delivery_date %}checked{% endif %}>
                 <span style="font-weight: 700; font-size: 0.9rem;">Today (Fast Delivery)</span>
               </label>
               <label style="border: 1.5px solid var(--bg-border); background: #ffffff; padding: 0.65rem 1.25rem; border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_date" value="tomorrow">
+                <input type="radio" name="delivery_date" value="tomorrow" {% if delivery_date == 'tomorrow' %}checked{% endif %}>
                 <span style="font-weight: 700; font-size: 0.9rem;">Tomorrow</span>
               </label>
             </div>
@@ -181,7 +181,7 @@
             <label class="form-label">Available Time Slots:</label>
             <div class="delivery-slot-grid">
               <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_slot" value="07:00 AM - 10:00 AM" checked>
+                <input type="radio" name="delivery_slot" value="07:00 AM - 10:00 AM" {% if delivery_slot == '07:00 AM - 10:00 AM' or not delivery_slot %}checked{% endif %}>
                 <div>
                   <div style="font-weight: 700; font-size: 0.875rem;">07:00 AM - 10:00 AM</div>
                   <div style="font-size: 0.75rem; color: var(--text-muted);">Early Morning Fresh</div>
@@ -189,7 +189,7 @@
               </label>
 
               <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_slot" value="10:00 AM - 01:00 PM">
+                <input type="radio" name="delivery_slot" value="10:00 AM - 01:00 PM" {% if delivery_slot == '10:00 AM - 01:00 PM' %}checked{% endif %}>
                 <div>
                   <div style="font-weight: 700; font-size: 0.875rem;">10:00 AM - 01:00 PM</div>
                   <div style="font-size: 0.75rem; color: var(--text-muted);">Midday Standard</div>
@@ -197,7 +197,7 @@
               </label>
 
               <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_slot" value="02:00 PM - 05:00 PM">
+                <input type="radio" name="delivery_slot" value="02:00 PM - 05:00 PM" {% if delivery_slot == '02:00 PM - 05:00 PM' %}checked{% endif %}>
                 <div>
                   <div style="font-weight: 700; font-size: 0.875rem;">02:00 PM - 05:00 PM</div>
                   <div style="font-size: 0.75rem; color: var(--text-muted);">Afternoon Dispatch</div>
@@ -205,7 +205,7 @@
               </label>
 
               <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_slot" value="06:00 PM - 09:00 PM">
+                <input type="radio" name="delivery_slot" value="06:00 PM - 09:00 PM" {% if delivery_slot == '06:00 PM - 09:00 PM' %}checked{% endif %}>
                 <div>
                   <div style="font-weight: 700; font-size: 0.875rem;">06:00 PM - 09:00 PM</div>
                   <div style="font-size: 0.75rem; color: var(--text-muted);">Evening Express</div>
@@ -216,7 +216,7 @@
 
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">Drop-off Instructions (Optional)</label>
-            <input type="text" name="delivery_instructions" class="form-control" placeholder="e.g. Ring the bell, leave package with society security...">
+            <input type="text" name="delivery_instructions" id="id_delivery_instructions" class="form-control" placeholder="e.g. Ring the bell, leave package with society security..." value="{{ delivery_instructions }}">
           </div>
         </div>
 
@@ -386,8 +386,141 @@ function toggleNewAddress(show) {
   }
 }
 
-// Anti-duplicate click protection
-document.getElementById('checkout-form').addEventListener('submit', function() {
+// 1. Two-Way Field Synchronization (Name & Phone)
+const custName = document.getElementById('id_customer_name');
+const fullName = document.getElementById('id_full_name');
+const custPhone = document.getElementById('id_customer_phone');
+const phoneNum = document.getElementById('id_phone_number');
+
+if (custName && fullName) {
+  custName.addEventListener('input', () => {
+    if (!fullName.dataset.userEdited || fullName.value === '') {
+      fullName.value = custName.value;
+      saveCheckoutDraft();
+    }
+  });
+  fullName.addEventListener('input', () => {
+    fullName.dataset.userEdited = 'true';
+    if (!custName.value) {
+      custName.value = fullName.value;
+    }
+    saveCheckoutDraft();
+  });
+}
+
+if (custPhone && phoneNum) {
+  custPhone.addEventListener('input', () => {
+    if (!phoneNum.dataset.userEdited || phoneNum.value === '') {
+      phoneNum.value = custPhone.value;
+      saveCheckoutDraft();
+    }
+  });
+  phoneNum.addEventListener('input', () => {
+    phoneNum.dataset.userEdited = 'true';
+    if (!custPhone.value) {
+      custPhone.value = phoneNum.value;
+    }
+    saveCheckoutDraft();
+  });
+}
+
+// 2. Real-Time SessionStorage Form Draft Persistence
+const fieldsToPersist = [
+  'id_customer_name', 'id_customer_phone', 'id_customer_email',
+  'id_full_name', 'id_phone_number', 'id_house_number',
+  'id_street', 'id_area', 'id_city', 'id_state', 'id_pin_code',
+  'id_landmark', 'id_address_type', 'id_delivery_instructions'
+];
+
+function saveCheckoutDraft() {
+  const draft = {};
+  fieldsToPersist.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) draft[id] = el.value;
+  });
+  try {
+    sessionStorage.setItem('freshmart_checkout_draft', JSON.stringify(draft));
+  } catch (e) {}
+}
+
+function restoreCheckoutDraft() {
+  try {
+    const raw = sessionStorage.getItem('freshmart_checkout_draft');
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    fieldsToPersist.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.value && draft[id]) {
+        el.value = draft[id];
+      }
+    });
+  } catch (e) {}
+}
+
+// Attach input listeners for persistence
+fieldsToPersist.forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('input', saveCheckoutDraft);
+    el.addEventListener('change', saveCheckoutDraft);
+  }
+});
+
+// Restore on page load
+document.addEventListener('DOMContentLoaded', restoreCheckoutDraft);
+
+// 3. Client-Side Pre-Validation to Prevent Page Reload/Data Loss
+const checkoutForm = document.getElementById('checkout-form');
+checkoutForm.addEventListener('submit', function(e) {
+  const isUsingSaved = document.querySelector('input[name="address_id"]:checked');
+  const isSavedSelected = isUsingSaved && isUsingSaved.value !== '';
+
+  // Clear previous field errors
+  fieldsToPersist.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.borderColor = '';
+      el.style.backgroundColor = '';
+    }
+  });
+
+  if (!isSavedSelected) {
+    const requiredPairs = [
+      { id: 'id_full_name', name: 'Recipient Name' },
+      { id: 'id_phone_number', name: 'Phone Number' },
+      { id: 'id_house_number', name: 'House / Flat No.' },
+      { id: 'id_street', name: 'Street / Colony' },
+      { id: 'id_pin_code', name: 'PIN Code' },
+    ];
+
+    for (const req of requiredPairs) {
+      const el = document.getElementById(req.id);
+      if (el && !el.value.trim()) {
+        e.preventDefault();
+        el.style.borderColor = '#EF4444';
+        el.style.backgroundColor = '#FEF2F2';
+        el.focus();
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        let alertBox = document.getElementById('checkout-client-alert');
+        if (!alertBox) {
+          alertBox = document.createElement('div');
+          alertBox.id = 'checkout-client-alert';
+          alertBox.className = 'alert alert-danger';
+          alertBox.style.marginTop = '1rem';
+          checkoutForm.prepend(alertBox);
+        }
+        alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Please enter your <strong>' + req.name + '</strong> to continue.';
+        return;
+      }
+    }
+  }
+
+  // Clear draft on valid submit
+  try {
+    sessionStorage.removeItem('freshmart_checkout_draft');
+  } catch (e) {}
+
   const btn = document.getElementById('place-order-btn');
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing Order Safely...';

@@ -45,8 +45,19 @@ class User(AbstractUser):
     def is_delivery_role(self):
         return self.role == self.Role.DELIVERY
 
+    @property
+    def account_id(self):
+        prefix_map = {
+            self.Role.ADMIN: 'ADM',
+            self.Role.SELLER: 'SEL',
+            self.Role.DELIVERY: 'DEL',
+            self.Role.BUYER: 'CUST',
+        }
+        prefix = prefix_map.get(self.role, 'USR')
+        return f"{prefix}-{self.id:04d}"
+
     def __str__(self):
-        return f"{self.username} ({self.get_role_display()})"
+        return f"{self.username} [{self.account_id}] ({self.get_role_display()})"
 
 
 class BuyerProfile(models.Model):
@@ -55,8 +66,12 @@ class BuyerProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def customer_account_id(self):
+        return f"CUST-{self.user.id:04d}"
+
     def __str__(self):
-        return f"Buyer: {self.user.username}"
+        return f"Buyer: {self.user.username} [{self.customer_account_id}]"
 
 
 class SellerProfile(models.Model):
@@ -82,6 +97,10 @@ class SellerProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def seller_account_id(self):
+        return f"SEL-{self.user.id:04d}"
+
     def save(self, *args, **kwargs):
         if not self.store_slug:
             from django.utils.text import slugify
@@ -89,7 +108,7 @@ class SellerProfile(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.store_name} ({self.user.username})"
+        return f"{self.store_name} [{self.seller_account_id}] ({self.user.username})"
 
 
 class DeliveryProfile(models.Model):
@@ -116,5 +135,9 @@ class DeliveryProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def driver_account_id(self):
+        return f"DEL-{self.user.id:04d}"
+
     def __str__(self):
-        return f"Delivery: {self.user.get_full_name() or self.user.username} ({self.get_current_status_display()})"
+        return f"Delivery: {self.user.get_full_name() or self.user.username} [{self.driver_account_id}] ({self.get_current_status_display()})"

@@ -404,15 +404,15 @@ class GrocerySynchronizationAndCheckoutTests(TestCase):
         StockRecord.objects.create(product=product, current_stock=25, low_stock_threshold=5)
         guest_client.post(reverse('cart:add_to_cart', args=[product.id]), {'quantity': 2})
 
-        # Guest clicks Checkout
+        # Guest clicks Checkout -> redirected to login
         response = guest_client.get(reverse('orders:checkout'))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Secure Checkout')
-        self.assertContains(response, 'Fresh Red Tomatoes')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), response.url)
 
-    def test_16_guest_can_place_order_seamlessly(self):
-        """Guest buyer enters details and places COD order; user is created and order confirmed."""
-        guest_client = Client()
+    def test_16_customer_can_place_order_seamlessly(self):
+        """Authenticated customer enters details and places COD order; order is confirmed."""
+        client = Client()
+        client.force_login(self.buyer)
         product = Product.objects.create(
             seller=self.seller_a,
             category=self.category,
@@ -425,12 +425,13 @@ class GrocerySynchronizationAndCheckoutTests(TestCase):
             is_approved=True
         )
         StockRecord.objects.create(product=product, current_stock=20, low_stock_threshold=5)
-        guest_client.post(reverse('cart:add_to_cart', args=[product.id]), {'quantity': 1})
+        cart, _ = Cart.objects.get_or_create(user=self.buyer)
+        CartItem.objects.create(cart=cart, product=product, quantity=1)
 
         post_data = {
             'customer_name': 'Aarav Patel',
             'customer_phone': '9123456780',
-            'customer_email': 'aarav.guest@freshmart.com',
+            'customer_email': 'buyer@freshmart.com',
             'full_name': 'Aarav Patel',
             'phone_number': '9123456780',
             'house_number': 'Flat 102',
@@ -444,16 +445,11 @@ class GrocerySynchronizationAndCheckoutTests(TestCase):
             'delivery_slot': '10:00 AM - 01:00 PM',
             'payment_method': 'COD'
         }
-        res = guest_client.post(reverse('orders:checkout'), post_data)
+        res = client.post(reverse('orders:checkout'), post_data)
         self.assertEqual(res.status_code, 302)
         
-        # User created
-        user = User.objects.filter(email='aarav.guest@freshmart.com').first()
-        self.assertIsNotNone(user)
-        self.assertEqual(user.role, User.Role.BUYER)
-
         # Order created
-        order = Order.objects.filter(buyer=user).first()
+        order = Order.objects.filter(buyer=self.buyer).first()
         self.assertIsNotNone(order)
         self.assertEqual(order.payment_method, 'COD')
         self.assertEqual(order.status, Order.Status.ORDER_CONFIRMED)

@@ -14,6 +14,8 @@ from apps.inventory.models import StockRecord, StockMovement
 from apps.orders.models import Order, OrderItem, SellerSubOrder, OrderStatusHistory
 from apps.notifications.models import Notification
 from apps.accounts.models import User
+from apps.delivery.models import DeliveryAssignment
+from apps.delivery.services import auto_assign_delivery_partner
 
 
 @role_required(['SELLER'])
@@ -266,8 +268,12 @@ def seller_product_add(request):
 
 @role_required(['SELLER'])
 def seller_product_edit(request, product_id):
-    """Edit existing product details, pricing, and produce specifications."""
-    product = get_object_or_404(Product, id=product_id, seller=request.user)
+    """Edit existing product details, pricing, inventory stock, and produce specifications."""
+    product = get_object_or_404(Product.objects.select_related('stock_record'), id=product_id, seller=request.user)
+    if not hasattr(product, 'stock_record') or product.stock_record is None:
+        StockRecord.objects.create(product=product, current_stock=0, low_stock_threshold=5)
+        product.refresh_from_db()
+
     categories = Category.objects.filter(is_active=True)
     subcategories = SubCategory.objects.filter(is_active=True)
 
@@ -311,6 +317,40 @@ def seller_product_edit(request, product_id):
         product.is_best_seller = 'is_best_seller' in request.POST
         product.save()
 
+        # Update Stock Record (Stock Inward / Inventory increase or adjustment)
+        stock_record = product.stock_record
+        low_stock_threshold_input = request.POST.get('low_stock_threshold')
+        if low_stock_threshold_input:
+            try:
+                stock_record.low_stock_threshold = max(1, int(low_stock_threshold_input))
+                stock_record.save(update_fields=['low_stock_threshold'])
+            except (ValueError, TypeError):
+                pass
+
+        current_stock_input = request.POST.get('current_stock')
+        stock_reason = request.POST.get('stock_reason', '').strip()
+
+        if current_stock_input is not None:
+            try:
+                new_stock = max(0, int(current_stock_input.strip() or '0'))
+                diff = new_stock - stock_record.current_stock
+                if diff != 0:
+                    change_type = StockMovement.ChangeType.RESTOCK if diff > 0 else StockMovement.ChangeType.MANUAL
+                    default_note = f"Restocked +{diff} units via product edit" if diff > 0 else f"Manual adjustment: {diff} units via product edit"
+                    stock_record.adjust_stock(
+                        quantity_change=diff,
+                        change_type=change_type,
+                        user=request.user,
+                        notes=stock_reason or default_note
+                    )
+            except (ValueError, TypeError) as e:
+                messages.warning(request, f"Stock quantity could not be updated: {e}")
+
+        # Delete images marked for removal
+        delete_image_ids = request.POST.getlist('delete_images')
+        if delete_image_ids:
+            ProductImage.objects.filter(id__in=delete_image_ids, product=product).delete()
+
         # Upload additional images if provided
         images = request.FILES.getlist('images')
         for img_file in images:
@@ -319,6 +359,12 @@ def seller_product_edit(request, product_id):
                 image=img_file,
                 is_primary=False
             )
+
+        # Ensure at least one image is primary if images exist
+        if product.images.exists() and not product.images.filter(is_primary=True).exists():
+            first_img = product.images.first()
+            first_img.is_primary = True
+            first_img.save(update_fields=['is_primary'])
 
         messages.success(request, f"Product '{product.name}' updated successfully!")
         return redirect('seller:product_list')
@@ -394,7 +440,7 @@ def seller_orders_view(request):
     seller = request.user
     sub_orders = SellerSubOrder.objects.filter(seller=seller).select_related(
         'order', 'order__buyer', 'order__delivery_assignment', 'order__delivery_assignment__delivery_person'
-    ).prefetch_related('items').order_by('-created_at')
+    ).prefetch_related('items', 'items__product', 'items__product__images').order_by('-created_at')
 
     # Status filter
     status_filter = request.GET.get('status', '').strip()
@@ -482,24 +528,25 @@ def seller_order_detail_view(request, order_id):
                 sub_order.status = SellerSubOrder.Status.PACKED
                 sub_order.save()
                 order.add_status_history(Order.Status.PACKED, seller, "Grocery items safely packed & temperature sealed.")
-                messages.info(request, f"Order #{order.order_id} marked as Packed.")
 
-            elif action == 'ready_pickup':
+                # Directly check and assign an available delivery partner!
+                assigned, driver, msg = auto_assign_delivery_partner(order, actor=seller)
+                if assigned:
+                    sub_order.status = SellerSubOrder.Status.READY_FOR_PICKUP
+                    sub_order.save(update_fields=['status', 'updated_at'])
+                    messages.success(request, f"Order #{order.order_id} packed and automatically dispatched to delivery partner {driver.get_full_name() or driver.username}!")
+                else:
+                    messages.info(request, f"Order #{order.order_id} marked as Packed. Searching for available delivery partners...")
+
+            elif action in ['ready_pickup', 'auto_assign_driver']:
                 sub_order.status = SellerSubOrder.Status.READY_FOR_PICKUP
                 sub_order.save()
-                order.add_status_history(Order.Status.READY_FOR_PICKUP, seller, "Produce package waiting at store counter for delivery dispatch.")
-                
-                # Notify platform admins to assign delivery fleet agent if not assigned yet
-                if not hasattr(order, 'delivery_assignment'):
-                    for admin in User.objects.filter(role=User.Role.ADMIN):
-                        Notification.send(
-                            user=admin,
-                            title=f"Order #{order.order_id} Ready for Pickup",
-                            message=f"Seller {seller.username} has packed items for #{order.order_id}. Please assign a delivery agent.",
-                            category=Notification.Category.DELIVERY,
-                            link="/admin-dashboard/orders/"
-                        )
-                messages.success(request, f"Order #{order.order_id} is ready for delivery pickup!")
+                assigned, driver, msg = auto_assign_delivery_partner(order, actor=seller)
+                if assigned:
+                    messages.success(request, f"Order #{order.order_id} dispatched to available delivery partner {driver.get_full_name() or driver.username}!")
+                else:
+                    order.add_status_history(Order.Status.READY_FOR_PICKUP, seller, "Produce package waiting at store counter for delivery dispatch.")
+                    messages.warning(request, f"Order is ready for pickup, but all delivery riders are currently busy. Dispatch admin has been alerted.")
 
             elif action == 'confirm_handover':
                 # Validations:
@@ -507,9 +554,12 @@ def seller_order_detail_view(request, order_id):
                     messages.error(request, "Cannot hand over order: Order must be packed first.")
                     return redirect('seller:order_detail', order_id=order.order_id)
 
-                if not hasattr(order, 'delivery_assignment') or not order.delivery_assignment.delivery_person:
-                    messages.error(request, "Cannot hand over order: No delivery partner has been assigned yet.")
-                    return redirect('seller:order_detail', order_id=order.order_id)
+                if not hasattr(order, 'delivery_assignment') or not order.delivery_assignment or not order.delivery_assignment.delivery_person:
+                    assigned, driver, _ = auto_assign_delivery_partner(order, actor=seller)
+                    if not assigned:
+                        messages.error(request, "Cannot hand over order: No delivery partner has been assigned yet.")
+                        return redirect('seller:order_detail', order_id=order.order_id)
+                    order.refresh_from_db()
 
                 entered_id = request.POST.get('order_id_verification', '').strip()
                 if entered_id and entered_id.upper() != order.order_id.upper():
@@ -579,6 +629,19 @@ def seller_order_detail_view(request, order_id):
                 messages.warning(request, f"Order #{order.order_id} rejected.")
 
         return redirect('seller:order_detail', order_id=order.order_id)
+
+    # Auto-dispatch check on GET if packed but not yet assigned to any driver
+    if sub_order.status in [SellerSubOrder.Status.PACKED, SellerSubOrder.Status.READY_FOR_PICKUP]:
+        if not hasattr(order, 'delivery_assignment') or not order.delivery_assignment or not order.delivery_assignment.delivery_person:
+            auto_assign_delivery_partner(order, actor=seller)
+            # Re-fetch order and sub_order to have the latest assignment in template context
+            sub_order = get_object_or_404(
+                SellerSubOrder.objects.select_related(
+                    'order', 'order__buyer', 'order__delivery_assignment', 'order__delivery_assignment__delivery_person'
+                ).prefetch_related('items'),
+                order__order_id=order_id,
+                seller=seller
+            )
 
     return render(request, 'seller/order_detail.html', {'sub_order': sub_order})
 

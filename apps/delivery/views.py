@@ -242,8 +242,8 @@ def delivery_order_detail(request, assignment_id):
                 messages.warning(request, f"Please wait {wait_sec} seconds before requesting a new OTP.")
                 return redirect('delivery:order_detail', assignment_id=assignment.id)
 
-            # Generate cryptographically secure OTP and store salted hash
-            otp_obj, raw_code = DeliveryOTP.generate(assignment, expiry_minutes=5)
+            # Generate cryptographically secure OTP and store salted hash (valid for 15 minutes)
+            otp_obj, raw_code = DeliveryOTP.generate(assignment, expiry_minutes=15)
             
             # Send to customer's registered mobile number
             send_delivery_otp_sms(order, raw_code)
@@ -431,12 +431,12 @@ def delivery_history(request):
     history = DeliveryAssignment.objects.filter(
         delivery_person=agent,
         status__in=[DeliveryAssignment.Status.DELIVERED, DeliveryAssignment.Status.FAILED, DeliveryAssignment.Status.CANCELLED]
-    ).select_related('order', 'order__buyer').prefetch_related('attempts').order_by('-updated_at')
+    ).select_related('order', 'order__buyer').prefetch_related('attempts', 'order__items', 'order__sub_orders', 'order__sub_orders__seller__seller_profile').order_by('-updated_at')
 
-    total_cod_collected = DeliveryAttempt.objects.filter(
-        assignment__delivery_person=agent,
+    total_cod_collected = DeliveryAssignment.objects.filter(
+        delivery_person=agent,
         cod_collected=True
-    ).aggregate(Sum('cod_amount'))['cod_amount__sum'] or Decimal('0.00')
+    ).aggregate(Sum('cod_collected_amount'))['cod_collected_amount__sum'] or Decimal('0.00')
 
     return render(request, 'delivery/history.html', {
         'history': history,

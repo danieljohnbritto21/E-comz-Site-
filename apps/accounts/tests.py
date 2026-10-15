@@ -650,3 +650,45 @@ class RoleBasedLoginAuthenticationTests(TestCase):
         self.assertRedirects(resp, reverse('seller:dashboard'))
         self.assertEqual(int(self.client.session['_auth_user_id']), self.seller.id)
 
+    def test_account_profile_view_delivery_agent(self):
+        """Delivery agent can view their account details with DEL ID."""
+        self.client.force_login(self.delivery)
+        resp = self.client.get(reverse('accounts:profile'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, self.delivery.account_id)
+        self.assertContains(resp, "Delivery Agent Fleet Details")
+
+    def test_account_profile_view_seller(self):
+        """Seller can view their account details with SEL ID."""
+        self.client.force_login(self.seller)
+        resp = self.client.get(reverse('accounts:profile'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, self.seller.account_id)
+        self.assertContains(resp, "Seller Store Merchant Information")
+
+    def test_account_profile_view_buyer(self):
+        """Customer can view their account details with CUST ID."""
+        self.client.force_login(self.customer)
+        resp = self.client.get(reverse('accounts:profile'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, self.customer.account_id)
+        self.assertContains(resp, "Customer Shopping Profile")
+
+    def test_account_profile_view_admin(self):
+        """Admin can view their account details with ADM ID and directory."""
+        self.client.force_login(self.admin)
+        resp = self.client.get(reverse('accounts:profile'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, self.admin.account_id)
+
+    def test_api_account_details_json(self):
+        """API returns JSON account details with unique account_id."""
+        self.client.force_login(self.delivery)
+        resp = self.client.get(reverse('accounts:api_account_details'))
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['account']['account_id'], self.delivery.account_id)
+        self.assertIn('delivery', data['account'])
+
+

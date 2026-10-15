@@ -21,13 +21,14 @@
       </button>
     </div>
 
-    <div class="sidebar-user-card">
+    <div class="sidebar-user-card" onclick="openAccountDetailsModal()" style="cursor: pointer; transition: background 0.15s;" title="Click to view full Account Details">
       <div class="sidebar-avatar" style="background: #EFF6FF; color: #2563EB;">
         {{ user.first_name|first|default:"D" }}
       </div>
       <div>
         <div class="sidebar-user-name">{{ user.get_full_name|default:user.username }}</div>
-        <div class="sidebar-user-role"><i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i> Delivery Agent</div>
+        <div class="sidebar-user-role"><i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i> Delivery Agent <span style="font-family: monospace; font-size: 0.72rem; background: #DBEAFE; padding: 1px 5px; border-radius: 4px; color: #1D4ED8; margin-left: 4px;">{{ user.account_id }}</span></div>
+        <div style="font-size: 0.7rem; color: #2563EB; font-weight: 600; margin-top: 2px;"><i class="fa-solid fa-id-card"></i> View Account Details</div>
       </div>
     </div>
 

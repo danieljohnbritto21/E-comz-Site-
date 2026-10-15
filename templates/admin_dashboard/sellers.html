@@ -6,10 +6,15 @@
 {% block admin_content %}
 <div>
   
-  <div class="dashboard-header">
+  <div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
     <div>
       <h1 class="dashboard-title">Seller Store Approvals & Management</h1>
-      <p class="dashboard-subtitle">Review vendor applications, authorize store publishing privileges, or suspend accounts</p>
+      <p class="dashboard-subtitle">Review vendor applications, authorize store publishing privileges, or register new sellers</p>
+    </div>
+    <div>
+      <button type="button" class="btn btn-primary" onclick="openAddSellerModal()" style="font-weight: 700; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-store"></i> + Add New Seller
+      </button>
     </div>
   </div>
 
@@ -30,8 +35,11 @@
           {% for seller in sellers %}
             <tr>
               <td>
-                <div style="font-weight: 700; font-size: 0.95rem;">{{ seller.store_name }}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-weight: 700; font-size: 0.95rem;">{{ seller.store_name }}</span>
+                  <span class="badge badge-secondary" style="font-family: monospace; font-size: 0.72rem; padding: 2px 6px;">{{ seller.seller_account_id }}</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
                   Owner: {{ seller.user.get_full_name|default:seller.user.username }} (@{{ seller.user.username }})
                 </div>
               </td>
@@ -43,7 +51,11 @@
                 <div style="font-size: 0.8rem; color: var(--text-muted);">{{ seller.user.phone_number }}</div>
               </td>
               <td>
-                <strong>{{ seller.user.products.count }} products</strong>
+                <a href="{% url 'admin_dashboard:products' %}?seller_id={{ seller.user.id }}" style="font-weight: 700; color: var(--color-primary-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;" title="View all products by this seller">
+                  <i class="fa-solid fa-boxes-stacked" style="color: var(--color-primary);"></i>
+                  <span>{{ seller.user.products.count }} products</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.65rem;"></i>
+                </a>
               </td>
               <td>
                 {% if seller.is_approved %}
@@ -71,7 +83,7 @@
           {% empty %}
             <tr>
               <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                No sellers registered yet.
+                No sellers registered yet. Click "+ Add New Seller" to register a merchant.
               </td>
             </tr>
           {% endfor %}
@@ -80,5 +92,139 @@
     </div>
   </div>
 
+  <!-- Add New Seller Modal -->
+  <div id="addSellerModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center; padding: 1.5rem; overflow-y: auto;" onclick="handleAddSellerBackdrop(event)">
+    <div style="background: #ffffff; border-radius: 18px; width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #E2E8F0; margin: auto;" onclick="event.stopPropagation()">
+      
+      <!-- Modal Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid #E2E8F0; background: #F8FAFC; border-radius: 18px 18px 0 0;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(5,150,105,0.12); color: #059669; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+            <i class="fa-solid fa-store"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0F172A;">Register New Seller Merchant</h3>
+            <span style="font-size: 0.78rem; color: #64748B;">Add a verified vendor store directly from admin</span>
+          </div>
+        </div>
+        <button type="button" onclick="closeAddSellerModal()" style="background: none; border: none; font-size: 1.2rem; color: #64748B; cursor: pointer; padding: 4px;" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Form -->
+      <form method="POST" action="{% url 'admin_dashboard:sellers' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_seller">
+        
+        <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+          
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Store / Farm Name *</label>
+            <input type="text" name="store_name" class="form-control" placeholder="e.g. Royal Organic Farm & Produce" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Owner First Name</label>
+              <input type="text" name="first_name" class="form-control" placeholder="e.g. Rajesh">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Owner Last Name</label>
+              <input type="text" name="last_name" class="form-control" placeholder="e.g. Kumar">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">System Username *</label>
+              <input type="text" name="username" class="form-control" placeholder="e.g. seller_royal" required>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Login Password *</label>
+              <input type="text" name="password" class="form-control" placeholder="seller123" value="seller123" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Email Address</label>
+              <input type="email" name="email" class="form-control" placeholder="e.g. contact@royalorganics.com">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Contact Phone *</label>
+              <input type="tel" name="phone_number" class="form-control" placeholder="e.g. 9876543210" required>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Store Pickup Counter Address *</label>
+            <textarea name="pickup_address" rows="2" class="form-control" placeholder="Where delivery partners will collect orders (e.g. Shop 12, Agro Market, Main Road)" required></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">City *</label>
+              <input type="text" name="city" class="form-control" value="Central City" required>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">PIN Code *</label>
+              <input type="text" name="pin_code" class="form-control" value="110001" required>
+            </div>
+          </div>
+
+          <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" name="is_approved" id="isApprovedCheckbox" value="1" checked style="width: 18px; height: 18px; cursor: pointer;">
+            <label for="isApprovedCheckbox" style="margin: 0; font-size: 0.85rem; font-weight: 700; color: #166534; cursor: pointer;">
+              Approve Store Immediately (Seller can sign in & publish products right away)
+            </label>
+          </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 10px; background: #F8FAFC; border-radius: 0 0 18px 18px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddSellerModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" style="font-weight: 700; background: #059669; border-color: #059669;">
+            <i class="fa-solid fa-check"></i> Create Seller Account
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
 </div>
+
+<script>
+function openAddSellerModal() {
+  const modal = document.getElementById('addSellerModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeAddSellerModal() {
+  const modal = document.getElementById('addSellerModal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+  }
+}
+
+function handleAddSellerBackdrop(event) {
+  if (event.target.id === 'addSellerModal') {
+    closeAddSellerModal();
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeAddSellerModal();
+  }
+});
+</script>
 {% endblock %}

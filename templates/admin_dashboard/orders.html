@@ -11,9 +11,14 @@
       <h1 class="dashboard-title">Platform Orders & Dispatch Control</h1>
       <p class="dashboard-subtitle">Monitor orders across all seller sub-orders, assign delivery agents, and review live statuses</p>
     </div>
-    <a href="{% url 'admin_dashboard:export_csv' %}" class="btn btn-secondary btn-sm">
-      <i class="fa-solid fa-file-csv"></i> Download CSV Export
-    </a>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <a href="{% url 'admin_dashboard:auto_assign_all' %}" class="btn btn-primary btn-sm" style="font-weight: 700;">
+        <i class="fa-solid fa-satellite-dish"></i> Auto-Dispatch Ready Orders
+      </a>
+      <a href="{% url 'admin_dashboard:export_csv' %}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-file-csv"></i> Download CSV Export
+      </a>
+    </div>
   </div>
 
   <!-- Status Filter Pills -->
@@ -68,7 +73,9 @@
               </td>
               <td>
                 <div style="font-weight: 600;">{{ order.recipient_name }}</div>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ order.recipient_phone }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                  {% if order.buyer %}<span style="font-family: monospace; font-weight: 700;">{{ order.buyer.account_id }}</span> &bull; {% endif %}{{ order.recipient_phone }}
+                </div>
               </td>
               <td>
                 <div style="font-weight: 600; font-size: 0.85rem;">{{ order.delivery_slot }}</div>
@@ -91,7 +98,7 @@
                     <option value="">-- Choose Agent --</option>
                     {% for driver in delivery_agents %}
                       <option value="{{ driver.id }}" {% if order.delivery_assignment.delivery_person.id == driver.id %}selected{% endif %}>
-                        {{ driver.get_full_name|default:driver.username }} ({{ driver.active_assignments_count|default:"0" }} active)
+                        {{ driver.get_full_name|default:driver.username }} [{{ driver.account_id }}] ({{ driver.active_assignments_count|default:"0" }} active)
                       </option>
                     {% endfor %}
                   </select>
@@ -99,9 +106,14 @@
                     {% if order.delivery_assignment %}Reassign{% else %}Assign{% endif %}
                   </button>
                 </form>
-                {% if order.delivery_assignment %}
-                  <div style="font-size: 0.75rem; color: #047857; margin-top: 2px;">
-                    Assigned: <strong>{{ order.delivery_assignment.delivery_person.get_full_name|default:order.delivery_assignment.delivery_person.username }}</strong>
+                {% if order.delivery_assignment and order.delivery_assignment.delivery_person %}
+                  <div style="font-size: 0.75rem; color: #047857; margin-top: 3px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                    <span>Assigned: <strong>{{ order.delivery_assignment.delivery_person.get_full_name|default:order.delivery_assignment.delivery_person.username }}</strong> <span style="font-family: monospace; font-size: 0.7rem; color: var(--text-muted);">[{{ order.delivery_assignment.delivery_person.account_id }}]</span></span>
+                    <span class="badge badge-info" style="font-size: 0.68rem; padding: 1px 5px;">{{ order.delivery_assignment.get_status_display }}</span>
+                  </div>
+                {% else %}
+                  <div style="font-size: 0.72rem; color: #D97706; margin-top: 3px;">
+                    <i class="fa-solid fa-clock"></i> Auto-dispatching when packed
                   </div>
                 {% endif %}
               </td>

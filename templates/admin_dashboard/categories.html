@@ -6,86 +6,323 @@
 {% block admin_content %}
 <div>
   
-  <div class="dashboard-header">
+  <div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
     <div>
       <h1 class="dashboard-title">Grocery Categories & Aisles</h1>
       <p class="dashboard-subtitle">Manage storefront taxonomy and create new product departments</p>
     </div>
+    <div>
+      <button type="button" class="btn btn-primary" onclick="openAddCategoryModal()" style="font-weight: 700; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-folder-plus"></i> + Add New Category
+      </button>
+    </div>
   </div>
 
-  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: flex-start;">
-    
-    <!-- Categories List -->
-    <div class="table-card">
-      <div class="table-responsive">
-        <table class="data-table">
-          <thead>
+  <!-- Categories Table (Full Width) -->
+  <div class="table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 70px;">Icon</th>
+            <th>Category Name</th>
+            <th>URL Slug</th>
+            <th>Description</th>
+            <th>Total Products</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cat in categories %}
             <tr>
-              <th>Icon</th>
-              <th>Category Name</th>
-              <th>Slug</th>
-              <th>Total Products</th>
-              <th>Status</th>
+              <td>
+                <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(16,185,129,0.12); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center; font-size: 1.15rem;">
+                  <i class="fa-solid {{ cat.icon|default:'fa-leaf' }}"></i>
+                </div>
+              </td>
+              <td>
+                <strong style="font-size: 1rem; color: #0F172A;">{{ cat.name }}</strong>
+              </td>
+              <td>
+                <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted); background: #F1F5F9; padding: 2px 8px; border-radius: 4px;">{{ cat.slug }}</span>
+              </td>
+              <td style="font-size: 0.85rem; color: var(--text-secondary); max-width: 320px;">
+                {{ cat.description|default:"Primary grocery aisle" }}
+              </td>
+              <td>
+                <span style="font-weight: 700; color: #0F172A;">{{ cat.products.count }} products</span>
+              </td>
+              <td>
+                <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {% for cat in categories %}
-              <tr>
-                <td>
-                  <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary-subtle); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center;">
-                    <i class="fa-solid {{ cat.icon|default:'fa-leaf' }}"></i>
-                  </div>
-                </td>
-                <td><strong>{{ cat.name }}</strong></td>
-                <td style="font-size: 0.8rem; color: var(--text-muted);">{{ cat.slug }}</td>
-                <td>{{ cat.products.count }} products</td>
-                <td><span class="badge badge-success">Active</span></td>
-              </tr>
-            {% empty %}
-              <tr>
-                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                  No categories created yet.
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+          {% empty %}
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                No categories created yet. Click "+ Add New Category" to add one!
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+  </div>
 
-    <!-- Create Category Form -->
-    <div class="form-card">
-      <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 1.25rem;">
-        <i class="fa-solid fa-plus-circle" style="color: var(--color-primary-dark);"></i> Add New Category
-      </h3>
-
-      <form method="POST">
-        {% csrf_token %}
-        <div class="form-group">
-          <label class="form-label">Category Name *</label>
-          <input type="text" name="name" class="form-control" placeholder="e.g. Exotic Fruits" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">FontAwesome Icon Class</label>
-          <input type="text" name="icon" class="form-control" placeholder="e.g. fa-apple-whole, fa-bottle-droplet" value="fa-basket-shopping">
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
-            Supports FontAwesome 6 icons (e.g. fa-carrot, fa-leaf, fa-cheese)
+  <!-- Add New Category Popup Modal -->
+  <div id="addCategoryModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center; padding: 1.5rem; overflow-y: auto;" onclick="handleAddCategoryBackdrop(event)">
+    <div style="background: #ffffff; border-radius: 18px; width: 100%; max-width: 540px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #E2E8F0; margin: auto;" onclick="event.stopPropagation()">
+      
+      <!-- Modal Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid #E2E8F0; background: #F8FAFC; border-radius: 18px 18px 0 0;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16,185,129,0.12); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center; font-size: 1.15rem;">
+            <i class="fa-solid fa-folder-plus"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0F172A;">Add New Category</h3>
+            <span style="font-size: 0.78rem; color: #64748B;">Create a new department for store products</span>
           </div>
         </div>
+        <button type="button" onclick="closeAddCategoryModal()" style="background: none; border: none; font-size: 1.2rem; color: #64748B; cursor: pointer; padding: 4px;" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
 
-        <div class="form-group">
-          <label class="form-label">Description</label>
-          <textarea name="description" rows="2" class="form-control" placeholder="Category summary..."></textarea>
+      <!-- Modal Form -->
+      <form method="POST" action="{% url 'admin_dashboard:categories' %}">
+        {% csrf_token %}
+        <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+          
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Category Name *</label>
+            <input type="text" name="name" id="newCategoryNameInput" class="form-control" placeholder="e.g. Exotic Fruits, Organic Grains, Cold Pressed Oils" required autofocus>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155; margin: 0;">FontAwesome 6 Icon Class</label>
+              <a href="https://fontawesome.com/search?o=r&m=free" target="_blank" rel="noopener" style="font-size: 0.72rem; color: var(--color-primary); font-weight: 700; text-decoration: none;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Browse 2,000+ Icons
+              </a>
+            </div>
+            
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div style="position: relative; flex: 1;">
+                <input type="text" name="icon" id="categoryIconInput" class="form-control" placeholder="e.g. fa-cake-candles, fa-apple-whole" value="fa-basket-shopping" autocomplete="off">
+              </div>
+              <div id="iconPreview" style="width: 44px; height: 44px; border-radius: 10px; border: 1.5px solid #CBD5E1; background: #F8FAFC; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; color: var(--color-primary-dark); flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;">
+                <i class="fa-solid fa-basket-shopping"></i>
+              </div>
+            </div>
+
+            <!-- Smart Suggestion Alert (Appears if user types invalid icon or alias like 'cake-slice') -->
+            <div id="iconSmartSuggestion" style="display: none; margin-top: 6px; padding: 6px 10px; background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 6px; font-size: 0.75rem; color: #92400E;">
+            </div>
+            
+            <!-- Quick Category Icon Presets -->
+            <div style="margin-top: 10px;">
+              <div style="font-size: 0.72rem; color: #64748B; font-weight: 700; margin-bottom: 5px;">Popular Category Presets (Click to choose):</div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <!-- Bakery & Sweets -->
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-cake-candles')" title="Cakes & Pastries">🎂 Cakes (fa-cake-candles)</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-bread-slice')" title="Bread & Bakes">🍞 Bread</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-cookie-bite')" title="Cookies & Biscuits">🍪 Cookies</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-ice-cream')" title="Ice Cream & Desserts">🍦 Ice Cream</button>
+                
+                <!-- Fresh Groceries -->
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-apple-whole')" title="Fresh Fruits">🍎 Fruits</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-carrot')" title="Vegetables">🥕 Vegetables</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-leaf')" title="Organic Greens">🌿 Organic</button>
+
+                <!-- Staples & Dairy -->
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-cheese')" title="Dairy & Cheese">🧀 Dairy</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-egg')" title="Eggs">🥚 Eggs</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-bowl-rice')" title="Rice & Grains">🍚 Rice</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-wheat-awn')" title="Wheat & Pulses">🌾 Pulses</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-bottle-droplet')" title="Cooking Oils & Ghee">🛢️ Oils</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-pepper-hot')" title="Masalas & Spices">🌶️ Spices</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-drumstick-bite')" title="Poultry & Meat">🍗 Meat</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-fish')" title="Seafood">🐟 Fish</button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 9px; font-size: 0.75rem; border-radius: 6px;" onclick="setIconValue('fa-mug-hot')" title="Tea & Coffee">☕ Beverages</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Short Description (Optional)</label>
+            <textarea name="description" rows="2" class="form-control" placeholder="Describe the category produce and quality standards..."></textarea>
+          </div>
+
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%;">
-          Create Category
-        </button>
+        <!-- Modal Footer -->
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 10px; background: #F8FAFC; border-radius: 0 0 18px 18px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddCategoryModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" style="font-weight: 700;">
+            <i class="fa-solid fa-plus"></i> Create Category
+          </button>
+        </div>
       </form>
-    </div>
 
+    </div>
   </div>
 
 </div>
+
+<script>
+function openAddCategoryModal() {
+  const modal = document.getElementById('addCategoryModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    const inp = document.getElementById('newCategoryNameInput');
+    if (inp) setTimeout(() => inp.focus(), 100);
+  }
+}
+
+function closeAddCategoryModal() {
+  const modal = document.getElementById('addCategoryModal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+  }
+}
+
+function handleAddCategoryBackdrop(event) {
+  if (event.target.id === 'addCategoryModal') {
+    closeAddCategoryModal();
+  }
+}
+
+// Common aliases mapping to actual FontAwesome 6 icons
+const ICON_ALIASES = {
+  'cake-slice': 'fa-cake-candles',
+  'cake': 'fa-cake-candles',
+  'cakes': 'fa-cake-candles',
+  'pastry': 'fa-cake-candles',
+  'bakery': 'fa-cake-candles',
+  'bread': 'fa-bread-slice',
+  'biscuit': 'fa-cookie-bite',
+  'biscuits': 'fa-cookie-bite',
+  'cookie': 'fa-cookie-bite',
+  'cookies': 'fa-cookie-bite',
+  'icecream': 'fa-ice-cream',
+  'ice-cream': 'fa-ice-cream',
+  'sweet': 'fa-candy-cane',
+  'sweets': 'fa-candy-cane',
+  'chocolate': 'fa-cookie',
+  'tea': 'fa-mug-hot',
+  'coffee': 'fa-mug-hot',
+  'drink': 'fa-glass-water',
+  'juice': 'fa-glass-water',
+  'milk': 'fa-bottle-droplet',
+  'oil': 'fa-bottle-droplet',
+  'oils': 'fa-bottle-droplet',
+  'ghee': 'fa-bottle-droplet',
+  'fruit': 'fa-apple-whole',
+  'fruits': 'fa-apple-whole',
+  'apple': 'fa-apple-whole',
+  'veg': 'fa-carrot',
+  'veggies': 'fa-carrot',
+  'vegetable': 'fa-carrot',
+  'vegetables': 'fa-carrot',
+  'grain': 'fa-bowl-rice',
+  'grains': 'fa-bowl-rice',
+  'rice': 'fa-bowl-rice',
+  'wheat': 'fa-wheat-awn',
+  'dal': 'fa-wheat-awn',
+  'pulse': 'fa-wheat-awn',
+  'pulses': 'fa-wheat-awn',
+  'spice': 'fa-pepper-hot',
+  'spices': 'fa-pepper-hot',
+  'meat': 'fa-drumstick-bite',
+  'chicken': 'fa-drumstick-bite',
+  'fish': 'fa-fish',
+  'egg': 'fa-egg',
+  'eggs': 'fa-egg',
+  'snack': 'fa-pizza-slice',
+  'snacks': 'fa-burger',
+  'clean': 'fa-spray-can-sparkles',
+  'cleaning': 'fa-spray-can-sparkles',
+  'soap': 'fa-soap',
+  'baby': 'fa-baby',
+  'pet': 'fa-paw',
+  'pets': 'fa-paw',
+  'store': 'fa-store',
+  'cart': 'fa-cart-shopping'
+};
+
+function normalizeIconClass(raw) {
+  let val = (raw || '').trim();
+  // Strip fa-solid or fas if user typed the whole class string
+  val = val.replace(/^fa-solid\s+/, '').replace(/^fas\s+/, '').replace(/^fa\s+/, '');
+  // Strip fa- if checking alias
+  const bareName = val.replace(/^fa-/, '').toLowerCase();
+  
+  if (ICON_ALIASES[bareName]) {
+    return {
+      aliasMatch: ICON_ALIASES[bareName],
+      actual: val.startsWith('fa-') ? val : ('fa-' + val)
+    };
+  }
+  
+  if (!val.startsWith('fa-') && val.length > 0) {
+    val = 'fa-' + val;
+  }
+  return { aliasMatch: null, actual: val };
+}
+
+function setIconValue(iconClass) {
+  const inp = document.getElementById('categoryIconInput');
+  const preview = document.getElementById('iconPreview');
+  const suggestionBox = document.getElementById('iconSmartSuggestion');
+  if (inp) {
+    inp.value = iconClass;
+  }
+  if (preview) {
+    preview.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+  }
+  if (suggestionBox) {
+    suggestionBox.style.display = 'none';
+  }
+}
+
+const catIconInput = document.getElementById('categoryIconInput');
+if (catIconInput) {
+  catIconInput.addEventListener('input', function() {
+    const rawVal = this.value.trim();
+    const preview = document.getElementById('iconPreview');
+    const suggestionBox = document.getElementById('iconSmartSuggestion');
+    
+    if (!rawVal) {
+      if (preview) preview.innerHTML = `<i class="fa-solid fa-basket-shopping"></i>`;
+      if (suggestionBox) suggestionBox.style.display = 'none';
+      return;
+    }
+
+    const { aliasMatch, actual } = normalizeIconClass(rawVal);
+    
+    if (preview) {
+      preview.innerHTML = `<i class="fa-solid ${actual}"></i>`;
+    }
+
+    if (suggestionBox) {
+      if (aliasMatch && aliasMatch !== actual) {
+        suggestionBox.innerHTML = `💡 <strong>Suggestion:</strong> For <em>"${rawVal}"</em>, FontAwesome uses <a href="#" onclick="setIconValue('${aliasMatch}'); return false;" style="color: #B45309; font-weight: 800; text-decoration: underline;">${aliasMatch}</a>. Click to apply!`;
+        suggestionBox.style.display = 'block';
+      } else {
+        suggestionBox.style.display = 'none';
+      }
+    }
+  });
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeAddCategoryModal();
+  }
+});
+</script>
 {% endblock %}

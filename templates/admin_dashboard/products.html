@@ -6,13 +6,119 @@
 {% block admin_content %}
 <div>
   
-  <div class="dashboard-header">
+  <div class="dashboard-header" style="margin-bottom: 1.5rem;">
     <div>
       <h1 class="dashboard-title">Platform Products Moderation</h1>
-      <p class="dashboard-subtitle">Inspect products across all registered seller storefronts, manage pricing compliance, and toggle public visibility</p>
+      <p class="dashboard-subtitle">Inspect products across all registered seller storefronts, manage stock compliance, and toggle public visibility</p>
     </div>
   </div>
 
+  <!-- Platform Metric Totals -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Products</div>
+      <div style="font-size: 1.75rem; font-weight: 800; color: #0F172A; margin-top: 4px;">{{ total_products }}</div>
+      <div style="font-size: 0.725rem; color: #059669; font-weight: 600; margin-top: 2px;">Across all registered stores</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #059669; text-transform: uppercase;">Active & Live</div>
+      <div style="font-size: 1.75rem; font-weight: 800; color: #059669; margin-top: 4px;">{{ active_products }}</div>
+      <div style="font-size: 0.725rem; color: #64748B; margin-top: 2px;">Purchasable in buyer storefront</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Deactivated</div>
+      <div style="font-size: 1.75rem; font-weight: 800; color: #64748B; margin-top: 4px;">{{ inactive_products }}</div>
+      <div style="font-size: 0.725rem; color: #94A3B8; margin-top: 2px;">Hidden from buyers</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #DC2626; text-transform: uppercase;">Out of Stock</div>
+      <div style="font-size: 1.75rem; font-weight: 800; color: #DC2626; margin-top: 4px;">{{ out_of_stock_products }}</div>
+      <div style="font-size: 0.725rem; color: #EF4444; margin-top: 2px;">Inventory depleted</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #7C3AED; text-transform: uppercase;">Total Sellers</div>
+      <div style="font-size: 1.75rem; font-weight: 800; color: #7C3AED; margin-top: 4px;">{{ total_sellers }}</div>
+      <div style="font-size: 0.725rem; color: #8B5CF6; margin-top: 2px;">Verified merchants</div>
+    </div>
+  </div>
+
+  <!-- Search & Filter Card -->
+  <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+    <form method="GET" action="{% url 'admin_dashboard:products' %}" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+      
+      <!-- Search Input -->
+      <div style="flex: 2; min-width: 220px;">
+        <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Search Product</label>
+        <div style="position: relative;">
+          <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Search by name, SKU, or ID..." style="padding-left: 32px;">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.85rem;"></i>
+        </div>
+      </div>
+
+      <!-- Seller Filter -->
+      <div style="flex: 1.5; min-width: 180px;">
+        <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Filter by Seller</label>
+        <select name="seller_id" class="form-select">
+          <option value="">-- All Sellers --</option>
+          {% for s in all_sellers %}
+            <option value="{{ s.user.id }}" {% if selected_seller_id == s.user.id|stringformat:"s" %}selected{% endif %}>
+              {{ s.store_name }} (@{{ s.user.username }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Category Filter -->
+      <div style="flex: 1.2; min-width: 150px;">
+        <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Category</label>
+        <select name="category_id" class="form-select">
+          <option value="">-- All Categories --</option>
+          {% for c in all_categories %}
+            <option value="{{ c.id }}" {% if selected_category_id == c.id|stringformat:"s" %}selected{% endif %}>
+              {{ c.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Status Filter -->
+      <div style="flex: 1; min-width: 130px;">
+        <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Status</label>
+        <select name="status" class="form-select">
+          <option value="">-- Any Status --</option>
+          <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active & Live</option>
+          <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Deactivated</option>
+          <option value="out_of_stock" {% if status_filter == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+        </select>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; gap: 8px;">
+        <button type="submit" class="btn btn-primary" style="padding: 7px 16px; font-weight: 700; font-size: 0.85rem;">
+          <i class="fa-solid fa-filter"></i> Apply
+        </button>
+        {% if search_query or selected_seller_id or selected_category_id or status_filter %}
+          <a href="{% url 'admin_dashboard:products' %}" class="btn btn-secondary" style="padding: 7px 12px; font-size: 0.85rem;" title="Clear Filters">
+            <i class="fa-solid fa-rotate-left"></i> Reset
+          </a>
+        {% endif %}
+      </div>
+
+    </form>
+
+    {% if selected_seller %}
+      <div style="margin-top: 10px; padding: 6px 12px; background: #EDE9FE; border-radius: 8px; font-size: 0.8rem; color: #5B21B6; display: inline-flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-store"></i> Filtering products for seller: <strong>{{ selected_seller.seller_profile.store_name|default:selected_seller.username }}</strong>
+        <a href="{% url 'admin_dashboard:products' %}" style="color: #DC2626; margin-left: 6px; text-decoration: none;" title="Remove seller filter">&times; Clear</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Products Table Card -->
   <div class="table-card">
     <div class="table-responsive">
       <table class="data-table">
@@ -33,17 +139,17 @@
             <tr>
               <td>
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <img src="{{ p.primary_image_url }}" alt="{{ p.name }}" style="width: 40px; height: 40px; object-fit: contain; background: #FAFAFA; border-radius: 4px; border: 1px solid var(--bg-border);">
+                  <img src="{{ p.primary_image_url }}" alt="{{ p.name }}" style="width: 42px; height: 42px; object-fit: contain; background: #FAFAFA; border-radius: 6px; border: 1px solid var(--bg-border);">
                   <div>
                     <div style="font-weight: 700;">{{ p.name }}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ p.unit_value }} &bull; SKU: {{ p.sku }}</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted);">{{ p.unit_value }} &bull; SKU: {{ p.sku }}</div>
                   </div>
                 </div>
               </td>
               <td>
-                <span class="badge badge-secondary" style="font-size: 0.8rem;">
-                  {{ p.seller.seller_profile.store_name|default:p.seller.username }}
-                </span>
+                <a href="{% url 'admin_dashboard:products' %}?seller_id={{ p.seller.id }}" class="badge badge-secondary" style="font-size: 0.78rem; text-decoration: none;" title="Filter products by this seller">
+                  <i class="fa-solid fa-store"></i> {{ p.seller.seller_profile.store_name|default:p.seller.username }}
+                </a>
               </td>
               <td>{{ p.category.name }}</td>
               <td style="color: var(--text-muted); text-decoration: line-through;">₹{{ p.mrp }}</td>
@@ -55,7 +161,7 @@
               </td>
               <td>
                 {% if p.is_active %}
-                  <span class="badge badge-success">Active & Live</span>
+                  <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active & Live</span>
                 {% else %}
                   <span class="badge badge-secondary">Deactivated</span>
                 {% endif %}
@@ -77,7 +183,7 @@
           {% empty %}
             <tr>
               <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                No products found.
+                No products match the selected criteria.
               </td>
             </tr>
           {% endfor %}

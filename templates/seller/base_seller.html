@@ -22,13 +22,14 @@
     </div>
 
     <!-- Desktop User Info Card -->
-    <div class="sidebar-user-card">
+    <div class="sidebar-user-card" onclick="openAccountDetailsModal()" style="cursor: pointer; transition: background 0.15s;" title="Click to view full Account Details">
       <div class="sidebar-avatar">
         {{ user.seller_profile.store_name|first|default:"S" }}
       </div>
       <div>
         <div class="sidebar-user-name">{{ user.seller_profile.store_name|default:user.username }}</div>
-        <div class="sidebar-user-role"><i class="fa-solid fa-store" style="color: #10B981;"></i> Seller Merchant</div>
+        <div class="sidebar-user-role"><i class="fa-solid fa-store" style="color: #10B981;"></i> Seller Merchant <span style="font-family: monospace; font-size: 0.72rem; background: #ECFDF5; padding: 1px 5px; border-radius: 4px; color: #047857; margin-left: 4px;">{{ user.account_id }}</span></div>
+        <div style="font-size: 0.7rem; color: #059669; font-weight: 600; margin-top: 2px;"><i class="fa-solid fa-id-card"></i> View Account Details</div>
       </div>
     </div>
 
@@ -126,15 +127,7 @@
         </a>
       </li>
 
-      <!-- Extra Utilities -->
       <li class="sidebar-menu-item" style="margin-top: auto; border-top: 1px solid var(--bg-border); padding-top: 0.75rem;">
-        <a href="{% url 'catalog:home' %}">
-          <i class="fa-solid fa-store"></i>
-          <span>View Buyer Shop</span>
-        </a>
-      </li>
-
-      <li class="sidebar-menu-item">
         <a href="{% url 'accounts:logout' %}" style="color: #DC2626;">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
           <span>Sign Out</span>

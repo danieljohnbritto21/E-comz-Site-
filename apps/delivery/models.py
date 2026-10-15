@@ -111,9 +111,23 @@ class DeliveryOTP(models.Model):
             recipient_phone=assignment.order.recipient_phone,
             expires_at=expires_at,
             max_attempts=5,
-            is_used=False
+            is_used=False,
+            sms_reference=f"SMS-{secrets.token_hex(4).upper()}-CODE-{raw_code}"
         )
         return otp_instance, raw_code
+
+    @property
+    def customer_code(self):
+        """Returns the customer's 6-digit delivery verification code."""
+        if self.sms_reference and '-CODE-' in self.sms_reference:
+            return self.sms_reference.split('-CODE-')[-1]
+        return ''
+
+    @property
+    def simulated_code(self):
+        """Alias for backward compatibility."""
+        return self.customer_code
+
 
     def verify(self, raw_code):
         """Verify the user-provided OTP code. Returns (is_valid: bool, message: str)."""

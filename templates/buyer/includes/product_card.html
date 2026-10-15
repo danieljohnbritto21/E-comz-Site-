@@ -19,8 +19,15 @@
     <img src="{{ product.primary_image_url }}" alt="{{ product.name }}" loading="lazy">
   </a>
 
-  <!-- Brand & Name -->
-  <span class="product-brand">{{ product.brand|default:"Farm Fresh" }}</span>
+  <!-- Brand & Store -->
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-bottom: 2px;">
+    <span class="product-brand">{{ product.brand|default:"Farm Fresh" }}</span>
+    {% if product.seller.seller_profile.store_name %}
+      <span style="font-size: 0.68rem; color: #059669; font-weight: 700; background: #ECFDF5; padding: 1px 6px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;" title="Sold by {{ product.seller.seller_profile.store_name }}">
+        <i class="fa-solid fa-store" style="font-size: 0.65rem;"></i> {{ product.seller.seller_profile.store_name }}
+      </span>
+    {% endif %}
+  </div>
   <h3 class="product-name">
     <a href="{% url 'catalog:product_detail' product.slug %}">{{ product.name }}</a>
   </h3>

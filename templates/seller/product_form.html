@@ -46,24 +46,8 @@
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Subcategory (Optional)</label>
-            <select name="subcategory" class="form-select" id="subcategory-select">
-              <option value="">-- Optional Subcategory --</option>
-              {% for sub in subcategories %}
-                <option value="{{ sub.id }}" {% if product.subcategory.id == sub.id %}selected{% endif %}>{{ sub.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
             <label class="form-label">Brand / Grower Name</label>
             <input type="text" name="brand" class="form-control" placeholder="e.g. FreshFarm, Organic Tattva" value="{{ product.brand|default:'Farm Fresh' }}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">SKU / Barcode (Leave blank to auto-generate)</label>
-            <input type="text" name="sku" class="form-control" placeholder="Auto-generated if blank" value="{{ product.sku|default:'' }}">
           </div>
         </div>
 
@@ -116,13 +100,14 @@
         </div>
       </div>
 
-      <!-- Section 3: Inventory Stock (For new products) -->
-      {% if not product %}
-        <div style="margin-bottom: 2rem; border-top: 1px solid var(--bg-border); padding-top: 1.5rem;">
-          <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--color-primary-dark); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-boxes-stacked"></i> 3. Inventory Stock & Health Threshold
-          </h3>
+      <!-- Section 3: Inventory Stock & Health Threshold -->
+      <div style="margin-bottom: 2rem; border-top: 1px solid var(--bg-border); padding-top: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--color-primary-dark); display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-boxes-stacked"></i> 3. Inventory Stock, Inward & Health Threshold
+        </h3>
 
+        {% if not product %}
+          <!-- For New Product Creation -->
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Initial Stock Units *</label>
@@ -133,8 +118,103 @@
               <input type="number" name="low_stock_threshold" class="form-control" value="5" min="1" required>
             </div>
           </div>
-        </div>
-      {% endif %}
+        {% else %}
+          <!-- For Existing Product Editing -->
+          <div style="background: #F8FAF9; border: 1px solid var(--bg-border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
+            
+            <!-- Live Health Status Header -->
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px dashed var(--bg-border);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary);">Current Live Stock:</div>
+                <span class="badge {% if product.stock_record.current_stock <= 0 %}badge-danger{% elif product.stock_record.current_stock <= product.stock_record.low_stock_threshold %}badge-warning{% else %}badge-success{% endif %}" style="font-size: 0.85rem; padding: 4px 10px;">
+                  {% if product.stock_record.current_stock <= 0 %}
+                    <i class="fa-solid fa-circle-xmark"></i> Out of Stock (0 units)
+                  {% elif product.stock_record.current_stock <= product.stock_record.low_stock_threshold %}
+                    <i class="fa-solid fa-triangle-exclamation"></i> Low Stock ({{ product.stock_record.current_stock }} left)
+                  {% else %}
+                    <i class="fa-solid fa-circle-check"></i> Healthy Stock ({{ product.stock_record.current_stock }} units)
+                  {% endif %}
+                </span>
+              </div>
+              
+              <div style="font-size: 0.8rem; color: var(--text-muted);">
+                Last restocked: {{ product.stock_record.last_restocked_at|date:"d M Y, h:i A" }}
+              </div>
+            </div>
+
+            <!-- Stock Input & Quick Inward -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Total Current Stock Units *</label>
+                <input type="number" 
+                       name="current_stock" 
+                       id="current-stock-input" 
+                       class="form-control" 
+                       value="{{ product.stock_record.current_stock|default:0 }}" 
+                       min="0" 
+                       required
+                       oninput="onDirectStockChange()">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                  Directly change the total quantity available in inventory.
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Quick Stock Inward / Increase (+ Units)</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="number" 
+                         id="quick-add-input" 
+                         class="form-control" 
+                         placeholder="e.g. 20" 
+                         min="1">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="applyQuickAddInput()" style="white-space: nowrap; font-weight: 700;">
+                    <i class="fa-solid fa-plus"></i> Add
+                  </button>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                  Type amount and click Add, or use preset buttons below.
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Restock Presets -->
+            <div style="margin-top: 0.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-right: 4px;">
+                Restock Presets:
+              </span>
+              <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 12px; font-size: 0.75rem; border-radius: 6px; font-weight: 700;" onclick="addStockPreset(5)">+5</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 12px; font-size: 0.75rem; border-radius: 6px; font-weight: 700;" onclick="addStockPreset(10)">+10</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 12px; font-size: 0.75rem; border-radius: 6px; font-weight: 700;" onclick="addStockPreset(25)">+25</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 12px; font-size: 0.75rem; border-radius: 6px; font-weight: 700;" onclick="addStockPreset(50)">+50</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 12px; font-size: 0.75rem; border-radius: 6px; font-weight: 700;" onclick="addStockPreset(100)">+100</button>
+            </div>
+
+            <!-- Stock Change Notification Bar -->
+            <div id="stock-change-indicator" style="display: none; background: #ECFDF5; border: 1px solid #A7F3D0; color: #047857; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; margin-bottom: 1rem;">
+              <i class="fa-solid fa-arrow-trend-up"></i> Stock will be updated from <span id="old-stock-display">{{ product.stock_record.current_stock|default:0 }}</span> to <strong id="new-stock-display">{{ product.stock_record.current_stock|default:0 }}</strong> units (<span id="diff-stock-display">+0</span>).
+            </div>
+
+            <div class="form-row">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Low-Stock Alert Level *</label>
+                <input type="number" name="low_stock_threshold" class="form-control" value="{{ product.stock_record.low_stock_threshold|default:5 }}" min="1" required>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                  Triggers orange warning when inventory dips below this amount.
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Adjustment Reason / Batch Note (Optional)</label>
+                <input type="text" name="stock_reason" class="form-control" placeholder="e.g. Received new morning harvest batch">
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                  Recorded in inventory audit logs for stock movements.
+                </div>
+              </div>
+            </div>
+
+          </div>
+        {% endif %}
+      </div>
 
       <!-- Section 4: Produce Standards, Origin & Nutrition -->
       <div style="margin-bottom: 2rem; border-top: 1px solid var(--bg-border); padding-top: 1.5rem;">
@@ -171,11 +251,52 @@
           <i class="fa-solid fa-camera"></i> 5. Product Images & Buyer Visibility
         </h3>
 
-        <div class="form-group">
-          <label class="form-label">Upload Product Images (Select one or multiple files)</label>
-          <input type="file" name="images" class="form-control" multiple accept="image/*">
-          <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 4px;">
-            Supported formats: JPG, PNG, WEBP. The first uploaded photo serves as primary thumbnail.
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label class="form-label" style="display: flex; align-items: center; justify-content: space-between;">
+            <span>Product Photos <span style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);">(Small thumbnail preview)</span></span>
+            <span id="photo-count-badge" style="font-size: 0.75rem; background: #EEF2F6; color: #4B5563; padding: 2px 8px; border-radius: 12px; font-weight: 600;">0 selected</span>
+          </label>
+          
+          <!-- Hidden native file input -->
+          <input type="file" id="product-images-input" name="images" multiple accept="image/*" style="display: none;">
+          
+          <!-- Hidden container to store IDs of deleted existing images -->
+          <div id="delete-images-container"></div>
+
+          <!-- Small Thumbnails Row -->
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px; background: #FAFAFA; border: 1.5px dashed var(--bg-border); border-radius: var(--radius-md); min-height: 110px;">
+            
+            <!-- Existing Images (if editing) -->
+            {% if product and product.images.all %}
+              {% for img in product.images.all %}
+                <div class="existing-image-card" id="existing-img-{{ img.id }}" style="position: relative; width: 88px; height: 88px; border-radius: 10px; overflow: hidden; border: 1.5px solid var(--bg-border); box-shadow: 0 1px 3px rgba(0,0,0,0.08); background: #fff; flex-shrink: 0;">
+                  <img src="{{ img.image.url }}" alt="{{ product.name }}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                  {% if img.is_primary %}
+                    <span style="position: absolute; bottom: 4px; left: 4px; background: #059669; color: white; font-size: 0.58rem; font-weight: 700; padding: 2px 5px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.2);">Primary</span>
+                  {% endif %}
+                  <button type="button" onclick="removeExistingImage({{ img.id }})" title="Remove photo" style="position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(220, 38, 38, 0.9); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; transition: transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                    <i class="fa-solid fa-trash-can"></i>
+                  </button>
+                </div>
+              {% endfor %}
+            {% endif %}
+
+            <!-- Dynamic Selected Previews -->
+            <div id="selected-previews-container" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;"></div>
+
+            <!-- Small "+ Add Photo" Card -->
+            <div id="upload-trigger-btn" onclick="document.getElementById('product-images-input').click()" style="width: 88px; height: 88px; border-radius: 10px; border: 2px dashed #9CA3AF; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.04);" onmouseover="this.style.borderColor='var(--color-primary)'; this.style.background='#F0FDF4'; this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='#9CA3AF'; this.style.background='#FFFFFF'; this.style.transform='none'">
+              <div style="width: 32px; height: 32px; border-radius: 50%; background: #ECFDF5; display: flex; align-items: center; justify-content: center; margin-bottom: 4px;">
+                <i class="fa-solid fa-plus" style="font-size: 0.9rem; color: #059669;"></i>
+              </div>
+              <span style="font-size: 0.7rem; font-weight: 700; color: #374151;">+ Add Photo</span>
+            </div>
+
+          </div>
+
+          <div style="font-size: 0.775rem; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-circle-check" style="color: #059669;"></i>
+            <span>Photos display as small previews. First photo is primary storefront thumbnail. Supported: JPG, PNG, WEBP.</span>
           </div>
         </div>
 
@@ -219,6 +340,7 @@
 {% endblock %}
 
 {% block extra_js %}
+{{ block.super }}
 <script>
 function calculateDiscount() {
   const mrp = parseFloat(document.getElementById('mrp-input').value) || 0;
@@ -236,6 +358,188 @@ function calculateDiscount() {
   }
 }
 calculateDiscount();
+
+// Inventory Stock Calculations
+const baseInitialStock = parseInt("{{ product.stock_record.current_stock|default:0 }}") || 0;
+
+function updateStockIndicator() {
+  const currentInput = document.getElementById('current-stock-input');
+  const indicator = document.getElementById('stock-change-indicator');
+  if (!currentInput || !indicator) return;
+
+  const currentVal = parseInt(currentInput.value) || 0;
+  const diff = currentVal - baseInitialStock;
+
+  if (diff !== 0) {
+    document.getElementById('old-stock-display').innerText = baseInitialStock;
+    document.getElementById('new-stock-display').innerText = currentVal;
+    document.getElementById('diff-stock-display').innerText = (diff > 0 ? '+' : '') + diff + ' units';
+    indicator.style.display = 'block';
+  } else {
+    indicator.style.display = 'none';
+  }
+}
+
+function onDirectStockChange() {
+  updateStockIndicator();
+}
+
+function addStockPreset(qty) {
+  const currentInput = document.getElementById('current-stock-input');
+  if (!currentInput) return;
+  const currentVal = parseInt(currentInput.value) || 0;
+  currentInput.value = Math.max(0, currentVal + qty);
+  updateStockIndicator();
+}
+
+function applyQuickAddInput() {
+  const addInput = document.getElementById('quick-add-input');
+  if (!addInput) return;
+  const qty = parseInt(addInput.value) || 0;
+  if (qty > 0) {
+    addStockPreset(qty);
+    addInput.value = '';
+  }
+}
+
+// Allow Enter key on quick-add input to add quantity without submitting whole form
+const quickInputEl = document.getElementById('quick-add-input');
+if (quickInputEl) {
+  quickInputEl.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applyQuickAddInput();
+    }
+  });
+}
+
+// ==========================================
+// Product Images: Small Previews & File Sync
+// ==========================================
+let selectedProductFiles = [];
+const imageInput = document.getElementById('product-images-input');
+const previewsContainer = document.getElementById('selected-previews-container');
+const uploadTriggerBtn = document.getElementById('upload-trigger-btn');
+const photoCountBadge = document.getElementById('photo-count-badge');
+const hasExistingImgs = {% if product and product.images.exists %}true{% else %}false{% endif %};
+
+if (imageInput) {
+  imageInput.addEventListener('change', function(e) {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      if (file.type.startsWith('image/')) {
+        const alreadyExists = selectedProductFiles.some(f => f.name === file.name && f.size === file.size);
+        if (!alreadyExists) {
+          selectedProductFiles.push(file);
+        }
+      }
+    });
+    syncFileInputAndRender();
+  });
+}
+
+// Drag & drop support on upload trigger card
+if (uploadTriggerBtn) {
+  uploadTriggerBtn.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    this.style.borderColor = 'var(--color-primary)';
+    this.style.background = '#ECFDF5';
+  });
+  uploadTriggerBtn.addEventListener('dragleave', function() {
+    this.style.borderColor = '#9CA3AF';
+    this.style.background = '#FFFFFF';
+  });
+  uploadTriggerBtn.addEventListener('drop', function(e) {
+    e.preventDefault();
+    this.style.borderColor = '#9CA3AF';
+    this.style.background = '#FFFFFF';
+    if (e.dataTransfer && e.dataTransfer.files) {
+      const files = Array.from(e.dataTransfer.files);
+      files.forEach(file => {
+        if (file.type.startsWith('image/')) {
+          const alreadyExists = selectedProductFiles.some(f => f.name === file.name && f.size === file.size);
+          if (!alreadyExists) {
+            selectedProductFiles.push(file);
+          }
+        }
+      });
+      syncFileInputAndRender();
+    }
+  });
+}
+
+function syncFileInputAndRender() {
+  try {
+    const dt = new DataTransfer();
+    selectedProductFiles.forEach(file => dt.items.add(file));
+    imageInput.files = dt.files;
+  } catch (err) {
+    console.warn('DataTransfer sync warning:', err);
+  }
+  renderImagePreviews();
+}
+
+function renderImagePreviews() {
+  if (!previewsContainer) return;
+  previewsContainer.innerHTML = '';
+
+  const totalSelected = selectedProductFiles.length;
+  if (photoCountBadge) {
+    photoCountBadge.innerText = totalSelected + (totalSelected === 1 ? ' photo selected' : ' photos selected');
+  }
+
+  selectedProductFiles.forEach((file, index) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'position: relative; width: 88px; height: 88px; border-radius: 10px; overflow: hidden; border: 1.5px solid #CBD5E1; box-shadow: 0 1px 3px rgba(0,0,0,0.08); background: #F3F4F6; flex-shrink: 0;';
+
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    img.alt = file.name;
+    img.style.cssText = 'width: 100%; height: 100%; object-fit: cover; display: block;';
+    card.appendChild(img);
+
+    // If first image and no previous existing images, mark as primary
+    if (index === 0 && !hasExistingImgs) {
+      const badge = document.createElement('span');
+      badge.innerText = 'Primary';
+      badge.style.cssText = 'position: absolute; bottom: 4px; left: 4px; background: #059669; color: white; font-size: 0.58rem; font-weight: 700; padding: 2px 5px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.2);';
+      card.appendChild(badge);
+    }
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.title = 'Remove photo';
+    removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    removeBtn.style.cssText = 'position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.65); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; transition: background 0.15s;';
+    removeBtn.onmouseover = () => removeBtn.style.background = 'rgba(220, 38, 38, 0.9)';
+    removeBtn.onmouseout = () => removeBtn.style.background = 'rgba(0,0,0,0.65)';
+    removeBtn.onclick = function(e) {
+      e.stopPropagation();
+      selectedProductFiles.splice(index, 1);
+      syncFileInputAndRender();
+    };
+    card.appendChild(removeBtn);
+
+    previewsContainer.appendChild(card);
+  });
+}
+
+function removeExistingImage(imageId) {
+  if (confirm('Remove this existing photo?')) {
+    const card = document.getElementById('existing-img-' + imageId);
+    if (card) {
+      card.remove();
+    }
+    const container = document.getElementById('delete-images-container');
+    if (container) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'delete_images';
+      input.value = imageId;
+      container.appendChild(input);
+    }
+  }
+}
 
 document.getElementById('product-form').addEventListener('submit', function() {
   const btn = document.getElementById('submit-btn');

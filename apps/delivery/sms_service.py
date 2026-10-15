@@ -20,11 +20,46 @@ def send_delivery_otp_sms(order, raw_otp):
         f"Valid for 5 minutes. Share this code ONLY with your delivery partner upon package handover."
     )
 
-    # In production with SMS Gateway (e.g. Twilio, MSG91, Fast2SMS):
-    # response = requests.post(SMS_GATEWAY_URL, json={'phone': recipient_phone, 'message': sms_body}, ...)
-    
-    # Audit log entry (audit record records dispatch event and reference)
+    # Live SMS Gateway Integration (Fast2SMS for India, or Twilio)
+    import os
+    import json
+    import urllib.request
+    from django.conf import settings
+
+    fast2sms_api_key = os.getenv('FAST2SMS_API_KEY') or getattr(settings, 'FAST2SMS_API_KEY', None)
+    if fast2sms_api_key:
+        try:
+            clean_digits = ''.join(c for c in recipient_phone if c.isdigit())
+            if len(clean_digits) > 10:
+                clean_digits = clean_digits[-10:]
+            req = urllib.request.Request(
+                "https://www.fast2sms.com/dev/bulkV2",
+                data=json.dumps({
+                    "route": "otp",
+                    "variables_values": str(raw_otp),
+                    "numbers": clean_digits
+                }).encode('utf-8'),
+                headers={
+                    "authorization": fast2sms_api_key,
+                    "Content-Type": "application/json"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                resp_data = resp.read().decode('utf-8')
+                logger.info("Fast2SMS API Response: %s", resp_data)
+        except Exception as exc:
+            logger.error("Fast2SMS dispatch failed: %s", exc)
+
+    # Audit log and console terminal dispatch simulation
     logger.info("Delivery OTP SMS dispatched: Order=%s, Recipient=%s, Ref=%s", order.order_id, masked_phone, sms_ref)
+    print("\n" + "="*70)
+    print("[FRESHMART SMS GATEWAY DISPATCH]")
+    print(f"Recipient Phone : {order.recipient_phone}")
+    print(f"Recipient Name  : {order.recipient_name}")
+    print(f"Order Reference : #{order.order_id}")
+    print(f"Dispatched OTP  : >>> {raw_otp} <<< (Valid for 5 minutes)")
+    print(f"SMS Content     : \"{sms_body}\"")
+    print("="*70 + "\n")
 
     # Create in-app buyer notification so buyer receives the code directly on their portal
     if order.buyer:

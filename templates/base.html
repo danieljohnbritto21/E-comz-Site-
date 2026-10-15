@@ -25,7 +25,15 @@
   <div class="top-bar">
     <div class="container top-bar-inner">
       <div style="display: flex; align-items: center; gap: 15px;">
-        <span class="top-bar-notice"><i class="fa-solid fa-bolt" style="color: #F59E0B;"></i> Superfast 30-min grocery delivery in your neighborhood</span>
+        {% if request.resolver_match.namespace == 'seller' or user.role == 'SELLER' %}
+          <span class="top-bar-notice"><i class="fa-solid fa-store" style="color: #10B981;"></i> FreshMart Merchant Partner Portal</span>
+        {% elif request.resolver_match.namespace == 'admin_dashboard' or user.role == 'ADMIN' %}
+          <span class="top-bar-notice"><i class="fa-solid fa-shield-halved" style="color: #7C3AED;"></i> FreshMart Platform Administration</span>
+        {% elif request.resolver_match.namespace == 'delivery' or user.role == 'DELIVERY' %}
+          <span class="top-bar-notice"><i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i> FreshMart Fleet Partner Portal</span>
+        {% else %}
+          <span class="top-bar-notice"><i class="fa-solid fa-bolt" style="color: #F59E0B;"></i> Superfast 30-min grocery delivery in your neighborhood</span>
+        {% endif %}
         <span class="top-bar-divider" style="color: #CBD5E1;">|</span>
         <span class="top-bar-support"><i class="fa-solid fa-phone"></i> Support: +91 98765 43210</span>
       </div>
@@ -47,8 +55,10 @@
         {% else %}
           <a href="{% url 'accounts:register_seller' %}"><i class="fa-solid fa-shop"></i> Sell on FreshMart</a>
         {% endif %}
-        <span style="color: #CBD5E1;">|</span>
-        <span><i class="fa-solid fa-location-dot" style="color: #10B981;"></i> Deliver to: <strong>Downtown (110001)</strong></span>
+        {% if request.resolver_match.namespace != 'seller' and user.role != 'SELLER' and request.resolver_match.namespace != 'admin_dashboard' and request.resolver_match.namespace != 'delivery' %}
+          <span style="color: #CBD5E1;">|</span>
+          <span><i class="fa-solid fa-location-dot" style="color: #10B981;"></i> Deliver to: <strong>Downtown (110001)</strong></span>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -64,22 +74,50 @@
             <button type="button" class="mobile-menu-toggle-btn" id="mobile-menu-toggle" onclick="openMobileDrawer()" aria-label="Open Navigation Menu">
               <i class="fa-solid fa-bars"></i>
             </button>
-            <a href="{% url 'catalog:home' %}" class="brand-logo" id="logo-link">
-              <i class="fa-solid fa-basket-shopping" style="color: var(--color-primary);"></i>
-              Fresh<span>Mart</span>
-            </a>
+            {% if request.resolver_match.namespace == 'seller' or user.role == 'SELLER' %}
+              <a href="{% url 'seller:dashboard' %}" class="brand-logo" id="logo-link">
+                <i class="fa-solid fa-store" style="color: var(--color-primary);"></i>
+                Fresh<span>Mart</span> <span style="font-size: 0.72rem; color: #059669; font-weight: 700; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 2px 7px; border-radius: 6px; margin-left: 6px;">Seller</span>
+              </a>
+            {% elif request.resolver_match.namespace == 'admin_dashboard' or user.role == 'ADMIN' %}
+              <a href="{% url 'admin_dashboard:dashboard' %}" class="brand-logo" id="logo-link">
+                <i class="fa-solid fa-shield-halved" style="color: #7C3AED;"></i>
+                Fresh<span>Mart</span> <span style="font-size: 0.72rem; color: #7C3AED; font-weight: 700; background: #EDE9FE; border: 1px solid #DDD6FE; padding: 2px 7px; border-radius: 6px; margin-left: 6px;">Admin</span>
+              </a>
+            {% else %}
+              <a href="{% url 'catalog:home' %}" class="brand-logo" id="logo-link">
+                <i class="fa-solid fa-basket-shopping" style="color: var(--color-primary);"></i>
+                Fresh<span>Mart</span>
+              </a>
+            {% endif %}
           </div>
 
           <!-- Search Bar with Live Suggestions -->
           <div class="search-box">
-            <form action="{% url 'catalog:product_list' %}" method="GET" style="margin: 0;">
-              <i class="fa-solid fa-magnifying-glass search-icon"></i>
-              <input type="text" name="q" id="main-search-input" class="search-input" 
-                     placeholder="Search fresh vegetables, fruits, dairy, snacks, drinks..." 
-                     autocomplete="off" value="{{ request.GET.q }}">
-            </form>
-            <div id="search-suggestions" style="display: none; position: absolute; top: 105%; left: 0; right: 0; background: #ffffff; border: 1px solid #E5E7EB; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 1100; max-height: 340px; overflow-y: auto;">
-            </div>
+            {% if request.resolver_match.namespace == 'seller' or user.role == 'SELLER' %}
+              <form action="{% url 'seller:product_list' %}" method="GET" style="margin: 0;">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" name="q" id="main-search-input" class="search-input" 
+                       placeholder="Search your store products by name or SKU..." 
+                       autocomplete="off" value="{{ request.GET.q }}">
+              </form>
+            {% elif request.resolver_match.namespace == 'admin_dashboard' or user.role == 'ADMIN' %}
+              <form action="{% url 'admin_dashboard:products' %}" method="GET" style="margin: 0;">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" name="q" id="main-search-input" class="search-input" 
+                       placeholder="Search all platform products..." 
+                       autocomplete="off" value="{{ request.GET.q }}">
+              </form>
+            {% else %}
+              <form action="{% url 'catalog:product_list' %}" method="GET" style="margin: 0;">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" name="q" id="main-search-input" class="search-input" 
+                       placeholder="Search fresh vegetables, fruits, dairy, snacks, drinks..." 
+                       autocomplete="off" value="{{ request.GET.q }}">
+              </form>
+              <div id="search-suggestions" style="display: none; position: absolute; top: 105%; left: 0; right: 0; background: #ffffff; border: 1px solid #E5E7EB; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 1100; max-height: 340px; overflow-y: auto;">
+              </div>
+            {% endif %}
           </div>
 
           <!-- User Actions & Cart -->
@@ -95,13 +133,77 @@
                 </a>
               </div>
 
-              <!-- User Profile Dropdown -->
-              <div class="nav-action-desktop" style="position: relative; display: inline-block;">
-                <a href="{% url 'accounts:role_redirect' %}" class="nav-action-btn">
+              <!-- Direct Orders Shortcut for Customer -->
+              {% if user.role == 'BUYER' %}
+                <div class="nav-action-desktop">
+                  <a href="{% url 'orders:order_history' %}" class="nav-action-btn" title="My Orders" style="display: flex; align-items: center; gap: 6px; text-decoration: none; font-size: 0.88rem; font-weight: 700; color: #1E293B; padding: 6px 12px; border-radius: 999px; border: 1px solid #E2E8F0; background: #F8FAFC; transition: all 0.15s;">
+                    <i class="fa-solid fa-receipt" style="color: var(--color-primary-dark);"></i>
+                    <span>Orders</span>
+                  </a>
+                </div>
+              {% endif %}
+
+              <!-- User Profile Dropdown & Account Details Trigger -->
+              <div class="nav-action-desktop account-dropdown-wrapper" style="position: relative; display: inline-block;">
+                <button type="button" class="nav-action-btn" id="navbarAccountBtn" onclick="toggleAccountDropdown(event)" aria-label="Open Account Menu" aria-expanded="false" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;">
                   <i class="fa-regular fa-circle-user" style="font-size: 1.15rem; color: var(--color-primary-dark);"></i>
-                  <span>{{ user.first_name|default:user.username }}</span>
-                  <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem; color: var(--text-muted);"></i>
-                </a>
+                  <span style="font-weight: 700;">{{ user.first_name|default:user.username }}</span>
+                  <span style="font-family: monospace; font-size: 0.72rem; font-weight: 700; background: rgba(16,185,129,0.12); color: var(--color-primary-dark); padding: 1px 6px; border-radius: 999px;">{{ user.account_id }}</span>
+                  <i class="fa-solid fa-chevron-down" id="accountChevronIcon" style="font-size: 0.72rem; color: var(--text-muted); transition: transform 0.2s;"></i>
+                </button>
+
+                <!-- Interactive Account Dropdown Menu -->
+                <div id="accountDropdownMenu" class="account-dropdown-menu" style="display: none;">
+                  <div class="account-dropdown-header">
+                    <div class="dropdown-user-name">{{ user.get_full_name|default:user.username }}</div>
+                    <div class="dropdown-user-email">{{ user.email|default:'FreshMart User' }}</div>
+                    <div class="dropdown-badges-row">
+                      <span class="account-id-badge" style="font-size: 0.75rem;">{{ user.account_id }}</span>
+                      <span class="role-badge {% if user.role == 'ADMIN' or user.is_superuser %}role-badge-admin{% elif user.role == 'SELLER' %}role-badge-seller{% elif user.role == 'DELIVERY' %}role-badge-delivery{% else %}role-badge-buyer{% endif %}">
+                        {{ user.get_role_display }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button type="button" class="account-dropdown-item" onclick="openAccountDetailsModal()">
+                    <i class="fa-solid fa-id-card" style="color: var(--color-primary);"></i>
+                    <span><strong>View Account Details</strong></span>
+                  </button>
+
+                  <a href="{% url 'accounts:profile' %}" class="account-dropdown-item">
+                    <i class="fa-solid fa-user-gear"></i>
+                    <span>Account Settings & Profile</span>
+                  </a>
+
+                  {% if user.role == 'ADMIN' or user.is_superuser %}
+                    <a href="{% url 'admin_dashboard:dashboard' %}" class="account-dropdown-item">
+                      <i class="fa-solid fa-shield-halved" style="color: #7C3AED;"></i>
+                      <span>Admin Control Center</span>
+                    </a>
+                  {% elif user.role == 'SELLER' %}
+                    <a href="{% url 'seller:dashboard' %}" class="account-dropdown-item">
+                      <i class="fa-solid fa-store" style="color: #059669;"></i>
+                      <span>Seller Dashboard</span>
+                    </a>
+                  {% elif user.role == 'DELIVERY' %}
+                    <a href="{% url 'delivery:dashboard' %}" class="account-dropdown-item">
+                      <i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i>
+                      <span>Delivery Fleet Tasks</span>
+                    </a>
+                  {% else %}
+                    <a href="{% url 'orders:order_history' %}" class="account-dropdown-item">
+                      <i class="fa-solid fa-receipt" style="color: var(--color-primary);"></i>
+                      <span>My Order History</span>
+                    </a>
+                  {% endif %}
+
+                  <div class="dropdown-divider"></div>
+
+                  <a href="{% url 'accounts:logout' %}" class="account-dropdown-item text-danger">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Sign Out</span>
+                  </a>
+                </div>
               </div>
 
               <a href="{% url 'accounts:logout' %}" class="nav-action-btn nav-action-desktop" title="Sign Out">
@@ -117,7 +219,8 @@
               </a>
             {% endif %}
 
-            <!-- Shopping Cart Button -->
+            <!-- Shopping Cart Button (Customer only) -->
+            {% if request.resolver_match.namespace != 'seller' and user.role != 'SELLER' and request.resolver_match.namespace != 'admin_dashboard' and request.resolver_match.namespace != 'delivery' %}
             <a href="{% url 'cart:view_cart' %}" class="btn btn-primary btn-pill btn-nav-cart" style="gap: 0.6rem;">
               <i class="fa-solid fa-cart-shopping"></i>
               <span class="cart-count-badge" style="background: #ffffff; color: var(--color-primary-dark); border-radius: 999px; padding: 2px 7px; font-size: 0.75rem; font-weight: 800;">
@@ -127,13 +230,15 @@
                 <span class="nav-cart-price" style="font-size: 0.85rem; font-weight: 700;">₹{{ nav_cart_subtotal }}</span>
               {% endif %}
             </a>
+            {% endif %}
           </div>
 
         </div>
       </div>
     </div>
 
-    <!-- Category Strip -->
+    <!-- Category Strip (Customer Storefront only) -->
+    {% if request.resolver_match.namespace != 'seller' and user.role != 'SELLER' and request.resolver_match.namespace != 'admin_dashboard' and request.resolver_match.namespace != 'delivery' %}
     <div class="category-nav-strip">
       <div class="container">
         <ul class="category-nav-list">
@@ -152,6 +257,7 @@
         </ul>
       </div>
     </div>
+    {% endif %}
   </header>
 
   <!-- Flash Messages Banner -->
@@ -172,6 +278,7 @@
   </main>
 
   <!-- Site Footer -->
+  {% if request.resolver_match.namespace != 'seller' and request.resolver_match.namespace != 'admin_dashboard' and request.resolver_match.namespace != 'delivery' %}
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
@@ -233,6 +340,15 @@
       </div>
     </div>
   </footer>
+  {% else %}
+  <footer style="padding: 1rem 2rem; background: #ffffff; border-top: 1px solid var(--bg-border); font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div>&copy; 2026 FreshMart Merchant Partner Portal. All rights reserved.</div>
+    <div style="display: flex; gap: 15px;">
+      <span><i class="fa-solid fa-shield-halved" style="color: #10B981;"></i> Strict Seller-Isolated Session</span>
+      <span><i class="fa-solid fa-lock" style="color: #10B981;"></i> Secure Backend Authorization</span>
+    </div>
+  </footer>
+  {% endif %}
 
   <!-- Floating Bottom Cart Dock (Instant Visibility for Buyer) -->
   <div id="floating-cart-bar" class="floating-cart-bar {% if nav_cart_count > 0 %}is-visible{% endif %}">
@@ -280,12 +396,12 @@
     <!-- User Profile or Sign-In Strip -->
     <div class="mobile-drawer-user">
       {% if user.is_authenticated %}
-        <div class="mobile-user-card">
+        <div class="mobile-user-card" onclick="openAccountDetailsModal()" style="cursor: pointer;" title="Tap to view Account Details">
           <div class="mobile-user-avatar">
             {{ user.first_name|first|default:user.username|first|upper }}
           </div>
           <div>
-            <div class="mobile-user-name">{{ user.get_full_name|default:user.username }}</div>
+            <div class="mobile-user-name">{{ user.get_full_name|default:user.username }} <span style="font-family: monospace; font-size: 0.75rem; background: #E2E8F0; padding: 1px 5px; border-radius: 4px; font-weight: 700;">{{ user.account_id }}</span></div>
             <div class="mobile-user-role">
               {% if user.role == 'ADMIN' or user.is_superuser %}
                 <span class="badge" style="background: #F3E8FF; color: #7C3AED;">Admin</span>
@@ -296,6 +412,7 @@
               {% else %}
                 <span class="badge badge-secondary">FreshMart Customer</span>
               {% endif %}
+              <span style="font-size: 0.72rem; color: var(--color-primary-dark); font-weight: 600; margin-left: 4px;"><i class="fa-solid fa-circle-info"></i> View Details</span>
             </div>
           </div>
         </div>
@@ -378,7 +495,8 @@
   </aside>
   <div id="mobile-drawer-overlay" class="mobile-drawer-overlay" onclick="closeMobileDrawer()"></div>
 
-  <!-- Mobile Bottom Navigation Bar (Fixed for Mobile Screens) -->
+  <!-- Mobile Bottom Navigation Bar (Fixed for Customer Mobile Screens) -->
+  {% if request.resolver_match.namespace != 'seller' and user.role != 'SELLER' and request.resolver_match.namespace != 'admin_dashboard' and request.resolver_match.namespace != 'delivery' %}
   <nav class="mobile-bottom-nav" aria-label="Mobile Navigation Bar">
     <a href="{% url 'catalog:home' %}" class="mobile-bottom-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
       <i class="fa-solid fa-house"></i>
@@ -404,9 +522,25 @@
       <span>Basket</span>
     </a>
   </nav>
+  {% endif %}
+
+  <!-- Core Authentication State & CSRF Context -->
+  <div style="display: none;" id="csrf-token-holder">{% csrf_token %}</div>
+  <script>
+    window.FRESHMART_USER = {
+      isAuthenticated: {% if user.is_authenticated %}true{% else %}false{% endif %},
+      role: "{{ user.role|default:'' }}",
+      loginUrl: "{% url 'accounts:login' %}"
+    };
+  </script>
 
   <!-- Core JavaScript -->
   <script src="{% static 'js/main.js' %}"></script>
+
+  {% if user.is_authenticated %}
+    {% include 'auth/account_modal.html' %}
+  {% endif %}
+
   {% block extra_js %}{% endblock %}
 </body>
 </html>

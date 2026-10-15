@@ -21,13 +21,14 @@
       </button>
     </div>
 
-    <div class="sidebar-user-card" style="background: #F5F3FF; border: 1px solid #DDD6FE;">
+    <div class="sidebar-user-card" onclick="openAccountDetailsModal()" style="background: #F5F3FF; border: 1px solid #DDD6FE; cursor: pointer; transition: background 0.15s;" title="Click to view full Account Details">
       <div class="sidebar-avatar" style="background: #7C3AED; color: #ffffff;">
         <i class="fa-solid fa-shield-halved"></i>
       </div>
       <div>
         <div class="sidebar-user-name">{{ user.get_full_name|default:user.username }}</div>
-        <div class="sidebar-user-role" style="color: #6D28D9; font-weight: 700;">Platform Administrator</div>
+        <div class="sidebar-user-role" style="color: #6D28D9; font-weight: 700;">Platform Administrator <span style="font-family: monospace; font-size: 0.72rem; background: #EDE9FE; padding: 1px 5px; border-radius: 4px; color: #6D28D9; margin-left: 4px;">{{ user.account_id }}</span></div>
+        <div style="font-size: 0.7rem; color: #7C3AED; font-weight: 600; margin-top: 2px;"><i class="fa-solid fa-id-card"></i> View Account Details</div>
       </div>
     </div>
 

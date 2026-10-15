@@ -37,7 +37,7 @@
           </span>
         {% endif %}
       </div>
-      <p class="dashboard-subtitle">Placed {{ sub_order.created_at|date:"d M Y, h:i A" }} &bull; Same Order ID throughout platform</p>
+      <p class="dashboard-subtitle">Placed {{ sub_order.created_at|date:"d M Y, h:i A" }} &bull; Dispatch Ref: <strong style="font-family: monospace; color: #059669;">#{{ sub_order.sub_order_id }}</strong> &bull; Customer: <strong>{{ sub_order.order.recipient_name }}</strong> [{{ sub_order.order.buyer.account_id }}]</p>
     </div>
     <a href="{% url 'seller:orders' %}" class="btn btn-secondary btn-sm">
       <i class="fa-solid fa-arrow-left"></i> All Orders
@@ -114,16 +114,21 @@
               </form>
             </div>
           {% else %}
-            <!-- Awaiting delivery agent assignment by admin -->
-            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-md); padding: 1rem; color: #1E40AF; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <!-- Awaiting free delivery rider -->
+            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-md); padding: 1.15rem; color: #1E40AF; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
               <div>
-                <i class="fa-solid fa-spinner fa-spin"></i> <strong>Order Packed:</strong> Waiting for Admin/Dispatcher to assign a delivery partner.
+                <div style="font-weight: 800; font-size: 0.95rem; margin-bottom: 2px;">
+                  <i class="fa-solid fa-motorcycle fa-spin"></i> Order Packed: Auto-Dispatching Delivery Partner...
+                </div>
+                <div style="font-size: 0.8rem; color: #3B82F6;">
+                  Checking for free courier riders in your sector. If all riders are currently on deliveries, click to re-scan.
+                </div>
               </div>
               <form method="POST" style="margin: 0;">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="ready_pickup">
-                <button type="submit" class="btn btn-outline-primary btn-sm">
-                  <i class="fa-solid fa-bell"></i> Re-notify Dispatch Admin
+                <input type="hidden" name="action" value="auto_assign_driver">
+                <button type="submit" class="btn btn-primary btn-sm" style="font-weight: 700; white-space: nowrap;">
+                  <i class="fa-solid fa-satellite-dish"></i> Check Available Riders & Dispatch
                 </button>
               </form>
             </div>
@@ -232,7 +237,7 @@
               {{ sub_order.order.delivery_assignment.delivery_person.get_full_name|default:sub_order.order.delivery_assignment.delivery_person.username }}
             </div>
             <div style="font-size: 0.85rem; color: var(--text-muted);">
-              Agent ID: #DEL-{{ sub_order.order.delivery_assignment.delivery_person.id }}
+              Agent ID: <strong style="font-family: monospace; color: var(--text-main);">{{ sub_order.order.delivery_assignment.delivery_person.account_id }}</strong>
             </div>
           </div>
         </div>
@@ -251,8 +256,9 @@
 
       {% else %}
         <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; padding: 1.5rem; text-align: center; color: var(--text-muted);">
-          <i class="fa-solid fa-user-clock" style="font-size: 1.75rem; color: #94A3B8; margin-bottom: 8px; display: block;"></i>
-          No delivery partner assigned yet.<br>Admin will assign an available courier driver once packed.
+          <i class="fa-solid fa-motorcycle" style="font-size: 1.75rem; color: #94A3B8; margin-bottom: 8px; display: block;"></i>
+          <strong>Auto-Dispatching Delivery Partner</strong><br>
+          <span style="font-size: 0.8rem;">The system searches for nearest free courier riders once packed.</span>
         </div>
       {% endif %}
     </div>
@@ -264,6 +270,12 @@
       </h4>
       <div style="font-size: 0.9rem; margin-bottom: 6px;">
         Order ID: <strong>#{{ sub_order.order.order_id }}</strong>
+      </div>
+      <div style="font-size: 0.9rem; margin-bottom: 6px;">
+        Store Dispatch ID: <strong style="font-family: monospace; color: #059669;">#{{ sub_order.sub_order_id }}</strong>
+      </div>
+      <div style="font-size: 0.9rem; margin-bottom: 6px;">
+        Customer Account: <strong style="font-family: monospace;">{{ sub_order.order.buyer.account_id }}</strong>
       </div>
       <div style="font-size: 0.9rem; margin-bottom: 6px;">
         Target Slot: <strong>{{ sub_order.order.delivery_slot }}</strong>

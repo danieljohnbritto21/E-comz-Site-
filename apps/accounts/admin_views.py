@@ -5,12 +5,14 @@ from django.http import HttpResponse
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
+from django.utils.text import slugify
 from django.db.models import Sum, Count, Q
 from apps.accounts.decorators import role_required
 from apps.accounts.models import User, BuyerProfile, SellerProfile, DeliveryProfile
 from apps.catalog.models import Product, Category
 from apps.orders.models import Order, OrderItem, SellerSubOrder, OrderStatusHistory
 from apps.delivery.models import DeliveryAssignment
+from apps.delivery.services import auto_assign_delivery_partner
 from apps.notifications.models import Notification
 
 
@@ -159,6 +161,29 @@ def admin_assign_delivery(request, order_id):
 
 
 @role_required(['ADMIN'])
+def admin_auto_assign_all(request):
+    """Auto-assign all unassigned orders to available delivery fleet riders."""
+    unassigned_orders = Order.objects.filter(
+        status__in=[Order.Status.ORDER_CONFIRMED, Order.Status.PREPARING, Order.Status.PACKED, Order.Status.READY_FOR_PICKUP]
+    ).filter(
+        Q(delivery_assignment__isnull=True) | Q(delivery_assignment__delivery_person__isnull=True)
+    ).order_by('created_at')
+
+    assigned_count = 0
+    for ord_obj in unassigned_orders:
+        assigned, driver, _ = auto_assign_delivery_partner(ord_obj, actor=request.user)
+        if assigned:
+            assigned_count += 1
+
+    if assigned_count > 0:
+        messages.success(request, f"Successfully auto-dispatched {assigned_count} order(s) to available delivery fleet partners!")
+    else:
+        messages.info(request, "No eligible unassigned orders found, or all delivery drivers are currently occupied.")
+
+    return redirect('admin_dashboard:orders')
+
+
+@role_required(['ADMIN'])
 def admin_buyers_view(request):
     """List and manage registered buyers."""
     buyers = User.objects.filter(role=User.Role.BUYER).prefetch_related('orders').order_by('-created_at')
@@ -171,8 +196,70 @@ def admin_sellers_view(request):
     sellers = SellerProfile.objects.select_related('user').order_by('-created_at')
 
     if request.method == 'POST':
-        profile_id = request.POST.get('profile_id')
         action = request.POST.get('action')
+
+        # Create New Seller
+        if action == 'create_seller':
+            store_name = request.POST.get('store_name', '').strip()
+            username = request.POST.get('username', '').strip()
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            email = request.POST.get('email', '').strip()
+            phone = request.POST.get('phone_number', '').strip()
+            password = request.POST.get('password', '').strip() or 'seller123'
+            pickup_address = request.POST.get('pickup_address', '').strip()
+            city = request.POST.get('city', 'Central City').strip() or 'Central City'
+            pin_code = request.POST.get('pin_code', '110001').strip() or '110001'
+            is_approved = 'is_approved' in request.POST or request.POST.get('is_approved') == '1'
+
+            if not store_name:
+                messages.error(request, "Please enter a valid store name.")
+                return redirect('admin_dashboard:sellers')
+
+            if not username:
+                messages.error(request, "Please enter a valid username.")
+                return redirect('admin_dashboard:sellers')
+
+            if User.objects.filter(username__iexact=username).exists():
+                messages.error(request, f"Username '{username}' is already taken. Please choose another username.")
+                return redirect('admin_dashboard:sellers')
+
+            if email and User.objects.filter(email__iexact=email).exists():
+                messages.error(request, f"An account with email '{email}' already exists.")
+                return redirect('admin_dashboard:sellers')
+
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone_number=phone,
+                    password=password,
+                    role=User.Role.SELLER,
+                    account_status=User.Status.ACTIVE if is_approved else User.Status.PENDING_APPROVAL
+                )
+                slug = slugify(store_name)
+                if not slug:
+                    slug = f"store-{user.id}"
+                if SellerProfile.objects.filter(store_slug=slug).exists():
+                    slug = f"{slug}-{user.id}"
+
+                profile = SellerProfile.objects.create(
+                    user=user,
+                    store_name=store_name,
+                    store_slug=slug,
+                    store_phone=phone or user.phone_number,
+                    store_email=email or user.email,
+                    pickup_address=pickup_address or 'Store Counter Pickup Address',
+                    city=city,
+                    pin_code=pin_code,
+                    is_approved=is_approved
+                )
+                messages.success(request, f"Seller store '{store_name}' created successfully with Account ID {profile.seller_account_id} (Username: {username})!")
+                return redirect('admin_dashboard:sellers')
+
+        profile_id = request.POST.get('profile_id')
         profile = get_object_or_404(SellerProfile, id=profile_id)
 
         if action == 'approve':
@@ -241,9 +328,45 @@ def admin_delivery_view(request):
 
 @role_required(['ADMIN'])
 def admin_products_view(request):
-    """Admin view of all products across sellers with active/inactive toggles."""
-    products = Product.objects.select_related('category', 'seller', 'stock_record').order_by('-created_at')
-    
+    """Admin platform-wide view of all products across sellers with filtering, searching, and metric totals."""
+    products_qs = Product.objects.select_related('category', 'seller', 'seller__seller_profile', 'stock_record').order_by('-created_at')
+
+    # Platform metric totals
+    total_products = Product.objects.count()
+    active_products = Product.objects.filter(is_active=True).count()
+    inactive_products = Product.objects.filter(is_active=False).count()
+    out_of_stock_products = Product.objects.filter(stock_record__current_stock__lte=0).count()
+    total_sellers = User.objects.filter(role=User.Role.SELLER).count()
+
+    # Search filter
+    search_query = request.GET.get('q', '').strip()
+    if search_query:
+        if search_query.isdigit():
+            products_qs = products_qs.filter(Q(id=int(search_query)) | Q(name__icontains=search_query) | Q(sku__icontains=search_query))
+        else:
+            products_qs = products_qs.filter(Q(name__icontains=search_query) | Q(sku__icontains=search_query) | Q(brand__icontains=search_query))
+
+    # Seller filter
+    seller_id = request.GET.get('seller_id', '').strip()
+    selected_seller = None
+    if seller_id and seller_id.isdigit():
+        products_qs = products_qs.filter(seller_id=int(seller_id))
+        selected_seller = User.objects.filter(id=int(seller_id)).first()
+
+    # Category filter
+    category_id = request.GET.get('category_id', '').strip()
+    if category_id and category_id.isdigit():
+        products_qs = products_qs.filter(category_id=int(category_id))
+
+    # Status filter
+    status_filter = request.GET.get('status', '').strip()
+    if status_filter == 'active':
+        products_qs = products_qs.filter(is_active=True)
+    elif status_filter == 'inactive':
+        products_qs = products_qs.filter(is_active=False)
+    elif status_filter == 'out_of_stock':
+        products_qs = products_qs.filter(stock_record__current_stock__lte=0)
+
     if request.method == 'POST':
         product_id = request.POST.get('product_id')
         prod = get_object_or_404(Product, id=product_id)
@@ -251,9 +374,26 @@ def admin_products_view(request):
         prod.save(update_fields=['is_active'])
         status_name = "Activated" if prod.is_active else "Deactivated"
         messages.info(request, f"{prod.name} has been {status_name}.")
-        return redirect('admin_dashboard:products')
+        return redirect(request.get_full_path())
 
-    return render(request, 'admin_dashboard/products.html', {'products': products})
+    all_sellers = SellerProfile.objects.select_related('user').all().order_by('store_name')
+    all_categories = Category.objects.filter(is_active=True).order_by('name')
+
+    return render(request, 'admin_dashboard/products.html', {
+        'products': products_qs,
+        'total_products': total_products,
+        'active_products': active_products,
+        'inactive_products': inactive_products,
+        'out_of_stock_products': out_of_stock_products,
+        'total_sellers': total_sellers,
+        'all_sellers': all_sellers,
+        'all_categories': all_categories,
+        'search_query': search_query,
+        'selected_seller_id': seller_id,
+        'selected_seller': selected_seller,
+        'selected_category_id': category_id,
+        'status_filter': status_filter,
+    })
 
 
 @role_required(['ADMIN'])
@@ -262,12 +402,15 @@ def admin_categories_view(request):
     categories = Category.objects.all().order_by('sort_order', 'name')
 
     if request.method == 'POST':
-        name = request.POST.get('name')
-        icon = request.POST.get('icon', 'fa-leaf')
-        description = request.POST.get('description', '')
+        name = request.POST.get('name', '').strip()
+        icon = request.POST.get('icon', 'fa-basket-shopping').strip() or 'fa-basket-shopping'
+        description = request.POST.get('description', '').strip()
         if name:
-            Category.objects.create(name=name, icon=icon, description=description)
-            messages.success(request, f"Category '{name}' created successfully.")
+            try:
+                Category.objects.create(name=name, icon=icon, description=description)
+                messages.success(request, f"Category '{name}' created successfully.")
+            except Exception:
+                messages.error(request, f"A category with the name '{name}' already exists.")
             return redirect('admin_dashboard:categories')
 
     return render(request, 'admin_dashboard/categories.html', {'categories': categories})

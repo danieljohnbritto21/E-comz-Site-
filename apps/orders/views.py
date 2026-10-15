@@ -14,12 +14,21 @@ from apps.accounts.models import User
 
 from django.contrib.auth import login
 from django.utils.text import slugify
+from django.urls import reverse
 from apps.cart.views import get_or_create_cart
 from apps.accounts.models import User, BuyerProfile
 
 
 def checkout_view(request):
-    """Checkout page supporting both authenticated customers and guest buyers without forced log-off."""
+    """Customer-only checkout gateway requiring an authenticated Customer account."""
+    if not request.user.is_authenticated:
+        messages.info(request, "Please log in or create a customer account to checkout.")
+        return redirect(f"{reverse('accounts:login')}?role=BUYER&next={request.path}")
+
+    if request.user.role != User.Role.BUYER:
+        messages.error(request, "Only customer accounts can access checkout and place orders.")
+        return redirect('catalog:home')
+
     cart = get_or_create_cart(request)
     if not cart or cart.total_items == 0:
         messages.warning(request, "Your basket is empty. Please add items before checkout.")
@@ -35,30 +44,120 @@ def checkout_view(request):
 
     addresses = Address.objects.filter(user=request.user) if request.user.is_authenticated else Address.objects.none()
 
+    # Pre-populate defaults
+    customer_name = (request.user.get_full_name() or request.user.username) if request.user.is_authenticated else ''
+    customer_phone = getattr(request.user, 'phone_number', '') if request.user.is_authenticated else ''
+    customer_email = request.user.email if request.user.is_authenticated else ''
+    full_name = customer_name
+    phone = customer_phone
+    house = ''
+    street = ''
+    area = ''
+    city = 'Central City'
+    state = 'State'
+    pin_code = ''
+    addr_type = 'HOME'
+    landmark = ''
+    delivery_date_choice = 'today'
+    delivery_slot = '07:00 AM - 10:00 AM'
+    instructions = ''
+    payment_method = 'COD'
+    address_id = ''
+
+    if request.user.is_authenticated and addresses.exists():
+        default_addr = addresses.filter(is_default=True).first() or addresses.first()
+        if default_addr:
+            address_id = str(default_addr.id)
+            full_name = default_addr.full_name
+            phone = default_addr.phone_number
+            house = default_addr.house_number
+            street = default_addr.street
+            area = default_addr.area
+            city = default_addr.city
+            state = default_addr.state
+            pin_code = default_addr.pin_code
+            landmark = default_addr.landmark
+            addr_type = default_addr.address_type
+
+    def build_checkout_context():
+        return {
+            'cart': cart,
+            'cart_items': cart_items,
+            'addresses': addresses,
+            'customer_name': customer_name,
+            'customer_phone': customer_phone,
+            'customer_email': customer_email,
+            'full_name': full_name,
+            'phone_number': phone,
+            'house_number': house,
+            'street': street,
+            'area': area,
+            'city': city,
+            'state': state,
+            'pin_code': pin_code,
+            'landmark': landmark,
+            'address_type': addr_type,
+            'delivery_date': delivery_date_choice,
+            'delivery_slot': delivery_slot,
+            'delivery_instructions': instructions,
+            'payment_method': payment_method,
+            'address_id': address_id,
+        }
+
     if request.method == 'POST':
-        # Customer details validation
+        # Retrieve all submitted fields
         customer_name = request.POST.get('customer_name', '').strip()
         customer_phone = request.POST.get('customer_phone', '').strip()
         customer_email = request.POST.get('customer_email', '').strip()
 
+        address_id = request.POST.get('address_id', '').strip()
+        full_name = request.POST.get('full_name', '').strip()
+        phone = request.POST.get('phone_number', '').strip()
+        house = request.POST.get('house_number', '').strip()
+        street = request.POST.get('street', '').strip()
+        area = request.POST.get('area', '').strip()
+        city = request.POST.get('city', 'Central City').strip()
+        state = request.POST.get('state', 'State').strip()
+        pin_code = request.POST.get('pin_code', '').strip()
+        addr_type = request.POST.get('address_type', 'HOME')
+        landmark = request.POST.get('landmark', '').strip()
+
+        delivery_date_choice = request.POST.get('delivery_date', 'today')
+        delivery_slot = request.POST.get('delivery_slot', '07:00 AM - 10:00 AM')
+        instructions = request.POST.get('delivery_instructions', '').strip()
+        payment_method = request.POST.get('payment_method', 'COD')
+
+        # Auto-sync Name and Phone between Section 1 & Section 2 so the user never has to type twice
+        if not customer_name and full_name:
+            customer_name = full_name
+        if not full_name and customer_name:
+            full_name = customer_name
+
+        if not customer_phone and phone:
+            customer_phone = phone
+        if not phone and customer_phone:
+            phone = customer_phone
+
+        # Authenticate / Register user
         if request.user.is_authenticated:
             customer_name = customer_name or request.user.get_full_name() or request.user.username
             customer_phone = customer_phone or getattr(request.user, 'phone_number', '') or ''
             customer_email = customer_email or request.user.email or ''
             buyer_user = request.user
         else:
-            if not customer_name or not customer_phone or not customer_email:
-                messages.error(request, "Please enter your Full Name, Mobile Number, and Email Address to place your order.")
-                return render(request, 'buyer/checkout.html', {
-                    'cart': cart,
-                    'cart_items': cart_items,
-                    'addresses': addresses,
-                    'customer_name': customer_name,
-                    'customer_phone': customer_phone,
-                    'customer_email': customer_email,
-                })
-            
-            # Find existing buyer or create a buyer user seamlessly
+            if not customer_name:
+                messages.error(request, "Please enter your Name.")
+                return render(request, 'buyer/checkout.html', build_checkout_context())
+            if not customer_phone:
+                messages.error(request, "Please enter your Mobile Number.")
+                return render(request, 'buyer/checkout.html', build_checkout_context())
+
+            # If guest email is omitted, generate fallback guest email from phone
+            if not customer_email:
+                clean_phone = ''.join(filter(str.isdigit, customer_phone)) or 'guest'
+                customer_email = f"buyer_{clean_phone}@freshmart.local"
+
+            # Find existing buyer or create
             matched_user = User.objects.filter(email__iexact=customer_email).first()
             if not matched_user and customer_phone:
                 matched_user = User.objects.filter(phone_number=customer_phone).first()
@@ -83,26 +182,12 @@ def checkout_view(request):
                 buyer_user.save()
                 BuyerProfile.objects.get_or_create(user=buyer_user)
 
-            # Log in the buyer so they stay logged in seamlessly without being thrown to a login screen
             login(request, buyer_user)
-            # Re-associate cart with buyer_user
             cart.user = buyer_user
             cart.session_key = None
             cart.save(update_fields=['user', 'session_key'])
 
         # Retrieve or create delivery address
-        address_id = request.POST.get('address_id')
-        full_name = request.POST.get('full_name', '').strip() or customer_name
-        phone = request.POST.get('phone_number', '').strip() or customer_phone
-        house = request.POST.get('house_number', '').strip()
-        street = request.POST.get('street', '').strip()
-        area = request.POST.get('area', '').strip()
-        city = request.POST.get('city', 'Central City').strip()
-        state = request.POST.get('state', 'State').strip()
-        pin_code = request.POST.get('pin_code', '').strip()
-        addr_type = request.POST.get('address_type', 'HOME')
-        landmark = request.POST.get('landmark', '').strip()
-
         if address_id and request.user.is_authenticated:
             selected_address = get_object_or_404(Address, id=address_id, user=buyer_user)
             recipient_name = selected_address.full_name
@@ -112,15 +197,8 @@ def checkout_view(request):
             address_type_name = selected_address.get_address_type_display()
         else:
             if not (full_name and phone and house and street and pin_code):
-                messages.error(request, "Please fill in all required delivery address fields.")
-                return render(request, 'buyer/checkout.html', {
-                    'cart': cart,
-                    'cart_items': cart_items,
-                    'addresses': addresses,
-                    'customer_name': customer_name,
-                    'customer_phone': customer_phone,
-                    'customer_email': customer_email,
-                })
+                messages.error(request, "Please fill in all required delivery address fields: House/Building No., Street, and PIN Code.")
+                return render(request, 'buyer/checkout.html', build_checkout_context())
             
             selected_address = Address.objects.create(
                 user=buyer_user,
@@ -278,15 +356,9 @@ def checkout_view(request):
 
         except Exception as e:
             messages.error(request, f"Order placement failed: {str(e)}")
+            return render(request, 'buyer/checkout.html', build_checkout_context())
 
-    return render(request, 'buyer/checkout.html', {
-        'cart': cart,
-        'cart_items': cart_items,
-        'addresses': addresses,
-        'customer_name': (request.user.get_full_name() or request.user.username) if request.user.is_authenticated else '',
-        'customer_phone': getattr(request.user, 'phone_number', '') if request.user.is_authenticated else '',
-        'customer_email': request.user.email if request.user.is_authenticated else '',
-    })
+    return render(request, 'buyer/checkout.html', build_checkout_context())
 
 
 @login_required
@@ -423,15 +495,22 @@ def order_track_view(request, order_id):
         current_idx = status_order.index(order.status)
 
     active_otp = None
-    if request.user == order.buyer:
+    otp_expired = False
+    if request.user == order.buyer or request.user.role == 'ADMIN' or request.user.is_superuser:
         from apps.delivery.models import DeliveryOTP
-        active_otp = DeliveryOTP.objects.filter(order=order, is_used=False, expires_at__gt=timezone.now()).first()
+        latest_otp = DeliveryOTP.objects.filter(order=order, is_used=False).order_by('-created_at').first()
+        if latest_otp:
+            if latest_otp.expires_at > timezone.now():
+                active_otp = latest_otp
+            else:
+                otp_expired = True
 
     return render(request, 'buyer/order_track.html', {
         'order': order,
         'status_order': status_order,
         'current_idx': current_idx,
         'active_otp': active_otp,
+        'otp_expired': otp_expired,
     })
 
 

@@ -6,6 +6,7 @@ app_name = 'admin_dashboard'
 urlpatterns = [
     path('', admin_views.admin_dashboard_view, name='dashboard'),
     path('orders/', admin_views.admin_orders_view, name='orders'),
+    path('orders/auto-assign-all/', admin_views.admin_auto_assign_all, name='auto_assign_all'),
     path('orders/assign/<str:order_id>/', admin_views.admin_assign_delivery, name='assign_delivery'),
     path('buyers/', admin_views.admin_buyers_view, name='buyers'),
     path('sellers/', admin_views.admin_sellers_view, name='sellers'),

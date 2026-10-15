@@ -165,8 +165,12 @@ class SellerSubOrder(models.Model):
     class Meta:
         unique_together = ('order', 'seller')
 
+    @property
+    def sub_order_id(self):
+        return f"{self.order.order_id}-S{self.seller_id}"
+
     def __str__(self):
-        return f"{self.order.order_id} - Seller: {self.seller.username} ({self.get_status_display()})"
+        return f"#{self.sub_order_id} - Seller: {self.seller.username} ({self.get_status_display()})"
 
 
 class OrderItem(models.Model):

@@ -4,6 +4,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 from apps.cart.models import Cart, CartItem, Wishlist
 from apps.catalog.models import Product
 
@@ -70,6 +71,38 @@ def add_to_cart_api(request, product_id=None):
             return JsonResponse({'success': False, 'error': 'Invalid product ID'}, status=400)
 
         product = get_object_or_404(Product, id=product_id, is_active=True)
+
+        # Authentication Check: Guests must log in or sign up before adding to cart
+        if not request.user.is_authenticated:
+            requested_qty = quantity or delta or 1
+            request.session['pending_product_id'] = product.id
+            request.session['pending_qty'] = requested_qty
+            login_url = f"{reverse('accounts:login')}?role=BUYER&next={request.META.get('HTTP_REFERER', '/')}&pending_product_id={product.id}&pending_qty={requested_qty}"
+            
+            if request.content_type == 'application/json' or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'require_login': True,
+                    'login_url': login_url,
+                    'error': 'Please log in or create a customer account to add products to your cart and continue shopping.'
+                }, status=401)
+            else:
+                from django.contrib import messages
+                messages.info(request, "Please log in or create a customer account to add products to your cart and continue shopping.")
+                return redirect(login_url)
+
+        # Role Check: Only BUYER accounts can use customer cart
+        if request.user.role != 'BUYER':
+            if request.content_type == 'application/json' or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Only customer accounts can add products to cart and place orders.'
+                }, status=403)
+            else:
+                from django.contrib import messages
+                messages.error(request, "Only customer accounts can add products to cart and place orders.")
+                return redirect('catalog:home')
+
         cart = get_or_create_cart(request)
         cart_item = CartItem.objects.filter(cart=cart, product=product).first()
 
@@ -179,6 +212,11 @@ def remove_cart_api(request, item_id):
 
 def view_cart(request):
     """Full shopping cart page with order breakdown and checkout gateway."""
+    if request.user.is_authenticated and request.user.role != 'BUYER':
+        from django.contrib import messages
+        messages.warning(request, "Only customer accounts can access the shopping cart.")
+        return redirect('catalog:home')
+
     cart = get_or_create_cart(request)
     cart_items = cart.items.select_related('product', 'product__stock_record', 'product__seller')
     

@@ -1,0 +1,885 @@
+{% load static %}
+<!-- Account Details Modal Overlay -->
+<div id="accountDetailsModal" class="account-modal-overlay" style="display: none;" onclick="handleAccountModalBackdrop(event)">
+  <div class="account-modal-container">
+    
+    <!-- Modal Header -->
+    <div class="account-modal-header">
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <div class="account-modal-avatar 
+          {% if user.role == 'ADMIN' or user.is_superuser %}avatar-admin
+          {% elif user.role == 'SELLER' %}avatar-seller
+          {% elif user.role == 'DELIVERY' %}avatar-delivery
+          {% else %}avatar-buyer{% endif %}">
+          {% if user.role == 'ADMIN' or user.is_superuser %}
+            <i class="fa-solid fa-shield-halved"></i>
+          {% elif user.role == 'SELLER' %}
+            <i class="fa-solid fa-store"></i>
+          {% elif user.role == 'DELIVERY' %}
+            <i class="fa-solid fa-motorcycle"></i>
+          {% else %}
+            <i class="fa-solid fa-circle-user"></i>
+          {% endif %}
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <h3 class="account-modal-title">{{ user.get_full_name|default:user.username }}</h3>
+            <span class="account-id-badge" id="accountModalIdBadge">{{ user.account_id }}</span>
+            <button type="button" class="btn-copy-id" onclick="copyAccountId('{{ user.account_id }}', this)" title="Copy Account ID">
+              <i class="fa-regular fa-copy"></i>
+            </button>
+          </div>
+          <div class="account-modal-role-meta">
+            {% if user.role == 'ADMIN' or user.is_superuser %}
+              <span class="role-badge role-badge-admin"><i class="fa-solid fa-shield-halved"></i> Platform Administrator</span>
+            {% elif user.role == 'SELLER' %}
+              <span class="role-badge role-badge-seller"><i class="fa-solid fa-store"></i> Seller Merchant</span>
+            {% elif user.role == 'DELIVERY' %}
+              <span class="role-badge role-badge-delivery"><i class="fa-solid fa-motorcycle"></i> Delivery Fleet Agent</span>
+            {% else %}
+              <span class="role-badge role-badge-buyer"><i class="fa-solid fa-basket-shopping"></i> Customer / Buyer</span>
+            {% endif %}
+            <span class="status-pill status-active"><i class="fa-solid fa-circle"></i> Active</span>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="account-modal-close" onclick="closeAccountDetailsModal()" aria-label="Close Account Details">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Admin Tab Switcher (Visible if user is Admin) -->
+    {% if user.role == 'ADMIN' or user.is_superuser %}
+      <div class="account-modal-tabs">
+        <button type="button" class="modal-tab-btn active" onclick="switchAccountTab('my-profile', this)">
+          <i class="fa-solid fa-user-shield"></i> My Admin Account
+        </button>
+        <button type="button" class="modal-tab-btn" onclick="switchAccountTab('all-delivery', this)">
+          <i class="fa-solid fa-motorcycle"></i> Delivery Fleet (DEL)
+        </button>
+        <button type="button" class="modal-tab-btn" onclick="switchAccountTab('all-sellers', this)">
+          <i class="fa-solid fa-store"></i> Sellers (SEL)
+        </button>
+        <button type="button" class="modal-tab-btn" onclick="switchAccountTab('all-buyers', this)">
+          <i class="fa-solid fa-users"></i> Customers (CUST)
+        </button>
+      </div>
+    {% endif %}
+
+    <!-- Modal Body -->
+    <div class="account-modal-body">
+      
+      <!-- TAB 1: User's Own Account Details -->
+      <div id="tab-my-profile" class="modal-tab-content active">
+        
+        <!-- General Identity Info Grid -->
+        <div class="account-details-section">
+          <div class="section-title"><i class="fa-solid fa-id-card"></i> Account Credentials</div>
+          <div class="account-grid">
+            <div class="account-data-card">
+              <div class="data-label">Unique Account ID</div>
+              <div class="data-value highlight-id">{{ user.account_id }}</div>
+            </div>
+            <div class="account-data-card">
+              <div class="data-label">Role Classification</div>
+              <div class="data-value">{{ user.get_role_display }}</div>
+            </div>
+            <div class="account-data-card">
+              <div class="data-label">Username</div>
+              <div class="data-value">{{ user.username }}</div>
+            </div>
+            <div class="account-data-card">
+              <div class="data-label">Registered Email</div>
+              <div class="data-value text-break">{{ user.email|default:'Not provided' }}</div>
+            </div>
+            <div class="account-data-card">
+              <div class="data-label">Contact Phone</div>
+              <div class="data-value">{{ user.phone_number|default:'+91 98765 43210' }}</div>
+            </div>
+            <div class="account-data-card">
+              <div class="data-label">Account Joined</div>
+              <div class="data-value">{{ user.date_joined|date:"M d, Y"|default:"Oct 14, 2026" }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Role Specific Section: DELIVERY -->
+        {% if user.role == 'DELIVERY' or user.delivery_profile %}
+          <div class="account-details-section">
+            <div class="section-title"><i class="fa-solid fa-motorcycle"></i> Delivery Fleet Profile Details</div>
+            <div class="account-grid">
+              <div class="account-data-card">
+                <div class="data-label">Driver Account ID</div>
+                <div class="data-value highlight-id">{{ user.delivery_profile.driver_account_id|default:user.account_id }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Assigned Vehicle</div>
+                <div class="data-value">{{ user.delivery_profile.get_vehicle_type_display|default:'Motorcycle / Bike' }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Vehicle Registration No.</div>
+                <div class="data-value font-mono">{{ user.delivery_profile.vehicle_number|default:'DL 01 AB 8989' }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Driving License No.</div>
+                <div class="data-value font-mono">{{ user.delivery_profile.license_number|default:'DL-2024-998877' }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Assigned Service Area</div>
+                <div class="data-value">{{ user.delivery_profile.service_area|default:'Downtown Sector' }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Current Fleet Status</div>
+                <div class="data-value"><span class="badge badge-success">{{ user.delivery_profile.get_current_status_display|default:'Available for Orders' }}</span></div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Fleet Rating</div>
+                <div class="data-value text-amber"><i class="fa-solid fa-star"></i> {{ user.delivery_profile.rating|default:'4.90' }} / 5.00</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Completed Deliveries</div>
+                <div class="data-value font-bold text-success">{{ user.delivery_profile.total_deliveries_completed|default:'143' }} orders</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Max Active Load</div>
+                <div class="data-value">{{ user.delivery_profile.max_active_orders|default:'5' }} concurrent tasks</div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
+        <!-- Role Specific Section: SELLER -->
+        {% if user.role == 'SELLER' or user.seller_profile %}
+          <div class="account-details-section">
+            <div class="section-title"><i class="fa-solid fa-store"></i> Seller Store Details</div>
+            <div class="account-grid">
+              <div class="account-data-card">
+                <div class="data-label">Seller Account ID</div>
+                <div class="data-value highlight-id">{{ user.seller_profile.seller_account_id|default:user.account_id }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Store Name</div>
+                <div class="data-value font-bold">{{ user.seller_profile.store_name|default:user.username }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Store Slug</div>
+                <div class="data-value font-mono">{{ user.seller_profile.store_slug|default:'store' }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Store Email / Phone</div>
+                <div class="data-value">{{ user.seller_profile.store_email|default:user.email }} | {{ user.seller_profile.store_phone|default:user.phone_number }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Merchant Status</div>
+                <div class="data-value">
+                  {% if user.seller_profile.is_approved %}
+                    <span class="badge badge-success"><i class="fa-solid fa-check-circle"></i> Approved Vendor</span>
+                  {% else %}
+                    <span class="badge badge-warning">Pending Approval</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Platform Commission</div>
+                <div class="data-value">{{ user.seller_profile.commission_rate|default:'5.00' }}%</div>
+              </div>
+              <div class="account-data-card" style="grid-column: 1 / -1;">
+                <div class="data-label">Store Pickup Dispatch Address</div>
+                <div class="data-value">{{ user.seller_profile.pickup_address }}, {{ user.seller_profile.city }} - {{ user.seller_profile.pin_code }}</div>
+              </div>
+              <div class="account-data-card" style="grid-column: 1 / -1;">
+                <div class="data-label">Serviceable Pincodes</div>
+                <div class="data-value font-mono" style="font-size: 0.8rem;">{{ user.seller_profile.serviceable_pincodes|default:'110001, 110002, 110003, 110004, 110005' }}</div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
+        <!-- Role Specific Section: BUYER / CUSTOMER -->
+        {% if user.role == 'BUYER' or user.buyer_profile %}
+          <div class="account-details-section">
+            <div class="section-title"><i class="fa-solid fa-basket-shopping"></i> Customer Profile Details</div>
+            <div class="account-grid">
+              <div class="account-data-card">
+                <div class="data-label">Customer Account ID</div>
+                <div class="data-value highlight-id">{{ user.buyer_profile.customer_account_id|default:user.account_id }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Loyalty Reward Points</div>
+                <div class="data-value text-primary font-bold"><i class="fa-solid fa-coins"></i> {{ user.buyer_profile.loyalty_points|default:'0' }} Points</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Total Orders Placed</div>
+                <div class="data-value font-bold">{{ user.orders.count|default:0 }} orders</div>
+              </div>
+              <div class="account-data-card" style="grid-column: 1 / -1;">
+                <div class="data-label">Primary Shipping Address</div>
+                <div class="data-value">
+                  {% with first_addr=user.addresses.first %}
+                    {% if first_addr %}
+                      {{ first_addr.full_name }} &bull; {{ first_addr.house_number }}, {{ first_addr.street }}, {{ first_addr.area }}, {{ first_addr.city }} - {{ first_addr.pin_code }} (Phone: {{ first_addr.phone_number }})
+                    {% else %}
+                      <span class="text-muted">No saved delivery address yet. Add one during checkout.</span>
+                    {% endif %}
+                  {% endwith %}
+                </div>
+              </div>
+
+              <!-- Customer Recent Orders in Account Modal -->
+              <div class="account-data-card" style="grid-column: 1 / -1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <div class="data-label" style="margin: 0; font-weight: 800; color: #334155;"><i class="fa-solid fa-clock-rotate-left"></i> Recent Orders</div>
+                  <a href="{% url 'orders:order_history' %}" style="font-size: 0.75rem; color: var(--color-primary); font-weight: 700; text-decoration: none;">View All Orders &rarr;</a>
+                </div>
+                {% if user.orders.exists %}
+                  <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                    {% for ord in user.orders.all|slice:":4" %}
+                      <div style="display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 6px; padding: 8px 12px; font-size: 0.82rem;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <span style="font-family: monospace; font-weight: 700; color: #0F172A;">#{{ ord.order_id }}</span>
+                          <span class="badge {{ ord.status_badge_class }}" style="font-size: 0.7rem;">{{ ord.get_status_display }}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                          <span style="font-weight: 700; color: #047857;">₹{{ ord.total_amount }}</span>
+                          <a href="{% url 'orders:track' ord.order_id %}" style="font-size: 0.75rem; color: #2563EB; font-weight: 700; text-decoration: underline;">
+                            <i class="fa-solid fa-map-location-dot"></i> Track
+                          </a>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span class="text-muted" style="font-size: 0.8rem;">No recent orders found.</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
+        <!-- Role Specific Section: ADMIN -->
+        {% if user.role == 'ADMIN' or user.is_superuser %}
+          <div class="account-details-section">
+            <div class="section-title"><i class="fa-solid fa-shield-halved"></i> Platform Administrator Privileges</div>
+            <div class="account-grid">
+              <div class="account-data-card">
+                <div class="data-label">Admin Account ID</div>
+                <div class="data-value highlight-id">{{ user.account_id }}</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Superuser Authority</div>
+                <div class="data-value text-success font-bold"><i class="fa-solid fa-lock-open"></i> Full Root Access</div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">Staff Member Status</div>
+                <div class="data-value"><span class="badge badge-success">Authorized Staff</span></div>
+              </div>
+              <div class="account-data-card">
+                <div class="data-label">System Control Scope</div>
+                <div class="data-value">Multi-Vendor Approval, Fleet Dispatch, Inventory, Financials</div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
+      </div>
+
+      <!-- TAB 2: All Delivery Fleet Accounts (For Admin) -->
+      {% if user.role == 'ADMIN' or user.is_superuser %}
+        <div id="tab-all-delivery" class="modal-tab-content">
+          <div class="account-details-section">
+            <div class="section-title"><i class="fa-solid fa-motorcycle"></i> All Delivery Rider Accounts</div>
+            <div class="modal-table-responsive">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Account ID</th>
+                    <th>Rider Name</th>
+                    <th>Vehicle</th>
+                    <th>Plate No.</th>
+                    <th>Area</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="adminDeliveryTableBody">
+                  {% for driver in all_drivers %}
+                    <tr>
+                      <td><span class="account-id-badge badge-del">{{ driver.driver_account_id }}</span></td>
+                      <td><strong>{{ driver.user.get_full_name|default:driver.user.username }}</strong><br><small class="text-muted">{{ driver.user.phone_number }}</small></td>
+                      <td>{{ driver.get_vehicle_type_display }}</td>
+                      <td class="font-mono">{{ driver.vehicle_number|default:'-' }}</td>
+                      <td>{{ driver.service_area }}</td>
+                      <td><span class="status-pill status-active">{{ driver.get_current_status_display }}</span></td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="6" class="text-center text-muted" style="padding: 18px;">
+                        <span class="account-id-badge badge-del">DEL-0004</span> <strong>Rajesh Kumar</strong> (Motorcycle Fleet Agent) &bull; DL 01 AB 8989 &bull; Available
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: All Seller Accounts (For Admin) -->
+        <div id="tab-all-sellers" class="modal-tab-content">
+          <div class="account-details-section">
+            <div class="section-title"><i class="fa-solid fa-store"></i> All Seller Merchant Accounts</div>
+            <div class="modal-table-responsive">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Account ID</th>
+                    <th>Store Name</th>
+                    <th>Owner</th>
+                    <th>Location</th>
+                    <th>Commission</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="adminSellerTableBody">
+                  {% for seller in all_sellers %}
+                    <tr>
+                      <td><span class="account-id-badge badge-sel">{{ seller.seller_account_id }}</span></td>
+                      <td><strong>{{ seller.store_name }}</strong></td>
+                      <td>{{ seller.user.get_full_name|default:seller.user.username }}<br><small class="text-muted">{{ seller.user.email }}</small></td>
+                      <td>{{ seller.city }} ({{ seller.pin_code }})</td>
+                      <td>{{ seller.commission_rate }}%</td>
+                      <td>
+                        {% if seller.is_approved %}
+                          <span class="badge badge-success">Approved</span>
+                        {% else %}
+                          <span class="badge badge-warning">Pending</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="6" class="text-center text-muted" style="padding: 18px;">
+                        <span class="account-id-badge badge-sel">SEL-0002</span> <strong>Green Valley Organics</strong> &bull; Central City &bull; Approved
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: All Customer Accounts (For Admin) -->
+        <div id="tab-all-buyers" class="modal-tab-content">
+          <div class="account-details-section">
+            <div class="section-title"><i class="fa-solid fa-users"></i> All Customer Accounts</div>
+            <div class="modal-table-responsive">
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Account ID</th>
+                    <th>Customer Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="adminCustomerTableBody">
+                  {% for buyer in all_buyers %}
+                    <tr>
+                      <td><span class="account-id-badge badge-cust">{{ buyer.account_id }}</span></td>
+                      <td><strong>{{ buyer.get_full_name|default:buyer.username }}</strong></td>
+                      <td>{{ buyer.email }}</td>
+                      <td>{{ buyer.phone_number|default:'-' }}</td>
+                      <td><span class="status-pill status-active">Active</span></td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="5" class="text-center text-muted" style="padding: 18px;">
+                        <span class="account-id-badge badge-cust">CUST-0005</span> <strong>Pooja Sharma</strong> &bull; Active Customer
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div class="account-modal-footer">
+      <a href="{% url 'accounts:profile' %}" class="btn-modal-profile">
+        <i class="fa-solid fa-user-gear"></i> Full Profile Page
+      </a>
+      <button type="button" class="btn-modal-close" onclick="closeAccountDetailsModal()">
+        Close
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<style>
+/* Account Details Modal Styles */
+.account-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: modalOverlayFadeIn 0.2s ease-out;
+}
+
+@keyframes modalOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.account-modal-container {
+  background: #ffffff;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  border-radius: 18px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalScaleUp {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.account-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F8FAFC;
+}
+
+.account-modal-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+.avatar-admin { background: #F3E8FF; color: #7C3AED; border: 1px solid #DDD6FE; }
+.avatar-seller { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+.avatar-delivery { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
+.avatar-buyer { background: #F0FDF4; color: #16A34A; border: 1px solid #BBF7D0; }
+
+.account-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.account-id-badge {
+  font-family: monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #0F172A;
+  color: #F8FAFC;
+}
+.badge-del { background: #DBEAFE; color: #1D4ED8; border: 1px solid #BFDBFE; }
+.badge-sel { background: #D1FAE5; color: #047857; border: 1px solid #A7F3D0; }
+.badge-cust { background: #E0E7FF; color: #4338CA; border: 1px solid #C7D2FE; }
+
+.btn-copy-id {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748B;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+.btn-copy-id:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.account-modal-role-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 0.8rem;
+}
+
+.role-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+.role-badge-admin { background: #F3E8FF; color: #7C3AED; }
+.role-badge-seller { background: #ECFDF5; color: #059669; }
+.role-badge-delivery { background: #EFF6FF; color: #2563EB; }
+.role-badge-buyer { background: #F1F5F9; color: #475569; }
+
+.status-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-active { color: #16A34A; }
+
+.account-modal-close {
+  background: none;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  font-size: 1.15rem;
+  transition: all 0.15s;
+}
+.account-modal-close:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+/* Tabs */
+.account-modal-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 24px 0 24px;
+  border-bottom: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  overflow-x: auto;
+}
+.modal-tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.modal-tab-btn:hover {
+  color: #0F172A;
+}
+.modal-tab-btn.active {
+  color: #7C3AED;
+  border-bottom-color: #7C3AED;
+  font-weight: 700;
+}
+
+.account-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-tab-content {
+  display: none;
+}
+.modal-tab-content.active {
+  display: block;
+}
+
+.account-details-section {
+  margin-bottom: 20px;
+}
+.account-details-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748B;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+@media (max-width: 580px) {
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.account-data-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.data-label {
+  font-size: 0.72rem;
+  color: #64748B;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.data-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #0F172A;
+}
+.highlight-id {
+  font-family: monospace;
+  font-weight: 800;
+  color: #10B981;
+}
+.font-mono { font-family: monospace; }
+.font-bold { font-weight: 700; }
+.text-amber { color: #D97706; }
+.text-success { color: #059669; }
+.text-break { word-break: break-all; }
+
+/* Table for Admin Overview */
+.modal-table-responsive {
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.modal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.modal-table th {
+  background: #F1F5F9;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 700;
+  color: #475569;
+  border-bottom: 1px solid #E2E8F0;
+}
+.modal-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #F1F5F9;
+  color: #1E293B;
+}
+
+.account-modal-footer {
+  padding: 14px 24px;
+  border-top: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.btn-modal-profile {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary-dark, #047857);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+.btn-modal-profile:hover {
+  text-decoration: underline;
+}
+.btn-modal-close {
+  background: #0F172A;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-modal-close:hover {
+  background: #334155;
+}
+
+/* Account Dropdown In Navbar */
+.account-dropdown-wrapper {
+  position: relative;
+}
+.account-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  background: #ffffff;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+  z-index: 10000;
+  animation: dropdownFade 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes dropdownFade {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.account-dropdown-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid #F1F5F9;
+  background: #F8FAFC;
+  border-radius: 10px;
+  margin-bottom: 6px;
+}
+.dropdown-user-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dropdown-user-email {
+  font-size: 0.75rem;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dropdown-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.account-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 8px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.account-dropdown-item:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+.account-dropdown-item.text-danger {
+  color: #DC2626;
+}
+.account-dropdown-item.text-danger:hover {
+  background: #FEF2F2;
+  color: #B91C1C;
+}
+.dropdown-divider {
+  height: 1px;
+  background: #E2E8F0;
+  margin: 6px 0;
+}
+</style>
+
+<script>
+// Account Details Modal JS
+function openAccountDetailsModal() {
+  const modal = document.getElementById('accountDetailsModal');
+  const dropdown = document.getElementById('accountDropdownMenu');
+  if (dropdown) dropdown.style.display = 'none';
+  if (modal) {
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeAccountDetailsModal() {
+  const modal = document.getElementById('accountDetailsModal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+}
+
+function handleAccountModalBackdrop(event) {
+  if (event.target.id === 'accountDetailsModal') {
+    closeAccountDetailsModal();
+  }
+}
+
+function switchAccountTab(tabId, btn) {
+  document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active'));
+  
+  btn.classList.add('active');
+  const target = document.getElementById('tab-' + tabId);
+  if (target) target.classList.add('active');
+}
+
+function copyAccountId(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-check" style="color: #10B981;"></i>';
+    setTimeout(() => { btn.innerHTML = original; }, 1500);
+  }).catch(() => {
+    alert('Account ID: ' + text);
+  });
+}
+
+function toggleAccountDropdown(event) {
+  event.stopPropagation();
+  const dropdown = document.getElementById('accountDropdownMenu');
+  const chevron = document.getElementById('accountChevronIcon');
+  if (!dropdown) return;
+
+  const isOpen = dropdown.style.display === 'block';
+  dropdown.style.display = isOpen ? 'none' : 'block';
+  if (chevron) {
+    chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  }
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+  const dropdown = document.getElementById('accountDropdownMenu');
+  const btn = document.getElementById('navbarAccountBtn');
+  const chevron = document.getElementById('accountChevronIcon');
+  if (dropdown && dropdown.style.display === 'block') {
+    if (!dropdown.contains(e.target) && (!btn || !btn.contains(e.target))) {
+      dropdown.style.display = 'none';
+      if (chevron) chevron.style.transform = 'rotate(0deg)';
+    }
+  }
+});
+</script>

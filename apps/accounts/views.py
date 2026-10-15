@@ -1,10 +1,12 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.text import slugify
-from django.db import transaction
+from django.db import transaction, models
+from django.http import JsonResponse
 from apps.accounts.forms import LoginForm, BuyerRegistrationForm, SellerRegistrationForm
-from apps.accounts.models import User, BuyerProfile, SellerProfile
+from apps.accounts.models import User, BuyerProfile, SellerProfile, DeliveryProfile
 from apps.accounts.decorators import get_role_redirect_url
 from apps.notifications.models import Notification
 
@@ -92,6 +94,30 @@ def login_view(request):
                 from apps.cart.views import merge_session_cart
                 merge_session_cart(user, old_session_key)
 
+            # Process any preserved pending product addition from guest session
+            pending_prod_id = request.POST.get('pending_product_id') or request.GET.get('pending_product_id') or request.session.get('pending_product_id')
+            pending_qty = int(request.POST.get('pending_qty') or request.GET.get('pending_qty') or request.session.get('pending_qty') or 1)
+            if pending_prod_id and user.role == User.Role.BUYER:
+                try:
+                    from apps.catalog.models import Product
+                    from apps.cart.models import Cart, CartItem
+                    p = Product.objects.filter(id=pending_prod_id, is_active=True).first()
+                    if p and p.current_stock_count > 0:
+                        user_cart, _ = Cart.objects.get_or_create(user=user)
+                        item, created = CartItem.objects.get_or_create(
+                            cart=user_cart,
+                            product=p,
+                            defaults={'quantity': min(pending_qty, p.current_stock_count)}
+                        )
+                        if created:
+                            messages.success(request, f"Added {p.name} to your basket!")
+                except Exception:
+                    pass
+                if 'pending_product_id' in request.session:
+                    del request.session['pending_product_id']
+                if 'pending_qty' in request.session:
+                    del request.session['pending_qty']
+
             messages.success(request, f"Welcome back, {user.first_name or user.username}!")
 
             # 6. Redirect to requested next destination or role-specific dashboard
@@ -106,7 +132,10 @@ def login_view(request):
 
     return render(request, 'auth/login.html', {
         'form': form,
-        'selected_role': selected_role
+        'selected_role': selected_role,
+        'next': request.GET.get('next', ''),
+        'pending_product_id': request.GET.get('pending_product_id', ''),
+        'pending_qty': request.GET.get('pending_qty', '1'),
     })
 
 
@@ -146,13 +175,50 @@ def register_buyer_view(request):
                     link='/'
                 )
 
+                old_session_key = request.session.session_key
                 login(request, user)
+                if old_session_key:
+                    from apps.cart.views import merge_session_cart
+                    merge_session_cart(user, old_session_key)
+
+                # Process any preserved pending product addition from guest session
+                pending_prod_id = request.POST.get('pending_product_id') or request.GET.get('pending_product_id') or request.session.get('pending_product_id')
+                pending_qty = int(request.POST.get('pending_qty') or request.GET.get('pending_qty') or request.session.get('pending_qty') or 1)
+                if pending_prod_id and user.role == User.Role.BUYER:
+                    try:
+                        from apps.catalog.models import Product
+                        from apps.cart.models import Cart, CartItem
+                        p = Product.objects.filter(id=pending_prod_id, is_active=True).first()
+                        if p and p.current_stock_count > 0:
+                            user_cart, _ = Cart.objects.get_or_create(user=user)
+                            item, created = CartItem.objects.get_or_create(
+                                cart=user_cart,
+                                product=p,
+                                defaults={'quantity': min(pending_qty, p.current_stock_count)}
+                            )
+                            if created:
+                                messages.success(request, f"Added {p.name} to your basket!")
+                    except Exception:
+                        pass
+                    if 'pending_product_id' in request.session:
+                        del request.session['pending_product_id']
+                    if 'pending_qty' in request.session:
+                        del request.session['pending_qty']
+
                 messages.success(request, f"Welcome to FreshMart, {user.first_name or user.username}! Your customer account is ready.")
+                next_url = request.POST.get('next') or request.GET.get('next')
+                if next_url and next_url.startswith('/'):
+                    return redirect(next_url)
                 return redirect('catalog:home')
     else:
         form = BuyerRegistrationForm()
 
-    return render(request, 'auth/register_buyer.html', {'form': form})
+    return render(request, 'auth/register_buyer.html', {
+        'form': form,
+        'next': request.GET.get('next', ''),
+        'pending_product_id': request.GET.get('pending_product_id', ''),
+        'pending_qty': request.GET.get('pending_qty', '1'),
+    })
 
 
 def register_seller_view(request):
@@ -195,3 +261,169 @@ def register_seller_view(request):
         form = SellerRegistrationForm()
 
     return render(request, 'auth/register_seller.html', {'form': form})
+
+
+@login_required
+def profile_view(request):
+    user = request.user
+    role = user.role
+
+    # Handle profile updates
+    if request.method == 'POST':
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        phone_number = request.POST.get('phone_number', '').strip()
+        email = request.POST.get('email', '').strip()
+
+        if first_name:
+            user.first_name = first_name
+        if last_name:
+            user.last_name = last_name
+        if phone_number:
+            user.phone_number = phone_number
+        if email:
+            user.email = email
+        user.save()
+
+        # Specific role updates
+        if user.is_delivery_role() and hasattr(user, 'delivery_profile'):
+            vehicle_type = request.POST.get('vehicle_type')
+            vehicle_number = request.POST.get('vehicle_number')
+            license_number = request.POST.get('license_number')
+            dp = user.delivery_profile
+            if vehicle_type:
+                dp.vehicle_type = vehicle_type
+            if vehicle_number is not None:
+                dp.vehicle_number = vehicle_number.strip()
+            if license_number is not None:
+                dp.license_number = license_number.strip()
+            dp.save()
+        elif user.is_seller_role() and hasattr(user, 'seller_profile'):
+            sp = user.seller_profile
+            pickup_address = request.POST.get('pickup_address')
+            store_phone = request.POST.get('store_phone')
+            if pickup_address:
+                sp.pickup_address = pickup_address.strip()
+            if store_phone:
+                sp.store_phone = store_phone.strip()
+            sp.save()
+
+        messages.success(request, "Account details updated successfully.")
+        return redirect('accounts:profile')
+
+    context = {
+        'account_user': user,
+        'role': role,
+    }
+
+    # Delivery profile context
+    if hasattr(user, 'delivery_profile'):
+        context['delivery_profile'] = user.delivery_profile
+
+    # Seller profile context
+    if hasattr(user, 'seller_profile'):
+        context['seller_profile'] = user.seller_profile
+        context['seller_product_count'] = user.products.count()
+        context['seller_order_count'] = user.seller_sub_orders.count()
+
+    # Buyer profile context
+    if hasattr(user, 'buyer_profile') or user.role == User.Role.BUYER:
+        context['buyer_profile'] = getattr(user, 'buyer_profile', None)
+        context['buyer_orders_count'] = user.orders.count()
+        context['buyer_addresses'] = user.addresses.all()
+        context['buyer_recent_orders'] = user.orders.prefetch_related('items').order_by('-created_at')[:10]
+
+    # Admin context (directory of all accounts for all roles)
+    if user.is_admin_role():
+        context['all_sellers'] = SellerProfile.objects.select_related('user').all().order_by('id')
+        context['all_drivers'] = DeliveryProfile.objects.select_related('user').all().order_by('id')
+        context['all_buyers'] = User.objects.filter(role=User.Role.BUYER).select_related('buyer_profile').all().order_by('id')
+        context['all_admins'] = User.objects.filter(models.Q(role=User.Role.ADMIN) | models.Q(is_superuser=True)).order_by('id')
+
+    return render(request, 'auth/profile.html', context)
+
+
+@login_required
+def api_account_details_view(request):
+    user = request.user
+    data = {
+        'id': user.id,
+        'account_id': user.account_id,
+        'username': user.username,
+        'full_name': user.get_full_name() or user.username,
+        'email': user.email,
+        'phone_number': user.phone_number or 'Not provided',
+        'role': user.role,
+        'role_display': user.get_role_display(),
+        'account_status': user.get_account_status_display(),
+        'date_joined': user.date_joined.strftime('%b %d, %Y') if user.date_joined else '',
+    }
+
+    if hasattr(user, 'delivery_profile'):
+        dp = user.delivery_profile
+        data['delivery'] = {
+            'driver_account_id': dp.driver_account_id,
+            'vehicle_type': dp.get_vehicle_type_display(),
+            'vehicle_number': dp.vehicle_number or 'Not registered',
+            'license_number': dp.license_number or 'Not registered',
+            'current_status': dp.get_current_status_display(),
+            'service_area': dp.service_area,
+            'rating': str(dp.rating),
+            'total_deliveries': dp.total_deliveries_completed,
+            'max_active_orders': dp.max_active_orders,
+        }
+    if hasattr(user, 'seller_profile'):
+        sp = user.seller_profile
+        data['seller'] = {
+            'seller_account_id': sp.seller_account_id,
+            'store_name': sp.store_name,
+            'store_slug': sp.store_slug,
+            'store_phone': sp.store_phone or user.phone_number or 'Not provided',
+            'store_email': sp.store_email or user.email,
+            'pickup_address': sp.pickup_address,
+            'city': sp.city,
+            'pin_code': sp.pin_code,
+            'serviceable_pincodes': sp.serviceable_pincodes,
+            'commission_rate': str(sp.commission_rate),
+            'preparation_time_minutes': sp.preparation_time_minutes,
+            'is_approved': sp.is_approved,
+            'product_count': user.products.count(),
+            'order_count': user.seller_sub_orders.count(),
+        }
+    if hasattr(user, 'buyer_profile') or user.role == User.Role.BUYER:
+        bp = getattr(user, 'buyer_profile', None)
+        data['buyer'] = {
+            'customer_account_id': bp.customer_account_id if bp else user.account_id,
+            'loyalty_points': bp.loyalty_points if bp else 0,
+            'order_count': user.orders.count(),
+            'recent_orders': [
+                {
+                    'order_id': o.order_id,
+                    'status': o.status,
+                    'status_display': o.get_status_display(),
+                    'total_amount': str(o.total_amount),
+                    'created_at': o.created_at.strftime('%b %d, %Y %I:%M %p'),
+                    'items_count': o.items.count(),
+                    'track_url': f"/orders/track/{o.order_id}/"
+                } for o in user.orders.prefetch_related('items').order_by('-created_at')[:5]
+            ],
+            'addresses': [
+                {
+                    'id': a.id,
+                    'full_name': a.full_name,
+                    'phone': a.phone_number,
+                    'address_line': f"{a.house_number}, {a.street}, {a.area}, {a.city} - {a.pin_code}",
+                    'is_default': a.is_default
+                } for a in user.addresses.all()[:5]
+            ]
+        }
+    if user.is_admin_role():
+        data['admin'] = {
+            'is_superuser': user.is_superuser,
+            'is_staff': user.is_staff,
+            'sellers_count': SellerProfile.objects.count(),
+            'drivers_count': DeliveryProfile.objects.count(),
+            'buyers_count': User.objects.filter(role=User.Role.BUYER).count(),
+        }
+    return JsonResponse({'status': 'success', 'account': data})
+

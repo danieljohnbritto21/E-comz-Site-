@@ -48,9 +48,16 @@
     <div>
       <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
-          <span style="font-size: 0.85rem; font-weight: 700; color: var(--color-primary-dark); text-transform: uppercase; letter-spacing: 0.5px;">
-            {{ product.brand|default:"Farm Fresh Produce" }}
-          </span>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: var(--color-primary-dark); text-transform: uppercase; letter-spacing: 0.5px;">
+              {{ product.brand|default:"Farm Fresh Produce" }}
+            </span>
+            {% if product.seller.seller_profile.store_name %}
+              <span style="font-size: 0.75rem; color: #047857; font-weight: 700; background: #ECFDF5; padding: 2px 8px; border-radius: 6px; border: 1px solid #A7F3D0;">
+                <i class="fa-solid fa-store"></i> Sold by: {{ product.seller.seller_profile.store_name }}
+              </span>
+            {% endif %}
+          </div>
           <h1 style="font-size: 1.85rem; font-weight: 800; margin: 0.35rem 0 0.5rem;">{{ product.name }}</h1>
           <div style="font-size: 0.95rem; color: var(--text-muted); font-weight: 500;">
             Unit / Pack Size: <strong style="color: var(--text-main);">{{ product.unit_value }}</strong>
