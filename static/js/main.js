@@ -3,6 +3,20 @@
    Modern Fetch API helpers, cart handling, live search, and UX utilities
    ========================================================================== */
 
+window.formatINR = function(val, includeSymbol = true) {
+  if (val === null || val === undefined || val === '') return includeSymbol ? '₹0.00' : '0.00';
+  let cleanStr = String(val).replace(/[^0-9.-]/g, '');
+  let num = parseFloat(cleanStr);
+  if (isNaN(num)) return includeSymbol ? '₹0.00' : '0.00';
+  let formatted = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num);
+  return includeSymbol ? formatted : formatted.replace(/[^\d.,-]/g, '').trim();
+};
+
 function getCookie(name) {
   let cookieValue = null;
   if (document.cookie && document.cookie !== '') {
@@ -327,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <img src="${item.image}" style="width: 36px; height: 36px; object-fit: contain; border-radius: 4px;">
                 <div>
                   <div style="font-weight: 600; font-size: 13px;">${item.name}</div>
-                  <div style="font-size: 12px; color: #059669; font-weight: 700;">₹${item.selling_price}</div>
+                  <div style="font-size: 12px; color: #059669; font-weight: 700;">${window.formatINR(item.selling_price)}</div>
                 </div>
               </a>
             `).join('');

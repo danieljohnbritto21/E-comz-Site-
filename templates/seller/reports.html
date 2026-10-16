@@ -17,7 +17,7 @@
       <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-indian-rupee-sign"></i></div>
       <div>
         <div class="metric-label">Total Store Revenue</div>
-        <div class="metric-value">₹{{ total_revenue }}</div>
+        <div class="metric-value">{{ total_revenue|inr }}</div>
       </div>
     </div>
 
@@ -56,7 +56,7 @@
             <tr>
               <td><strong>{{ item.product_name }}</strong></td>
               <td><span class="badge badge-success">{{ item.units_sold }} units</span></td>
-              <td><strong style="color: var(--color-primary-dark);">₹{{ item.total_sales }}</strong></td>
+              <td><strong style="color: var(--color-primary-dark);">{{ item.total_sales|inr }}</strong></td>
             </tr>
           {% empty %}
             <tr>

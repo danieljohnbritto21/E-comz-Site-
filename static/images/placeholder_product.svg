@@ -1,7 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <rect width="100%" height="100%" fill="#F1F5F3" rx="16"/>
-  <circle cx="100" cy="100" r="54" fill="#E6F4EA"/>
-  <path d="M100 65 C85 65 72 78 72 94 C72 116 100 135 100 135 C100 135 128 116 128 94 C128 78 115 65 100 65 Z" fill="#10B981" opacity="0.85"/>
-  <circle cx="100" cy="92" r="8" fill="#FFFFFF"/>
-  <text x="100" y="158" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#047857" text-anchor="middle">Fresh Grocery</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F6FCF8"/>
+      <stop offset="100%" stop-color="#EDF8F2"/>
+    </linearGradient>
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="url(#bgGrad)" rx="16"/>
+  <rect x="1" y="1" width="398" height="298" fill="none" stroke="#D1FAE5" stroke-width="2" rx="15"/>
+
+  <!-- Subtle Circular Halo -->
+  <circle cx="200" cy="130" r="75" fill="#E6F7ED" opacity="0.8"/>
+  <circle cx="200" cy="130" r="55" fill="#DCF5E5" opacity="0.9"/>
+
+  <!-- Grocery Basket Illustration -->
+  <!-- Basket Handle -->
+  <path d="M165 110 C165 78 235 78 235 110" fill="none" stroke="#047857" stroke-width="5" stroke-linecap="round"/>
+  
+  <!-- Produce inside basket (Carrot & Leaves) -->
+  <path d="M190 95 C190 85 178 72 170 70 C173 82 182 92 188 95 Z" fill="url(#leafGrad)"/>
+  <path d="M208 92 C210 80 222 70 230 68 C227 80 216 90 208 92 Z" fill="url(#leafGrad)"/>
+  <circle cx="185" cy="108" r="14" fill="#F59E0B"/>
+  <circle cx="215" cy="108" r="14" fill="#EF4444"/>
+
+  <!-- Basket Body -->
+  <path d="M150 110 L250 110 L240 165 C239 171 234 175 228 175 L172 175 C166 175 161 171 160 165 Z" fill="url(#primaryGrad)"/>
+  
+  <!-- Basket Weave Lines -->
+  <path d="M162 125 L238 125 M166 142 L234 142 M171 159 L229 159" stroke="#34D399" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <path d="M185 110 L180 175 M200 110 L200 175 M215 110 L220 175" stroke="#047857" stroke-width="2" opacity="0.4"/>
+
+  <!-- Branding Label -->
+  <text x="200" y="215" font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-size="16" font-weight="800" fill="#065F46" text-anchor="middle" letter-spacing="0.5">Fresh<tspan fill="#10B981">Mart</tspan></text>
+  <text x="200" y="235" font-family="'Inter', -apple-system, sans-serif" font-size="12" font-weight="600" fill="#6B7280" text-anchor="middle" letter-spacing="0.2">Quality Grocery Produce</text>
 </svg>

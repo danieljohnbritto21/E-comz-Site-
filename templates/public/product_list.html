@@ -1,158 +1,270 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load cart_tags %}
 
 {% block title %}
-  {% if selected_category %}{{ selected_category.name }} - {% endif %}Grocery Shop - FreshMart
+  {% if selected_category %}{{ selected_category.name }} - {% endif %}All Fresh Groceries - FreshMart
 {% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 1.5rem; padding-bottom: 3rem;">
-  
-  <!-- Breadcrumb -->
-  <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-    <a href="{% url 'catalog:home' %}">Home</a> &rsaquo;
-    {% if selected_category %}
-      <a href="{% url 'catalog:product_list' %}">Shop</a> &rsaquo;
-      <span style="color: var(--text-main); font-weight: 600;">{{ selected_category.name }}</span>
-    {% else %}
-      <span style="color: var(--text-main); font-weight: 600;">All Groceries</span>
-    {% endif %}
-  </div>
-
-  <!-- Mobile Filter Bar (Visible on phones & tablets) -->
-  <div class="mobile-filter-bar">
-    <button type="button" class="mobile-filter-btn" onclick="toggleShopFilters()">
-      <i class="fa-solid fa-sliders"></i> Filters & Categories {% if selected_category or stock_filter %}<span style="background: var(--color-primary); color: #fff; border-radius: 999px; padding: 1px 6px; font-size: 0.7rem; font-weight: 800;">1</span>{% endif %}
-    </button>
-    <div style="font-size: 0.825rem; color: var(--text-muted); font-weight: 600;">
-      {{ products.paginator.count }} Produce Item{{ products.paginator.count|pluralize }}
-    </div>
-  </div>
-
-  <div class="shop-layout">
+<div class="shop-page-wrapper">
+  <div class="container">
     
-    <!-- Filter Sidebar (Off-canvas drawer on mobile, left column on desktop) -->
-    <aside class="shop-sidebar" id="shop-filters-sidebar">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-        <h3 style="font-size: 1.1rem; margin: 0; display: flex; align-items: center; gap: 8px;">
-          <i class="fa-solid fa-sliders"></i> Filters
-        </h3>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <a href="{% url 'catalog:product_list' %}" style="font-size: 0.8rem; color: var(--color-primary-dark); font-weight: 600;">Reset</a>
-          <button type="button" onclick="toggleShopFilters()" style="background: none; border: none; font-size: 1.25rem; color: var(--text-secondary); cursor: pointer; padding: 4px;" aria-label="Close filters">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- Categories Filter -->
-      <div style="margin-bottom: 1.75rem;">
-        <h4 style="font-size: 0.875rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 0.75rem;">Categories</h4>
-        <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.4rem;">
-          <li>
-            <a href="{% url 'catalog:product_list' %}" style="font-size: 0.875rem; display: flex; justify-content: space-between; {% if not selected_category %}font-weight: 700; color: var(--color-primary-dark);{% endif %}">
-              <span>All Categories</span>
-            </a>
+    <!-- Breadcrumb Navigation -->
+    <nav class="shop-breadcrumb" aria-label="Breadcrumb">
+      <ol class="breadcrumb-list">
+        <li class="breadcrumb-item">
+          <a href="{% url 'catalog:home' %}"><i class="fa-solid fa-house"></i> Home</a>
+        </li>
+        <li class="breadcrumb-separator"><i class="fa-solid fa-chevron-right"></i></li>
+        {% if selected_category %}
+          <li class="breadcrumb-item">
+            <a href="{% url 'catalog:product_list' %}">All Groceries</a>
           </li>
-          {% for cat in categories %}
-            <li>
-              <a href="{% url 'catalog:product_list' %}?category={{ cat.slug }}" style="font-size: 0.875rem; display: flex; justify-content: space-between; {% if selected_category.slug == cat.slug %}font-weight: 700; color: var(--color-primary-dark);{% endif %}">
-                <span>{{ cat.name }}</span>
-              </a>
-            </li>
-          {% endfor %}
-        </ul>
-      </div>
+          <li class="breadcrumb-separator"><i class="fa-solid fa-chevron-right"></i></li>
+          <li class="breadcrumb-item active" aria-current="page">{{ selected_category.name }}</li>
+        {% elif query %}
+          <li class="breadcrumb-item">
+            <a href="{% url 'catalog:product_list' %}">All Groceries</a>
+          </li>
+          <li class="breadcrumb-separator"><i class="fa-solid fa-chevron-right"></i></li>
+          <li class="breadcrumb-item active" aria-current="page">Search: "{{ query }}"</li>
+        {% else %}
+          <li class="breadcrumb-item active" aria-current="page">All Groceries</li>
+        {% endif %}
+      </ol>
+    </nav>
 
-      <!-- Availability Filter -->
-      <div style="margin-bottom: 1.75rem; border-top: 1px solid var(--bg-border); padding-top: 1.25rem;">
-        <h4 style="font-size: 0.875rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 0.75rem;">Availability</h4>
-        <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.875rem;">
-          <a href="?{% if selected_category %}category={{ selected_category.slug }}&{% endif %}stock=in_stock" class="btn btn-secondary btn-sm" style="justify-content: flex-start; {% if stock_filter == 'in_stock' %}border-color: var(--color-primary); background: var(--color-primary-subtle); color: var(--color-primary-dark); font-weight: 700;{% endif %}">
-            <i class="fa-solid fa-circle-check" style="color: #10B981;"></i> In Stock Only
-          </a>
+    <!-- Compact Shopping Experience Enhancement Banner (Section 9) -->
+    <div class="shop-experience-strip">
+      <div class="strip-content">
+        <div class="strip-tag">
+          <i class="fa-solid fa-seedling"></i> 100% Farm Fresh & Organic
+        </div>
+        <h2 class="strip-title">Daily Groceries Delivered Fresh to Your Kitchen</h2>
+        <p class="strip-subtitle">Farm-picked vegetables, seasonal fruits, dairy, and daily essentials from certified local growers.</p>
+      </div>
+      <div class="strip-perks">
+        <div class="perk-item">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span><strong>Harvested Daily</strong> at 5:00 AM</span>
+        </div>
+        <div class="perk-item">
+          <i class="fa-solid fa-bolt"></i>
+          <span><strong>30-Min Fast</strong> Delivery</span>
+        </div>
+        <div class="perk-item">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span><strong>Quality & Weight</strong> Guaranteed</span>
         </div>
       </div>
+    </div>
 
-      <!-- Help banner -->
-      <div style="background: var(--color-primary-subtle); padding: 1rem; border-radius: var(--radius-sm); text-align: center; border: 1px solid #A7F3D0;">
-        <i class="fa-solid fa-truck-fast" style="font-size: 1.75rem; color: var(--color-primary-dark); margin-bottom: 0.5rem;"></i>
-        <div style="font-weight: 700; font-size: 0.85rem; color: #047857;">Free Fast Delivery</div>
-        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">On all cart orders exceeding ₹499</div>
+    <!-- Mobile Filter & Count Toggle Strip -->
+    <div class="shop-mobile-filter-bar">
+      <button type="button" class="btn-mobile-filter" onclick="toggleShopFilters()" aria-label="Open filter sidebar">
+        <i class="fa-solid fa-sliders"></i>
+        <span>Filters</span>
+        {% if selected_category or stock_filter %}
+          <span class="active-filter-dot">1</span>
+        {% endif %}
+      </button>
+      <div class="mobile-item-count">
+        <strong>{{ products.paginator.count }}</strong> item{{ products.paginator.count|pluralize }}
       </div>
-    </aside>
+    </div>
 
-    <!-- Products Main Area -->
-    <div>
+    <!-- Main Two-Column Shop Layout -->
+    <div class="shop-layout">
       
-      <!-- Top Bar: Title & Sorting -->
-      <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-        <div>
-          <h1 style="font-size: 1.35rem; font-weight: 800;">
-            {% if selected_category %}{{ selected_category.name }}{% elif query %}Search: "{{ query }}"{% else %}All Fresh Groceries{% endif %}
-          </h1>
-          <span style="font-size: 0.825rem; color: var(--text-muted);">Showing {{ products.paginator.count }} item{{ products.paginator.count|pluralize }}</span>
-        </div>
-
-        <form method="GET" style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
-          {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category.slug }}">{% endif %}
-          {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
-          {% if stock_filter %}<input type="hidden" name="stock" value="{{ stock_filter }}">{% endif %}
-          
-          <label for="sort-select" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Sort By:</label>
-          <select name="sort" id="sort-select" class="form-select" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; width: auto;" onchange="this.form.submit()">
-            <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest Harvests</option>
-            <option value="popular" {% if sort == 'popular' %}selected{% endif %}>Bestsellers & Popular</option>
-            <option value="price_low" {% if sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
-            <option value="price_high" {% if sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
-          </select>
-        </form>
-      </div>
-
-      <!-- Product Grid -->
-      <div class="product-grid" style="margin-bottom: 2rem;">
-        {% for product in products %}
-          {% include 'buyer/includes/product_card.html' with product=product user_wishlist_ids=user_wishlist_ids %}
-        {% empty %}
-          <div style="grid-column: 1 / -1; background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-md); padding: 3rem; text-align: center;">
-            <i class="fa-solid fa-magnifying-glass" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-            <h3>No products found</h3>
-            <p class="text-muted" style="margin: 0.5rem 0 1.5rem;">Try adjusting your search criteria or clearing active filters.</p>
-            <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-sm btn-pill">Clear All Filters</a>
+      <!-- Filter Sidebar (Desktop Sticky / Mobile Drawer) -->
+      <aside class="shop-sidebar" id="shop-filters-sidebar">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+          <div class="sidebar-title">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Filters</span>
           </div>
-        {% endfor %}
-      </div>
-
-      <!-- Pagination Controls -->
-      {% if products.has_other_pages %}
-        <div style="display: flex; justify-content: center; gap: 6px; margin: 2rem 0;">
-          {% if products.has_previous %}
-            <a href="?page={{ products.previous_page_number }}{% if selected_category %}&category={{ selected_category.slug }}{% endif %}{% if query %}&q={{ query }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}" class="btn btn-secondary btn-sm">
-              &laquo; Previous
-            </a>
-          {% endif %}
-
-          {% for num in products.paginator.page_range %}
-            {% if products.number == num %}
-              <span class="btn btn-primary btn-sm">{{ num }}</span>
-            {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
-              <a href="?page={{ num }}{% if selected_category %}&category={{ selected_category.slug }}{% endif %}{% if query %}&q={{ query }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}" class="btn btn-secondary btn-sm">
-                {{ num }}
+          <div class="sidebar-actions">
+            {% if selected_category or stock_filter or query or sort != 'newest' %}
+              <a href="{% url 'catalog:product_list' %}" class="btn-reset-filters" title="Reset all active filters">
+                <i class="fa-solid fa-rotate-left"></i> Reset
               </a>
             {% endif %}
-          {% endfor %}
-
-          {% if products.has_next %}
-            <a href="?page={{ products.next_page_number }}{% if selected_category %}&category={{ selected_category.slug }}{% endif %}{% if query %}&q={{ query }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}" class="btn btn-secondary btn-sm">
-              Next &raquo;
-            </a>
-          {% endif %}
+            <button type="button" class="btn-close-sidebar" onclick="toggleShopFilters()" aria-label="Close filters">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
         </div>
-      {% endif %}
+
+        <!-- Filter Group: Categories -->
+        <div class="filter-group">
+          <h4 class="filter-group-heading">Categories</h4>
+          <ul class="category-filter-list">
+            <li>
+              <a href="{% url 'catalog:product_list' %}{% query_transform category='' %}" 
+                 class="category-filter-link {% if not selected_category %}is-active{% endif %}">
+                <span class="cat-name"><i class="fa-solid fa-border-all"></i> All Categories</span>
+                {% if not selected_category %}
+                  <i class="fa-solid fa-check cat-active-check"></i>
+                {% endif %}
+              </a>
+            </li>
+            {% for cat in categories %}
+              <li>
+                <a href="{% url 'catalog:product_list' %}{% query_transform category=cat.slug %}" 
+                   class="category-filter-link {% if selected_category.slug == cat.slug %}is-active{% endif %}">
+                  <span class="cat-name">
+                    <i class="fa-solid {{ cat.icon|default:'fa-leaf' }}"></i>
+                    {{ cat.name }}
+                  </span>
+                  {% if selected_category.slug == cat.slug %}
+                    <i class="fa-solid fa-check cat-active-check"></i>
+                  {% endif %}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <!-- Filter Group: Availability -->
+        <div class="filter-group">
+          <h4 class="filter-group-heading">Availability</h4>
+          <div class="availability-filter-box">
+            <a href="{% url 'catalog:product_list' %}{% if stock_filter == 'in_stock' %}{% query_transform stock='' %}{% else %}{% query_transform stock='in_stock' %}{% endif %}" 
+               class="stock-toggle-pill {% if stock_filter == 'in_stock' %}is-active{% endif %}">
+              <span class="checkbox-indicator">
+                {% if stock_filter == 'in_stock' %}
+                  <i class="fa-solid fa-check"></i>
+                {% endif %}
+              </span>
+              <span>In Stock Only</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Free Delivery Promo Card -->
+        <div class="sidebar-promo-card">
+          <div class="promo-icon-wrap">
+            <i class="fa-solid fa-truck-fast"></i>
+          </div>
+          <div class="promo-text">
+            <strong>Free Fast Delivery</strong>
+            <span>On all grocery orders above ₹499</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Products Display Area -->
+      <main class="shop-main-content">
+        
+        <!-- Product Toolbar (Title, Count & Sort Dropdown) -->
+        <div class="shop-toolbar">
+          <div class="toolbar-title-wrap">
+            <h1 class="shop-page-title">
+              {% if selected_category %}
+                {{ selected_category.name }}
+              {% elif query %}
+                Search Results for "{{ query }}"
+              {% else %}
+                All Fresh Groceries
+              {% endif %}
+            </h1>
+            <span class="toolbar-item-count">
+              Showing <strong>{{ products.paginator.count }}</strong> item{{ products.paginator.count|pluralize }}
+            </span>
+          </div>
+
+          <form method="GET" action="{% url 'catalog:product_list' %}" class="toolbar-sort-form" id="sort-form">
+            {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category.slug }}">{% endif %}
+            {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+            {% if stock_filter %}<input type="hidden" name="stock" value="{{ stock_filter }}">{% endif %}
+            
+            <label for="sort-select" class="sort-label">Sort By:</label>
+            <div class="sort-select-wrapper">
+              <select name="sort" id="sort-select" class="sort-select" onchange="this.form.submit()">
+                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest Harvests</option>
+                <option value="popular" {% if sort == 'popular' %}selected{% endif %}>Bestsellers & Popular</option>
+                <option value="price_low" {% if sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                <option value="price_high" {% if sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+              </select>
+              <i class="fa-solid fa-chevron-down sort-chevron"></i>
+            </div>
+          </form>
+        </div>
+
+        <!-- Uniform 4-Column Product Grid -->
+        <div class="product-grid">
+          {% for product in products %}
+            {% include 'buyer/includes/product_card.html' with product=product user_wishlist_ids=user_wishlist_ids %}
+          {% empty %}
+            <div class="shop-empty-state">
+              <div class="empty-icon-wrap">
+                <i class="fa-solid fa-basket-shopping"></i>
+              </div>
+              <h3 class="empty-title">No Fresh Products Found</h3>
+              <p class="empty-desc">We couldn't find any products matching your current category or search criteria.</p>
+              <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-pill">
+                <i class="fa-solid fa-rotate-left"></i> Clear All Filters
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if products.has_other_pages %}
+          <nav class="shop-pagination" aria-label="Page Navigation">
+            <div class="pagination-track">
+              {% if products.has_previous %}
+                <a href="{% url 'catalog:product_list' %}{% query_transform page=products.previous_page_number %}" 
+                   class="pagination-btn pagination-prev" aria-label="Previous Page">
+                  <i class="fa-solid fa-chevron-left"></i> Previous
+                </a>
+              {% endif %}
+
+              <div class="pagination-numbers">
+                {% for num in products.paginator.page_range %}
+                  {% if products.number == num %}
+                    <span class="pagination-num is-active" aria-current="page">{{ num }}</span>
+                  {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                    <a href="{% url 'catalog:product_list' %}{% query_transform page=num %}" 
+                       class="pagination-num">
+                      {{ num }}
+                    </a>
+                  {% endif %}
+                {% endfor %}
+              </div>
+
+              {% if products.has_next %}
+                <a href="{% url 'catalog:product_list' %}{% query_transform page=products.next_page_number %}" 
+                   class="pagination-btn pagination-next" aria-label="Next Page">
+                  Next <i class="fa-solid fa-chevron-right"></i>
+                </a>
+              {% endif %}
+            </div>
+          </nav>
+        {% endif %}
+
+      </main>
 
     </div>
-
   </div>
+
+  <!-- Mobile Off-Canvas Sidebar Backdrop -->
   <div id="shop-filters-overlay" class="shop-filters-overlay" onclick="toggleShopFilters()"></div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleShopFilters() {
+  const sidebar = document.getElementById('shop-filters-sidebar');
+  const overlay = document.getElementById('shop-filters-overlay');
+  if (sidebar && overlay) {
+    sidebar.classList.toggle('is-open');
+    overlay.classList.toggle('is-open');
+    document.body.style.overflow = sidebar.classList.contains('is-open') ? 'hidden' : '';
+  }
+}
+</script>
 {% endblock %}

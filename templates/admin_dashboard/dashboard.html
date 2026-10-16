@@ -91,7 +91,7 @@
       <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-indian-rupee-sign"></i></div>
       <div>
         <div class="metric-label">Today's Volume</div>
-        <div class="metric-value">₹{{ today_sales }}</div>
+        <div class="metric-value">{{ today_sales|inr }}</div>
       </div>
     </div>
 
@@ -99,7 +99,7 @@
       <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-sack-dollar"></i></div>
       <div>
         <div class="metric-label">Monthly Gross</div>
-        <div class="metric-value">₹{{ monthly_revenue }}</div>
+        <div class="metric-value">{{ monthly_revenue|inr }}</div>
       </div>
     </div>
   </div>
@@ -155,7 +155,7 @@
                 <div style="font-size: 0.75rem; color: var(--text-muted);">{{ order.recipient_phone }}</div>
               </td>
               <td style="font-size: 0.8rem; max-width: 250px;">{{ order.delivery_address_text }}</td>
-              <td><strong style="font-size: 1.05rem; color: var(--color-primary-dark);">₹{{ order.total_amount }}</strong></td>
+              <td><strong style="font-size: 1.05rem; color: var(--color-primary-dark);">{{ order.total_amount|inr }}</strong></td>
               <td>
                 <div style="font-weight: 600; font-size: 0.85rem;">{{ order.get_payment_method_display }}</div>
                 <div style="font-size: 0.75rem; color: #047857;">{{ order.get_payment_status_display }}</div>

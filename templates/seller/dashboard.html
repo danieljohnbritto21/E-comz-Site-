@@ -54,7 +54,7 @@
       <div class="metric-icon-box metric-icon-purple"><i class="fa-solid fa-indian-rupee-sign"></i></div>
       <div>
         <div class="metric-label">Today's Sales</div>
-        <div class="metric-value">₹{{ today_sales }}</div>
+        <div class="metric-value">{{ today_sales|inr }}</div>
       </div>
     </div>
 
@@ -62,7 +62,7 @@
       <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-sack-dollar"></i></div>
       <div>
         <div class="metric-label">Monthly Gross</div>
-        <div class="metric-value">₹{{ monthly_revenue }}</div>
+        <div class="metric-value">{{ monthly_revenue|inr }}</div>
       </div>
     </div>
   </div>
@@ -121,7 +121,7 @@
                 <div style="font-size: 0.75rem; color: var(--text-muted);">{{ sub.order.recipient_phone }}</div>
               </td>
               <td>{{ sub.items.count }} product{{ sub.items.count|pluralize }}</td>
-              <td><strong>₹{{ sub.subtotal }}</strong></td>
+              <td><strong>{{ sub.subtotal|inr }}</strong></td>
               <td>{{ sub.order.delivery_slot }}</td>
               <td>
                 <span class="badge 

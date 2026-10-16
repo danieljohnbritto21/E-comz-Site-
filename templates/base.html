@@ -18,6 +18,23 @@
   <!-- Design System CSS -->
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
   {% block extra_css %}{% endblock %}
+
+  <!-- Global Currency Formatter -->
+  <script>
+    window.formatINR = function(val, includeSymbol = true) {
+      if (val === null || val === undefined || val === '') return includeSymbol ? '₹0.00' : '0.00';
+      let cleanStr = String(val).replace(/[^0-9.-]/g, '');
+      let num = parseFloat(cleanStr);
+      if (isNaN(num)) return includeSymbol ? '₹0.00' : '0.00';
+      let formatted = new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(num);
+      return includeSymbol ? formatted : formatted.replace(/[^\d.,-]/g, '').trim();
+    };
+  </script>
 </head>
 <body>
 
@@ -227,7 +244,7 @@
                 {{ nav_cart_count|default:0 }}
               </span>
               {% if nav_cart_subtotal > 0 %}
-                <span class="nav-cart-price" style="font-size: 0.85rem; font-weight: 700;">₹{{ nav_cart_subtotal }}</span>
+                <span class="nav-cart-price" style="font-size: 0.85rem; font-weight: 700;">{{ nav_cart_subtotal|inr }}</span>
               {% endif %}
             </a>
             {% endif %}
@@ -474,10 +491,10 @@
           {% endif %}
           <li><a href="{% url 'accounts:logout' %}" style="color: #DC2626;"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out</a></li>
         {% else %}
-          <li><a href="{% url 'accounts:login' %}"><i class="fa-solid fa-store"></i> Seller Login</a></li>
+          <li><a href="{% url 'accounts:login' %}?role=SELLER"><i class="fa-solid fa-store"></i> Seller Login</a></li>
           <li><a href="{% url 'accounts:register_seller' %}"><i class="fa-solid fa-shop"></i> Sell on FreshMart</a></li>
-          <li><a href="{% url 'accounts:login' %}"><i class="fa-solid fa-motorcycle"></i> Delivery Fleet Login</a></li>
-          <li><a href="{% url 'accounts:login' %}"><i class="fa-solid fa-shield-halved"></i> Admin Control Center</a></li>
+          <li><a href="{% url 'accounts:login' %}?role=DELIVERY"><i class="fa-solid fa-motorcycle"></i> Delivery Fleet Login</a></li>
+          <li><a href="{% url 'accounts:login' %}?role=ADMIN&next={% url 'admin_dashboard:dashboard' %}"><i class="fa-solid fa-shield-halved"></i> Admin Control Center</a></li>
         {% endif %}
       </ul>
 

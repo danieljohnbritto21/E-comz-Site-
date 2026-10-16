@@ -163,7 +163,13 @@ def checkout_view(request):
                 matched_user = User.objects.filter(phone_number=customer_phone).first()
 
             if matched_user:
-                buyer_user = matched_user
+                # NEVER auto-login or take over an Admin, Seller, or Delivery account through guest checkout!
+                if matched_user.role in [User.Role.ADMIN, User.Role.SELLER, User.Role.DELIVERY] or matched_user.is_superuser:
+                    messages.error(request, "This email belongs to a staff or administrator profile. Please sign in to continue.")
+                    return redirect(f"{reverse('accounts:login')}?role=BUYER&next={request.path}")
+
+                messages.info(request, "An account with this email/phone already exists. Please sign in to complete your checkout.")
+                return redirect(f"{reverse('accounts:login')}?role=BUYER&next={request.path}")
             else:
                 clean_email_prefix = slugify(customer_email.split('@')[0]) or 'customer'
                 unique_username = f"{clean_email_prefix}_{uuid.uuid4().hex[:6]}"
@@ -182,10 +188,10 @@ def checkout_view(request):
                 buyer_user.save()
                 BuyerProfile.objects.get_or_create(user=buyer_user)
 
-            login(request, buyer_user)
-            cart.user = buyer_user
-            cart.session_key = None
-            cart.save(update_fields=['user', 'session_key'])
+                login(request, buyer_user)
+                cart.user = buyer_user
+                cart.session_key = None
+                cart.save(update_fields=['user', 'session_key'])
 
         # Retrieve or create delivery address
         if address_id and request.user.is_authenticated:
@@ -237,6 +243,17 @@ def checkout_view(request):
         selling_subtotal = cart.subtotal
         delivery_fee = cart.delivery_fee
         final_payable = cart.grand_total
+
+        # Prevent duplicate submissions (within 30s)
+        recent_duplicate = Order.objects.filter(
+            buyer=buyer_user,
+            total_amount=final_payable,
+            created_at__gte=timezone.now() - timezone.timedelta(seconds=30)
+        ).first()
+        if recent_duplicate:
+            cart.items.all().delete()
+            messages.info(request, f"Your order #{recent_duplicate.order_id} has already been received.")
+            return redirect('orders:confirmation', order_id=recent_duplicate.order_id)
 
         # Atomic order placement & inventory reservation
         try:
@@ -330,12 +347,13 @@ def checkout_view(request):
 
                 # If Cash on Delivery, notify immediately and go straight to confirmation
                 if is_cod:
+                    from apps.catalog.currency import format_inr
                     for seller, items_list in seller_items_map.items():
                         sub_subtotal = sum(i.line_total for i in items_list)
                         Notification.send(
                             user=seller,
                             title=f"New COD Order #{order.order_id}",
-                            message=f"You have a new Cash on Delivery grocery order for Rs. {sub_subtotal}. Please prepare produce.",
+                            message=f"You have a new Cash on Delivery grocery order for {format_inr(sub_subtotal)}. Please prepare produce.",
                             category=Notification.Category.ORDER,
                             link=f"/seller/orders/{order.order_id}/"
                         )
@@ -343,7 +361,7 @@ def checkout_view(request):
                     Notification.send(
                         user=buyer_user,
                         title=f"Order Confirmed #{order.order_id}",
-                        message=f"Thank you! Your COD order of Rs. {order.total_amount} is confirmed. Please keep cash/UPI ready at delivery.",
+                        message=f"Thank you! Your COD order of {format_inr(order.total_amount)} is confirmed. Please keep cash/UPI ready at delivery.",
                         category=Notification.Category.ORDER,
                         link=f"/orders/track/{order.order_id}/"
                     )

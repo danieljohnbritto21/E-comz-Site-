@@ -241,7 +241,7 @@
                           <span class="badge {{ ord.status_badge_class }}" style="font-size: 0.7rem;">{{ ord.get_status_display }}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
-                          <span style="font-weight: 700; color: #047857;">₹{{ ord.total_amount }}</span>
+                          <span style="font-weight: 700; color: #047857;">{{ ord.total_amount|inr }}</span>
                           <a href="{% url 'orders:track' ord.order_id %}" style="font-size: 0.75rem; color: #2563EB; font-weight: 700; text-decoration: underline;">
                             <i class="fa-solid fa-map-location-dot"></i> Track
                           </a>

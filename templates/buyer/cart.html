@@ -46,7 +46,7 @@
                 </button>
               </div>
               <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
-                {{ item.product.unit_value }} &bull; ₹{{ item.product.selling_price }} each
+                {{ item.product.unit_value }} &bull; {{ item.product.selling_price|inr }} each
               </div>
               {% if not item.is_available %}
                 <div style="font-size: 0.75rem; color: #DC2626; font-weight: 700; margin-top: 4px;">
@@ -65,7 +65,7 @@
 
             <div class="cart-item-total-col" style="text-align: right; font-weight: 800; font-size: 1.05rem;">
               <span class="cart-item-total-label" style="display: none; font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Subtotal: </span>
-              ₹{{ item.line_total }}
+              {{ item.line_total|inr }}
             </div>
 
             <div class="cart-item-remove-col" style="text-align: right;">
@@ -93,13 +93,13 @@
           
           <div class="summary-row">
             <span>Items Subtotal</span>
-            <span style="font-weight: 600;">₹{{ cart.subtotal }}</span>
+            <span style="font-weight: 600;">{{ cart.subtotal|inr }}</span>
           </div>
 
           {% if cart.total_discount > 0 %}
             <div class="summary-row" style="color: #047857; font-weight: 600;">
               <span>Total MRP Discount</span>
-              <span>-₹{{ cart.total_discount }}</span>
+              <span>-{{ cart.total_discount|inr }}</span>
             </div>
           {% endif %}
 
@@ -109,20 +109,20 @@
               {% if cart.delivery_fee == 0 %}
                 <span class="badge badge-success">FREE</span>
               {% else %}
-                ₹{{ cart.delivery_fee }}
+                {{ cart.delivery_fee|inr }}
               {% endif %}
             </span>
           </div>
 
           {% if cart.delivery_fee > 0 %}
             <div style="background: #FEF3C7; border-radius: var(--radius-sm); padding: 0.5rem; font-size: 0.775rem; color: #92400E; margin-bottom: 1rem;">
-              <i class="fa-solid fa-circle-info"></i> Add items worth <strong>₹{{ 499|add:"-0" }}</strong> or more for <strong>FREE Delivery</strong>!
+              <i class="fa-solid fa-circle-info"></i> Add items worth <strong>{{ 499|inr }}</strong> or more for <strong>FREE Delivery</strong>!
             </div>
           {% endif %}
 
           <div class="summary-total-row">
             <span>Payable Amount</span>
-            <span style="color: var(--color-primary-dark);">₹{{ cart.grand_total }}</span>
+            <span style="color: var(--color-primary-dark);">{{ cart.grand_total|inr }}</span>
           </div>
 
           <div style="margin-top: 1.5rem;">

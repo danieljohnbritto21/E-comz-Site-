@@ -494,3 +494,50 @@ class FreshMartPlatformRequirementsTests(TestCase):
         is_valid, msg = otp_obj.verify(raw_code)
         self.assertTrue(is_valid)
         self.assertTrue(otp_obj.is_used)
+
+
+class PriceFormattingStandardizationTests(TestCase):
+    """
+    Test suite verifying standardized price formatting across the application:
+    - Exactly two decimal places after the point
+    - Proper half-up rounding
+    - Indian digit grouping (e.g. ₹1,00,000.00)
+    - Handling 0, integers, floats, Decimals, negative values, null/empty
+    - Template filters (|inr, |format_inr, |inr_num)
+    - Underlying financial values remain exact Decimal types without mutation
+    """
+    def test_required_test_values(self):
+        from apps.catalog.currency import format_inr
+        test_cases = [
+            (0, "₹0.00"),
+            (25, "₹25.00"),
+            (25.5, "₹25.50"),
+            (25.567, "₹25.57"),
+            (999.999, "₹1,000.00"),
+            (100000, "₹1,00,000.00"),
+        ]
+        for input_val, expected in test_cases:
+            self.assertEqual(format_inr(input_val), expected, f"Failed for {input_val}")
+
+    def test_edge_cases_and_negative(self):
+        from apps.catalog.currency import format_inr
+        self.assertEqual(format_inr(-25.5), "-₹25.50")
+        self.assertEqual(format_inr(None), "₹0.00")
+        self.assertEqual(format_inr(""), "₹0.00")
+        self.assertEqual(format_inr(Decimal('1234567.891')), "₹12,34,567.89")
+        self.assertEqual(format_inr(100000, symbol=False), "1,00,000.00")
+
+    def test_template_filter_rendering(self):
+        from django.template import Template, Context
+        t = Template("{{ val|inr }} | {{ val|inr_num }}")
+        rendered = t.render(Context({'val': Decimal('25.5')}))
+        self.assertEqual(rendered, "₹25.50 | 25.50")
+
+    def test_underlying_decimal_not_altered(self):
+        from apps.catalog.currency import format_inr
+        original = Decimal('99.999')
+        formatted = format_inr(original)
+        self.assertEqual(formatted, "₹100.00")
+        # Ensure original variable has not been mutated
+        self.assertEqual(original, Decimal('99.999'))
+

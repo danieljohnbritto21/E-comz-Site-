@@ -81,7 +81,7 @@
                 <div style="font-weight: 600; font-size: 0.85rem;">{{ order.delivery_slot }}</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted);">PIN: {{ order.pin_code }}</div>
               </td>
-              <td><strong style="font-size: 1.05rem; color: var(--color-primary-dark);">₹{{ order.total_amount }}</strong></td>
+              <td><strong style="font-size: 1.05rem; color: var(--color-primary-dark);">{{ order.total_amount|inr }}</strong></td>
               <td>
                 <div style="font-weight: 600; font-size: 0.85rem;">{{ order.get_payment_method_display }}</div>
                 <div style="font-size: 0.75rem; color: #047857;">{{ order.get_payment_status_display }}</div>

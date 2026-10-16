@@ -22,7 +22,7 @@
       <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-sack-dollar"></i></div>
       <div>
         <div class="metric-label">Gross Platform Sales</div>
-        <div class="metric-value">₹{{ gross_sales }}</div>
+        <div class="metric-value">{{ gross_sales|inr }}</div>
       </div>
     </div>
 
@@ -73,7 +73,7 @@
               <td><strong>{{ row.seller__seller_profile__store_name|default:row.seller__username }}</strong></td>
               <td>@{{ row.seller__username }}</td>
               <td>{{ row.order_count }} sub-orders</td>
-              <td style="text-align: right;"><strong style="font-size: 1.1rem; color: var(--color-primary-dark);">₹{{ row.total_subtotal }}</strong></td>
+              <td style="text-align: right;"><strong style="font-size: 1.1rem; color: var(--color-primary-dark);">{{ row.total_subtotal|inr }}</strong></td>
             </tr>
           {% empty %}
             <tr>

@@ -169,12 +169,12 @@
                             {% if item.unit_value %}<span class="item-meta-tag">{{ item.unit_value }}</span>{% endif %}
                           </div>
                           <div class="seller-modal-item-rate">
-                            ₹{{ item.unit_price }} each
+                            {{ item.unit_price|inr }} each
                           </div>
                         </div>
                         <div class="seller-modal-item-qty">
                           <span class="badge-qty">&times; {{ item.quantity }}</span>
-                          <div class="seller-modal-item-total">₹{{ item.total_price }}</div>
+                          <div class="seller-modal-item-total">{{ item.total_price|inr }}</div>
                         </div>
                       </div>
                     {% endfor %}
@@ -185,7 +185,7 @@
                       Total Items: <strong style="color: var(--text-main);">{{ sub.items.count }}</strong>
                     </div>
                     <div style="font-size: 1.05rem; font-weight: 800; color: var(--color-primary-dark);">
-                      Store Subtotal: ₹{{ sub.subtotal }}
+                      Store Subtotal: {{ sub.subtotal|inr }}
                     </div>
                   </div>
                 </template>
@@ -193,7 +193,7 @@
 
               <!-- Store subtotal -->
               <td>
-                <strong style="font-size: 1.05rem; color: var(--color-primary-dark);">₹{{ sub.subtotal }}</strong>
+                <strong style="font-size: 1.05rem; color: var(--color-primary-dark);">{{ sub.subtotal|inr }}</strong>
               </td>
 
               <!-- Payment Status -->

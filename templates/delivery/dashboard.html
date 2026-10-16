@@ -121,10 +121,10 @@
               <td>
                 {% if job.order.payment_method == 'COD' and job.order.payment_status != 'PAID' %}
                   <span style="font-weight: 800; color: #DC2626; font-size: 0.95rem;">
-                    ₹{{ job.order.total_amount }} (COD)
+                    {{ job.order.total_amount|inr }} (COD)
                   </span>
                 {% else %}
-                  <span class="badge badge-success">Prepaid (₹0 Due)</span>
+                  <span class="badge badge-success">Prepaid ({{ 0|inr }} Due)</span>
                 {% endif %}
               </td>
               <td>

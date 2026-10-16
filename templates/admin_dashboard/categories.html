@@ -30,6 +30,7 @@
             <th>Description</th>
             <th>Total Products</th>
             <th>Status</th>
+            <th style="text-align: right; width: 150px;">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -53,12 +54,35 @@
                 <span style="font-weight: 700; color: #0F172A;">{{ cat.products.count }} products</span>
               </td>
               <td>
-                <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>
+                {% if cat.is_active %}
+                  <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>
+                {% else %}
+                  <span class="badge badge-secondary"><i class="fa-solid fa-circle-pause"></i> Inactive</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right; white-space: nowrap;">
+                <div style="display: inline-flex; align-items: center; gap: 6px;">
+                  <button type="button" 
+                          class="btn btn-secondary btn-sm" 
+                          style="color: #047857; border-color: #A7F3D0; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; background: #ECFDF5;"
+                          onclick="openEditCategoryModal({{ cat.id }}, '{{ cat.name|escapejs }}', '{{ cat.icon|escapejs }}', '{{ cat.description|escapejs }}', {{ cat.is_active|yesno:'true,false' }})"
+                          title="Edit Category">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                  </button>
+
+                  <button type="button" 
+                          class="btn btn-secondary btn-sm" 
+                          style="color: #DC2626; border-color: #FECACA; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; background: #FEF2F2;"
+                          onclick="openDeleteCategoryModal({{ cat.id }}, '{{ cat.name|escapejs }}', {{ cat.products.count }})"
+                          title="Delete Category">
+                    <i class="fa-solid fa-trash-can"></i> Delete
+                  </button>
+                </div>
               </td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+              <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                 No categories created yet. Click "+ Add New Category" to add one!
               </td>
             </tr>
@@ -169,6 +193,135 @@
     </div>
   </div>
 
+  <!-- Edit Category Modal -->
+  <div id="editCategoryModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center; padding: 1.5rem; overflow-y: auto;" onclick="handleEditCategoryBackdrop(event)">
+    <div style="background: #ffffff; border-radius: 18px; width: 100%; max-width: 540px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #E2E8F0; margin: auto;" onclick="event.stopPropagation()">
+      
+      <!-- Modal Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid #E2E8F0; background: #F8FAFC; border-radius: 18px 18px 0 0;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16,185,129,0.12); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center; font-size: 1.15rem;">
+            <i class="fa-solid fa-pen-to-square"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0F172A;">Edit Category</h3>
+            <span style="font-size: 0.78rem; color: #64748B;">Update category department details and icon</span>
+          </div>
+        </div>
+        <button type="button" onclick="closeEditCategoryModal()" style="background: none; border: none; font-size: 1.2rem; color: #64748B; cursor: pointer; padding: 4px;" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Form -->
+      <form method="POST" action="{% url 'admin_dashboard:categories' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="edit_category">
+        <input type="hidden" name="category_id" id="editCategoryId">
+
+        <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+          
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Category Name *</label>
+            <input type="text" name="name" id="editCategoryNameInput" class="form-control" required>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155; margin-bottom: 4px;">FontAwesome Icon Class</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div style="position: relative; flex: 1;">
+                <input type="text" name="icon" id="editCategoryIconInput" class="form-control" placeholder="e.g. fa-basket-shopping, fa-carrot" autocomplete="off">
+              </div>
+              <div id="editIconPreview" style="width: 44px; height: 44px; border-radius: 10px; border: 1.5px solid #CBD5E1; background: #F8FAFC; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; color: var(--color-primary-dark); flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;">
+                <i class="fa-solid fa-basket-shopping"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-weight: 700; font-size: 0.85rem; color: #334155;">Description (Optional)</label>
+            <textarea name="description" id="editCategoryDescriptionInput" rows="2" class="form-control"></textarea>
+          </div>
+
+          <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" name="is_active" id="editCategoryIsActive" value="1" style="width: 18px; height: 18px; cursor: pointer;">
+            <label for="editCategoryIsActive" style="margin: 0; font-size: 0.85rem; font-weight: 700; color: #166534; cursor: pointer;">
+              Active & Visible on Storefront
+            </label>
+          </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 10px; background: #F8FAFC; border-radius: 0 0 18px 18px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeEditCategoryModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" style="font-weight: 700; background: #059669; border-color: #059669;">
+            <i class="fa-solid fa-check"></i> Save Changes
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- Delete Category Modal -->
+  <div id="deleteCategoryModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center; padding: 1.5rem; overflow-y: auto;" onclick="handleDeleteCategoryBackdrop(event)">
+    <div style="background: #ffffff; border-radius: 18px; width: 100%; max-width: 480px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #E2E8F0; margin: auto;" onclick="event.stopPropagation()">
+      
+      <!-- Modal Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid #E2E8F0; background: #FEF2F2; border-radius: 18px 18px 0 0;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 1.15rem;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #991B1B;">Delete Category</h3>
+            <span style="font-size: 0.78rem; color: #B91C1C;">Confirm category department deletion</span>
+          </div>
+        </div>
+        <button type="button" onclick="closeDeleteCategoryModal()" style="background: none; border: none; font-size: 1.2rem; color: #991B1B; cursor: pointer; padding: 4px;" aria-label="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <form method="POST" action="{% url 'admin_dashboard:categories' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="delete_category">
+        <input type="hidden" name="category_id" id="deleteCategoryId">
+
+        <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+          
+          <div id="deleteWarningHasProducts" style="display: none; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 12px 14px; font-size: 0.85rem; color: #92400E; line-height: 1.5;">
+            <div style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-lock"></i> Protected Category
+            </div>
+            This category currently has <strong id="deleteProductCount">0</strong> product(s) linked to it. To protect order and catalog integrity, categories with existing products cannot be deleted. Please reassign or delete the products first, or mark the category as <strong>Inactive</strong>.
+          </div>
+
+          <div id="deleteConfirmationBox" style="font-size: 0.95rem; color: #334155; line-height: 1.5;">
+            Are you sure you want to permanently delete category <strong id="deleteCategoryName" style="color: #0F172A;"></strong>?
+            <p style="margin: 8px 0 0 0; font-size: 0.8rem; color: #64748B;">This action cannot be undone and will remove the category from the storefront.</p>
+          </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="padding: 1rem 1.5rem; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; gap: 10px; background: #F8FAFC; border-radius: 0 0 18px 18px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeDeleteCategoryModal()">
+            Cancel
+          </button>
+          <button type="submit" id="deleteConfirmBtn" class="btn btn-secondary btn-sm" style="background: #DC2626; color: #ffffff; border-color: #DC2626; font-weight: 700;">
+            <i class="fa-solid fa-trash-can"></i> Yes, Delete Category
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -194,6 +347,98 @@ function handleAddCategoryBackdrop(event) {
   if (event.target.id === 'addCategoryModal') {
     closeAddCategoryModal();
   }
+}
+
+function openEditCategoryModal(id, name, icon, description, isActive) {
+  document.getElementById('editCategoryId').value = id;
+  document.getElementById('editCategoryNameInput').value = name || '';
+  document.getElementById('editCategoryIconInput').value = icon || 'fa-leaf';
+  document.getElementById('editCategoryDescriptionInput').value = description || '';
+  document.getElementById('editCategoryIsActive').checked = Boolean(isActive);
+
+  const editPreview = document.getElementById('editIconPreview');
+  if (editPreview) {
+    const iconClass = icon && icon.startsWith('fa-') ? icon : ('fa-' + (icon || 'leaf'));
+    editPreview.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+  }
+
+  const modal = document.getElementById('editCategoryModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeEditCategoryModal() {
+  const modal = document.getElementById('editCategoryModal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+  }
+}
+
+function handleEditCategoryBackdrop(event) {
+  if (event.target.id === 'editCategoryModal') {
+    closeEditCategoryModal();
+  }
+}
+
+function openDeleteCategoryModal(id, name, productCount) {
+  document.getElementById('deleteCategoryId').value = id;
+  document.getElementById('deleteCategoryName').textContent = `"${name}"`;
+  
+  const hasProductsBox = document.getElementById('deleteWarningHasProducts');
+  const confirmBox = document.getElementById('deleteConfirmationBox');
+  const deleteBtn = document.getElementById('deleteConfirmBtn');
+  const productCountSpan = document.getElementById('deleteProductCount');
+
+  if (productCount > 0) {
+    hasProductsBox.style.display = 'block';
+    confirmBox.style.display = 'none';
+    deleteBtn.style.display = 'none';
+    productCountSpan.textContent = productCount;
+  } else {
+    hasProductsBox.style.display = 'none';
+    confirmBox.style.display = 'block';
+    deleteBtn.style.display = 'inline-flex';
+  }
+
+  const modal = document.getElementById('deleteCategoryModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeDeleteCategoryModal() {
+  const modal = document.getElementById('deleteCategoryModal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+  }
+}
+
+function handleDeleteCategoryBackdrop(event) {
+  if (event.target.id === 'deleteCategoryModal') {
+    closeDeleteCategoryModal();
+  }
+}
+
+// Live preview for Edit Modal Icon input
+const editIconInput = document.getElementById('editCategoryIconInput');
+if (editIconInput) {
+  editIconInput.addEventListener('input', function() {
+    const rawVal = this.value.trim();
+    const preview = document.getElementById('editIconPreview');
+    if (!rawVal) {
+      if (preview) preview.innerHTML = `<i class="fa-solid fa-leaf"></i>`;
+      return;
+    }
+    const { actual } = normalizeIconClass(rawVal);
+    if (preview) {
+      preview.innerHTML = `<i class="fa-solid ${actual}"></i>`;
+    }
+  });
 }
 
 // Common aliases mapping to actual FontAwesome 6 icons
@@ -256,9 +501,7 @@ const ICON_ALIASES = {
 
 function normalizeIconClass(raw) {
   let val = (raw || '').trim();
-  // Strip fa-solid or fas if user typed the whole class string
   val = val.replace(/^fa-solid\s+/, '').replace(/^fas\s+/, '').replace(/^fa\s+/, '');
-  // Strip fa- if checking alias
   const bareName = val.replace(/^fa-/, '').toLowerCase();
   
   if (ICON_ALIASES[bareName]) {
@@ -322,6 +565,8 @@ if (catIconInput) {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeAddCategoryModal();
+    closeEditCategoryModal();
+    closeDeleteCategoryModal();
   }
 });
 </script>

@@ -125,6 +125,10 @@ class Order(models.Model):
         }
         return badges.get(self.status, 'badge-secondary')
 
+    @property
+    def is_cancellable(self):
+        return self.status in [self.Status.ORDER_PLACED, self.Status.ORDER_CONFIRMED, self.Status.PREPARING]
+
     def add_status_history(self, status, user=None, comment=''):
         self.status = status
         self.save(update_fields=['status', 'updated_at'])
@@ -136,7 +140,8 @@ class Order(models.Model):
         )
 
     def __str__(self):
-        return f"{self.order_id} - Rs. {self.total_amount} ({self.get_status_display()})"
+        from apps.catalog.currency import format_inr
+        return f"{self.order_id} - {format_inr(self.total_amount)} ({self.get_status_display()})"
 
 
 class SellerSubOrder(models.Model):

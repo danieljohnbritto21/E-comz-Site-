@@ -305,11 +305,14 @@ def seller_product_edit(request, product_id):
             return render(request, 'seller/product_form.html', {'product': product, 'categories': categories, 'subcategories': subcategories})
 
         product.unit = request.POST.get('unit', product.unit)
-        product.unit_value = request.POST.get('unit_value', product.unit_value).strip()
-        product.origin = request.POST.get('origin', product.origin).strip()
-        product.freshness_info = request.POST.get('freshness_info', product.freshness_info).strip()
-        product.storage_instructions = request.POST.get('storage_instructions', product.storage_instructions).strip()
-        product.nutritional_info = request.POST.get('nutritional_info', product.nutritional_info).strip()
+        if 'origin' in request.POST:
+            product.origin = request.POST.get('origin', '').strip() or product.origin
+        if 'freshness_info' in request.POST:
+            product.freshness_info = request.POST.get('freshness_info', '').strip() or product.freshness_info
+        if 'storage_instructions' in request.POST:
+            product.storage_instructions = request.POST.get('storage_instructions', '').strip() or product.storage_instructions
+        if 'nutritional_info' in request.POST:
+            product.nutritional_info = request.POST.get('nutritional_info', '').strip()
         product.return_policy = request.POST.get('return_policy', product.return_policy).strip()
 
         product.is_active = 'is_active' in request.POST

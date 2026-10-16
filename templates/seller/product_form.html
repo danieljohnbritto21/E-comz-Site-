@@ -76,7 +76,7 @@
 
         <!-- Live Discount Indicator -->
         <div id="discount-badge-box" style="display: none; background: #ECFDF5; border: 1px solid #A7F3D0; color: #047857; padding: 8px 12px; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.85rem; margin-bottom: 1rem;">
-          <i class="fa-solid fa-tags"></i> Customer Discount: <span id="discount-percent-text">0% OFF</span> (Saves ₹<span id="discount-save-amount">0</span>)
+          <i class="fa-solid fa-tags"></i> Customer Discount: <span id="discount-percent-text">0% OFF</span> (Saves <span id="discount-save-amount">₹0.00</span>)
         </div>
 
         <div class="form-row">
@@ -216,39 +216,10 @@
         {% endif %}
       </div>
 
-      <!-- Section 4: Produce Standards, Origin & Nutrition -->
+      <!-- Section 4: Photos & Publishing Visibility -->
       <div style="margin-bottom: 2rem; border-top: 1px solid var(--bg-border); padding-top: 1.5rem;">
         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--color-primary-dark); display: flex; align-items: center; gap: 8px;">
-          <i class="fa-solid fa-wheat-awn"></i> 4. Origin, Freshness & Storage Standards
-        </h3>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Product Origin / Farm Location</label>
-            <input type="text" name="origin" class="form-control" placeholder="e.g. Nashik Organic Valley" value="{{ product.origin|default:'Local Farms' }}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Freshness Standard</label>
-            <input type="text" name="freshness_info" class="form-control" placeholder="e.g. Harvested daily within 24h" value="{{ product.freshness_info|default:'Harvested fresh within 24h' }}">
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Storage Instructions</label>
-            <input type="text" name="storage_instructions" class="form-control" placeholder="e.g. Keep refrigerated at 4°C" value="{{ product.storage_instructions|default:'Store in a cool, dry place or refrigerate' }}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Nutritional Info (Optional)</label>
-            <input type="text" name="nutritional_info" class="form-control" placeholder="e.g. Rich in Vitamin C & Fiber, 35 kcal/100g" value="{{ product.nutritional_info|default:'' }}">
-          </div>
-        </div>
-      </div>
-
-      <!-- Section 5: Photos & Publishing Visibility -->
-      <div style="margin-bottom: 2rem; border-top: 1px solid var(--bg-border); padding-top: 1.5rem;">
-        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--color-primary-dark); display: flex; align-items: center; gap: 8px;">
-          <i class="fa-solid fa-camera"></i> 5. Product Images & Buyer Visibility
+          <i class="fa-solid fa-camera"></i> 4. Product Images & Buyer Visibility
         </h3>
 
         <div class="form-group" style="margin-bottom: 1.5rem;">
@@ -351,7 +322,7 @@ function calculateDiscount() {
     const diff = mrp - selling;
     const pct = Math.round((diff / mrp) * 100);
     document.getElementById('discount-percent-text').innerText = pct + '% OFF';
-    document.getElementById('discount-save-amount').innerText = diff.toFixed(2);
+    document.getElementById('discount-save-amount').innerText = window.formatINR(diff);
     box.style.display = 'block';
   } else {
     box.style.display = 'none';

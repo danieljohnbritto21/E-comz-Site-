@@ -114,6 +114,12 @@ class Product(models.Model):
         return 0
 
     @property
+    def savings_amount(self):
+        if self.mrp and self.selling_price and self.mrp > self.selling_price:
+            return self.mrp - self.selling_price
+        return Decimal('0.00')
+
+    @property
     def primary_image_url(self):
         primary = self.images.filter(is_primary=True).first()
         if not primary:

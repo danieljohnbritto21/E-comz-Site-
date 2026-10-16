@@ -12,7 +12,7 @@
       <p class="dashboard-subtitle">History of completed deliveries, failed attempts, and cash collected</p>
     </div>
     <div style="background: #ffffff; border: 1px solid var(--bg-border); padding: 0.5rem 1rem; border-radius: var(--radius-md); font-weight: 700;">
-      Total COD Collected: <strong style="color: var(--color-primary-dark);">₹{{ total_cod_collected }}</strong>
+      Total COD Collected: <strong style="color: var(--color-primary-dark);">{{ total_cod_collected|inr }}</strong>
     </div>
   </div>
 
@@ -51,9 +51,9 @@
               </td>
               <td>
                 {% if h.cod_collected %}
-                  <span style="font-weight: 800; color: #047857; font-size: 0.95rem;">₹{{ h.cod_collected_amount }}</span>
+                  <span style="font-weight: 800; color: #047857; font-size: 0.95rem;">{{ h.cod_collected_amount|inr }}</span>
                 {% elif h.order.payment_method == 'COD' %}
-                  <span style="font-weight: 800; color: #047857; font-size: 0.95rem;">₹{{ h.order.total_amount }}</span>
+                  <span style="font-weight: 800; color: #047857; font-size: 0.95rem;">{{ h.order.total_amount|inr }}</span>
                 {% else %}
                   <span class="badge badge-info" style="font-size: 0.72rem;">Paid Online</span>
                 {% endif %}
@@ -203,8 +203,8 @@
                         </div>
                       </td>
                       <td style="padding: 10px 14px; text-align: center; font-weight: 800; color: #0F172A;">{{ item.quantity }}</td>
-                      <td style="padding: 10px 14px; text-align: right; color: #64748B;">₹{{ item.selling_price }}</td>
-                      <td style="padding: 10px 14px; text-align: right; font-weight: 800; color: #0F172A;">₹{{ item.subtotal }}</td>
+                      <td style="padding: 10px 14px; text-align: right; color: #64748B;">{{ item.selling_price|inr }}</td>
+                      <td style="padding: 10px 14px; text-align: right; font-weight: 800; color: #0F172A;">{{ item.subtotal|inr }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -223,10 +223,10 @@
             </div>
             <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 12px; padding: 12px 16px;">
               <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #065F46; margin-bottom: 4px;">Total Order Amount</div>
-              <div style="font-size: 1.4rem; font-weight: 900; color: #047857;">₹{{ h.order.total_amount }}</div>
+              <div style="font-size: 1.4rem; font-weight: 900; color: #047857;">{{ h.order.total_amount|inr }}</div>
               {% if h.cod_collected %}
                 <div style="font-size: 0.8rem; color: #065F46; font-weight: 800; margin-top: 3px;">
-                  <i class="fa-solid fa-hand-holding-dollar"></i> Cash Collected: ₹{{ h.cod_collected_amount }}
+                  <i class="fa-solid fa-hand-holding-dollar"></i> Cash Collected: {{ h.cod_collected_amount|inr }}
                 </div>
               {% endif %}
             </div>

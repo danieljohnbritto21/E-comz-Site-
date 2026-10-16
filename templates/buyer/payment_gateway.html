@@ -23,7 +23,7 @@
       </div>
       <div style="text-align: right;">
         <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Payable Amount</span>
-        <strong style="font-size: 1.5rem; color: var(--color-primary-dark);">₹{{ order.total_amount }}</strong>
+        <strong style="font-size: 1.5rem; color: var(--color-primary-dark);">{{ order.total_amount|inr }}</strong>
       </div>
     </div>
 
@@ -89,7 +89,7 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="success">
         <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; font-weight: 800; font-size: 1.05rem;" id="btn-pay-success">
-          <i class="fa-solid fa-lock"></i> Authorize & Complete Payment (₹{{ order.total_amount }})
+          <i class="fa-solid fa-lock"></i> Authorize & Complete Payment ({{ order.total_amount|inr }})
         </button>
       </form>
 

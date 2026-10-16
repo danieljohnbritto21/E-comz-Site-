@@ -611,13 +611,16 @@ class RoleBasedLoginAuthenticationTests(TestCase):
     def test_unauthenticated_cannot_access_dashboards(self):
         """Unauthenticated visitor cannot access seller or admin dashboard."""
         resp_seller = self.client.get(reverse('seller:dashboard'))
-        self.assertRedirects(resp_seller, reverse('accounts:login'))
+        self.assertEqual(resp_seller.status_code, 302)
+        self.assertIn(reverse('accounts:login'), resp_seller.url)
 
         resp_admin = self.client.get(reverse('admin_dashboard:dashboard'))
-        self.assertRedirects(resp_admin, reverse('accounts:login'))
+        self.assertEqual(resp_admin.status_code, 302)
+        self.assertIn(reverse('accounts:login'), resp_admin.url)
 
         resp_delivery = self.client.get(reverse('delivery:dashboard'))
-        self.assertRedirects(resp_delivery, reverse('accounts:login'))
+        self.assertEqual(resp_delivery.status_code, 302)
+        self.assertIn(reverse('accounts:login'), resp_delivery.url)
 
     def test_customer_cannot_access_seller_dashboard(self):
         """Customer cannot open seller dashboard by directly entering URL."""

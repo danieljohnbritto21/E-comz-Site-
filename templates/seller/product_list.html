@@ -110,8 +110,8 @@
 
               <!-- Pricing -->
               <td>
-                <div style="font-weight: 800; color: var(--color-primary-dark); font-size: 0.95rem;">₹{{ product.selling_price }}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); text-decoration: line-through;">MRP: ₹{{ product.mrp }}</div>
+                <div style="font-weight: 800; color: var(--color-primary-dark); font-size: 0.95rem;">{{ product.selling_price|inr }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-decoration: line-through;">MRP: {{ product.mrp|inr }}</div>
               </td>
 
               <!-- Stock health -->

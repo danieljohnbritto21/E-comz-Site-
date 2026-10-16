@@ -75,11 +75,11 @@
       <!-- Price Box -->
       <div style="background: var(--bg-page); border: 1px solid var(--bg-border); border-radius: var(--radius-md); padding: 1.25rem; margin: 1.25rem 0;">
         <div style="display: flex; align-items: baseline; gap: 1rem;">
-          <span style="font-size: 2.25rem; font-weight: 800; color: var(--text-main);">₹{{ product.selling_price }}</span>
+          <span style="font-size: 2.25rem; font-weight: 800; color: var(--text-main);">{{ product.selling_price|inr }}</span>
           {% if product.mrp > product.selling_price %}
-            <span style="font-size: 1.25rem; color: var(--text-muted); text-decoration: line-through;">MRP: ₹{{ product.mrp }}</span>
+            <span style="font-size: 1.25rem; color: var(--text-muted); text-decoration: line-through;">MRP: {{ product.mrp|inr }}</span>
             <span style="background: #DC2626; color: white; font-size: 0.75rem; font-weight: 800; padding: 2px 8px; border-radius: 4px;">
-              SAVE ₹{{ product.mrp|add:"-0"|floatformat:2 }}
+              SAVE {{ product.savings_amount|inr }}
             </span>
           {% endif %}
         </div>

@@ -40,8 +40,8 @@
                   <strong>{{ p.name }}</strong>
                 </div>
               </td>
-              <td style="text-decoration: line-through; color: var(--text-muted);">₹{{ p.mrp }}</td>
-              <td><strong style="color: var(--color-primary-dark);">₹{{ p.selling_price }}</strong></td>
+              <td style="text-decoration: line-through; color: var(--text-muted);">{{ p.mrp|inr }}</td>
+              <td><strong style="color: var(--color-primary-dark);">{{ p.selling_price|inr }}</strong></td>
               <td><span class="badge badge-success">{{ p.discount_percentage }}% OFF</span></td>
               <td>{{ p.stock_record.current_stock }} in stock</td>
               <td>

@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from apps.cart.models import Cart, CartItem, Wishlist
 from apps.catalog.models import Product
+from apps.catalog.currency import format_inr
 
 
 def get_or_create_cart(request):
@@ -157,8 +158,8 @@ def add_to_cart_api(request, product_id=None):
                 'product_name': product.name,
                 'item_quantity': cart_item.quantity,
                 'total_items': cart.total_items,
-                'subtotal': str(cart.subtotal),
-                'grand_total': str(cart.grand_total),
+                'subtotal': format_inr(cart.subtotal),
+                'grand_total': format_inr(cart.grand_total),
             })
         return redirect('cart:view_cart')
     except Exception as e:
@@ -191,7 +192,7 @@ def update_cart_api(request, item_id):
         return JsonResponse({
             'success': True,
             'total_items': cart.total_items,
-            'subtotal': str(cart.subtotal)
+            'subtotal': format_inr(cart.subtotal)
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
@@ -206,7 +207,7 @@ def remove_cart_api(request, item_id):
     return JsonResponse({
         'success': True,
         'total_items': cart.total_items,
-        'subtotal': str(cart.subtotal)
+        'subtotal': format_inr(cart.subtotal)
     })
 
 

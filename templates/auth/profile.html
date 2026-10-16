@@ -199,7 +199,7 @@
                         <span class="badge {{ ord.status_badge_class }}" style="font-size: 0.75rem;">{{ ord.get_status_display }}</span>
                       </div>
                       <div style="font-size: 0.8rem; color: #64748B; margin-top: 3px;">
-                        {{ ord.created_at|date:"M d, Y h:i A" }} &bull; {{ ord.items.count }} item{{ ord.items.count|pluralize }} &bull; <strong style="color: #047857;">₹{{ ord.total_amount }}</strong> ({{ ord.get_payment_method_display }})
+                        {{ ord.created_at|date:"M d, Y h:i A" }} &bull; {{ ord.items.count }} item{{ ord.items.count|pluralize }} &bull; <strong style="color: #047857;">{{ ord.total_amount|inr }}</strong> ({{ ord.get_payment_method_display }})
                       </div>
                     </div>
                     <div style="display: flex; gap: 8px;">

@@ -179,7 +179,7 @@
   <div class="table-card" style="margin-bottom: 2rem;">
     <div class="table-card-header">
       <h3 style="font-size: 1.15rem; font-weight: 800;">Your Store Items to Pack ({{ sub_order.items.count }})</h3>
-      <span style="font-size: 1.15rem; font-weight: 800; color: var(--color-primary-dark);">Seller Total: ₹{{ sub_order.subtotal }}</span>
+      <span style="font-size: 1.15rem; font-weight: 800; color: var(--color-primary-dark);">Seller Total: {{ sub_order.subtotal|inr }}</span>
     </div>
 
     <div class="table-responsive">
@@ -208,9 +208,9 @@
                 </div>
               </td>
               <td>{{ item.unit_value }}</td>
-              <td>₹{{ item.unit_price }}</td>
+              <td>{{ item.unit_price|inr }}</td>
               <td><span class="badge badge-secondary" style="font-size: 0.95rem; font-weight: 800;">{{ item.quantity }}</span></td>
-              <td style="text-align: right; font-weight: 800; color: var(--text-main);">₹{{ item.total_price }}</td>
+              <td style="text-align: right; font-weight: 800; color: var(--text-main);">{{ item.total_price|inr }}</td>
             </tr>
           {% endfor %}
         </tbody>

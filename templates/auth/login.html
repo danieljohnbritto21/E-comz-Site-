@@ -72,27 +72,6 @@
       </button>
     </form>
 
-    <!-- Quick Demo Accounts Helper Box -->
-    <div style="margin-top: 1.75rem; padding: 1rem; background: #F8FAF9; border: 1px dashed #CBD5E1; border-radius: var(--radius-md);">
-      <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 6px;">
-        <i class="fa-solid fa-key" style="color: var(--color-primary-dark);"></i> Quick Demo Logins (Click to autofill)
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.8rem;">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="fillLogin('admin', 'admin123', 'ADMIN')" style="justify-content: flex-start;">
-          <i class="fa-solid fa-shield-halved" style="color: #7C3AED;"></i> Admin
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="fillLogin('seller_green', 'seller123', 'SELLER')" style="justify-content: flex-start;">
-          <i class="fa-solid fa-store" style="color: #059669;"></i> Seller
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="fillLogin('delivery_agent', 'delivery123', 'DELIVERY')" style="justify-content: flex-start;">
-          <i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i> Delivery
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="fillLogin('buyer_demo', 'buyer123', 'BUYER')" style="justify-content: flex-start;">
-          <i class="fa-solid fa-user" style="color: #D97706;"></i> Customer
-        </button>
-      </div>
-    </div>
-
     <!-- Registration links -->
     <div style="margin-top: 1.5rem; text-align: center; font-size: 0.875rem; color: var(--text-secondary);">
       New to FreshMart?
@@ -113,13 +92,6 @@ function switchRole(role) {
   document.querySelectorAll('#role-tabs .auth-tab').forEach(tab => {
     tab.classList.toggle('active', tab.getAttribute('data-role') === role);
   });
-}
-
-function fillLogin(user, pass, role) {
-  document.querySelector('input[name="username"]').value = user;
-  document.querySelector('input[name="password"]').value = pass;
-  switchRole(role);
-  showToast(`Autofilled ${role} demo credentials!`, 'info');
 }
 </script>
 {% endblock %}

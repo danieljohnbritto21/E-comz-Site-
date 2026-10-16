@@ -36,7 +36,7 @@
               </td>
               <td>{{ item.product_name }}</td>
               <td>{{ item.quantity }}</td>
-              <td><strong>₹{{ item.total_price }}</strong></td>
+              <td><strong>{{ item.total_price|inr }}</strong></td>
               <td style="font-size: 0.8rem; color: var(--text-muted);">{{ item.created_at|date:"d M Y" }}</td>
               <td style="font-size: 0.8rem; color: var(--text-secondary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.order.delivery_address_text }}</td>
             </tr>

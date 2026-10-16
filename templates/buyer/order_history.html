@@ -54,10 +54,20 @@
 
             <div style="text-align: right;">
               <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Total Amount</div>
-              <div style="font-size: 1.35rem; font-weight: 800; color: var(--color-primary-dark);">₹{{ order.total_amount }}</div>
-              <a href="{% url 'orders:track' order.order_id %}" class="btn btn-outline-primary btn-sm" style="margin-top: 0.5rem;">
-                <i class="fa-solid fa-map-location-dot"></i> Live Tracking
-              </a>
+              <div style="font-size: 1.35rem; font-weight: 800; color: var(--color-primary-dark);">{{ order.total_amount|inr }}</div>
+              <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 0.5rem; flex-wrap: wrap;">
+                {% if order.is_cancellable %}
+                  <form method="POST" action="{% url 'orders:cancel_order' order.order_id %}" onsubmit="return confirm('Are you sure you want to cancel order #{{ order.order_id }}? Items will be returned to store inventory.');" style="margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline btn-sm" style="color: #DC2626; border-color: #FCA5A5; font-size: 0.8rem; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer;">
+                      <i class="fa-solid fa-ban"></i> Cancel Order
+                    </button>
+                  </form>
+                {% endif %}
+                <a href="{% url 'orders:track' order.order_id %}" class="btn btn-outline-primary btn-sm">
+                  <i class="fa-solid fa-map-location-dot"></i> Live Tracking
+                </a>
+              </div>
             </div>
           </div>
 

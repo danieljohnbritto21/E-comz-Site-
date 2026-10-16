@@ -47,7 +47,7 @@
       <!-- Total Amount -->
       <div style="background: #FAFAFA; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--bg-border);">
         <strong style="color: var(--text-muted); display: block; font-size: 0.75rem; text-transform: uppercase;">Final Payable</strong>
-        <div style="font-weight: 800; font-size: 1.25rem; color: var(--color-primary-dark); margin-top: 2px;">₹{{ order.total_amount }}</div>
+        <div style="font-weight: 800; font-size: 1.25rem; color: var(--color-primary-dark); margin-top: 2px;">{{ order.total_amount|inr }}</div>
         <div style="font-size: 0.75rem; color: var(--text-muted);">Order Date: {{ order.created_at|date:"d M Y" }}</div>
       </div>
     </div>
@@ -85,8 +85,8 @@
             </div>
           </div>
           <div style="text-align: right;">
-            <div style="font-weight: 800; font-size: 1rem; color: var(--text-main);">₹{{ item.total_price }}</div>
-            <div style="font-size: 0.775rem; color: var(--text-muted);">Qty: {{ item.quantity }} &times; ₹{{ item.unit_price }}</div>
+            <div style="font-weight: 800; font-size: 1rem; color: var(--text-main);">{{ item.total_price|inr }}</div>
+            <div style="font-size: 0.775rem; color: var(--text-muted);">Qty: {{ item.quantity }} &times; {{ item.unit_price|inr }}</div>
           </div>
         </div>
       {% endfor %}
@@ -108,21 +108,21 @@
       <div style="text-align: right; min-width: 200px;">
         <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 4px;">
           <span style="color: var(--text-muted);">Subtotal:</span>
-          <span style="font-weight: 600;">₹{{ order.subtotal }}</span>
+          <span style="font-weight: 600;">{{ order.subtotal|inr }}</span>
         </div>
         {% if order.discount_amount > 0 %}
           <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 4px; color: #047857;">
             <span>Discount Savings:</span>
-            <span style="font-weight: 600;">-₹{{ order.discount_amount }}</span>
+            <span style="font-weight: 600;">-{{ order.discount_amount|inr }}</span>
           </div>
         {% endif %}
         <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 6px;">
           <span style="color: var(--text-muted);">Delivery Fee:</span>
-          <span>{% if order.delivery_fee == 0 %}<span class="badge badge-success">FREE</span>{% else %}₹{{ order.delivery_fee }}{% endif %}</span>
+          <span>{% if order.delivery_fee == 0 %}<span class="badge badge-success">FREE</span>{% else %}{{ order.delivery_fee|inr }}{% endif %}</span>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 800; border-top: 1px solid var(--bg-border); padding-top: 6px;">
           <span>Grand Total:</span>
-          <span style="color: var(--color-primary-dark);">₹{{ order.total_amount }}</span>
+          <span style="color: var(--color-primary-dark);">{{ order.total_amount|inr }}</span>
         </div>
       </div>
     </div>

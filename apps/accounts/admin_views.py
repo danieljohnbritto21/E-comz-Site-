@@ -259,6 +259,56 @@ def admin_sellers_view(request):
                 messages.success(request, f"Seller store '{store_name}' created successfully with Account ID {profile.seller_account_id} (Username: {username})!")
                 return redirect('admin_dashboard:sellers')
 
+        # Edit Existing Seller
+        if action == 'edit_seller':
+            profile_id = request.POST.get('profile_id')
+            profile = get_object_or_404(SellerProfile, id=profile_id)
+            user = profile.user
+
+            store_name = request.POST.get('store_name', '').strip()
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            email = request.POST.get('email', '').strip()
+            phone = request.POST.get('phone_number', '').strip()
+            pickup_address = request.POST.get('pickup_address', '').strip()
+            city = request.POST.get('city', 'Central City').strip() or 'Central City'
+            pin_code = request.POST.get('pin_code', '110001').strip() or '110001'
+            new_password = request.POST.get('password', '').strip()
+            is_approved = 'is_approved' in request.POST or request.POST.get('is_approved') == '1'
+
+            if not store_name:
+                messages.error(request, "Please enter a valid store name.")
+                return redirect('admin_dashboard:sellers')
+
+            if email and User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
+                messages.error(request, f"An account with email '{email}' already exists.")
+                return redirect('admin_dashboard:sellers')
+
+            with transaction.atomic():
+                user.first_name = first_name
+                user.last_name = last_name
+                user.email = email
+                user.phone_number = phone
+                if is_approved:
+                    user.account_status = User.Status.ACTIVE
+                else:
+                    user.account_status = User.Status.SUSPENDED
+                if new_password:
+                    user.set_password(new_password)
+                user.save()
+
+                profile.store_name = store_name
+                profile.store_phone = phone or user.phone_number
+                profile.store_email = email or user.email
+                profile.pickup_address = pickup_address or profile.pickup_address
+                profile.city = city
+                profile.pin_code = pin_code
+                profile.is_approved = is_approved
+                profile.save()
+
+            messages.success(request, f"Seller store '{store_name}' updated successfully!")
+            return redirect('admin_dashboard:sellers')
+
         profile_id = request.POST.get('profile_id')
         profile = get_object_or_404(SellerProfile, id=profile_id)
 
@@ -398,10 +448,55 @@ def admin_products_view(request):
 
 @role_required(['ADMIN'])
 def admin_categories_view(request):
-    """View and add grocery categories."""
+    """View, add, edit, and delete grocery categories."""
     categories = Category.objects.all().order_by('sort_order', 'name')
 
     if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # Delete Category Action
+        if action == 'delete_category':
+            category_id = request.POST.get('category_id')
+            cat = get_object_or_404(Category, id=category_id)
+            product_count = cat.products.count()
+            if product_count > 0:
+                messages.error(request, f"Cannot delete category '{cat.name}' because it contains {product_count} product(s). Please reassign or delete these products first, or mark this category as Inactive.")
+                return redirect('admin_dashboard:categories')
+            try:
+                cat_name = cat.name
+                cat.delete()
+                messages.success(request, f"Category '{cat_name}' deleted successfully.")
+            except Exception as e:
+                messages.error(request, f"Could not delete category: {e}")
+            return redirect('admin_dashboard:categories')
+
+        # Edit Category Action
+        if action == 'edit_category':
+            category_id = request.POST.get('category_id')
+            cat = get_object_or_404(Category, id=category_id)
+            name = request.POST.get('name', '').strip()
+            icon = request.POST.get('icon', 'fa-basket-shopping').strip() or 'fa-basket-shopping'
+            description = request.POST.get('description', '').strip()
+            is_active = 'is_active' in request.POST or request.POST.get('is_active') == '1'
+
+            if not name:
+                messages.error(request, "Please enter a valid category name.")
+                return redirect('admin_dashboard:categories')
+
+            if Category.objects.filter(name__iexact=name).exclude(pk=cat.pk).exists():
+                messages.error(request, f"A category with name '{name}' already exists.")
+                return redirect('admin_dashboard:categories')
+
+            cat.name = name
+            cat.slug = slugify(name)
+            cat.icon = icon
+            cat.description = description
+            cat.is_active = is_active
+            cat.save()
+            messages.success(request, f"Category '{name}' updated successfully.")
+            return redirect('admin_dashboard:categories')
+
+        # Create Category Action (Default)
         name = request.POST.get('name', '').strip()
         icon = request.POST.get('icon', 'fa-basket-shopping').strip() or 'fa-basket-shopping'
         description = request.POST.get('description', '').strip()
@@ -461,7 +556,7 @@ def export_sales_csv(request):
             o.get_payment_method_display(),
             o.get_payment_status_display(),
             o.get_status_display(),
-            o.total_amount
+            f"{o.total_amount:.2f}"
         ])
 
     return response

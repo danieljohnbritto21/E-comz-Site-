@@ -130,6 +130,9 @@ def product_detail_view(request, slug):
     })
 
 
+from apps.catalog.currency import format_inr
+
+
 def search_suggestions_api(request):
     """API endpoint providing instant search suggestions for the navbar."""
     query = request.GET.get('q', '').strip()
@@ -144,7 +147,7 @@ def search_suggestions_api(request):
             results.append({
                 'name': p.name,
                 'slug': p.slug,
-                'selling_price': str(p.selling_price),
+                'selling_price': format_inr(p.selling_price),
                 'image': p.primary_image_url,
                 'unit': p.unit_value,
             })

@@ -180,8 +180,8 @@
               </div>
             </div>
             <div style="text-align: right;">
-              <div style="font-weight: 700; font-size: 0.95rem;">₹{{ item.total_price }}</div>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.quantity }} x ₹{{ item.unit_price }}</div>
+              <div style="font-weight: 700; font-size: 0.95rem;">{{ item.total_price|inr }}</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.quantity }} x {{ item.unit_price|inr }}</div>
             </div>
           </div>
         {% endfor %}

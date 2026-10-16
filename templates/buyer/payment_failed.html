@@ -24,7 +24,7 @@
       </div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
         <span style="color: var(--text-muted);">Amount:</span>
-        <strong style="color: #991B1B;">₹{{ order.total_amount }}</strong>
+        <strong style="color: #991B1B;">{{ order.total_amount|inr }}</strong>
       </div>
       <div style="display: flex; justify-content: space-between;">
         <span style="color: var(--text-muted);">Payment Method:</span>

@@ -24,11 +24,11 @@
 
         {% if order.payment_status == 'PAID' %}
           <span class="badge badge-success">
-            <i class="fa-solid fa-circle-check"></i> Paid (₹{{ order.total_amount }})
+            <i class="fa-solid fa-circle-check"></i> Paid ({{ order.total_amount|inr }})
           </span>
         {% elif order.payment_method == 'COD' %}
           <span class="badge badge-warning" style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A;">
-            <i class="fa-solid fa-money-bill-wave"></i> Collect COD: ₹{{ order.total_amount }}
+            <i class="fa-solid fa-money-bill-wave"></i> Collect COD: {{ order.total_amount|inr }}
           </span>
         {% else %}
           <span class="badge badge-warning">
@@ -132,14 +132,14 @@
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
               <div>
                 <div style="font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: #92400E; letter-spacing: 0.5px;">Cash Collection Required</div>
-                <div style="font-size: 1.4rem; font-weight: 900; color: #78350F;">Collect ₹{{ order.total_amount }}</div>
+                <div style="font-size: 1.4rem; font-weight: 900; color: #78350F;">Collect {{ order.total_amount|inr }}</div>
                 <small style="color: #92400E;">Collect cash from customer before handing over produce.</small>
               </div>
               <form method="POST" style="margin: 0;">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="collect_cod">
                 <button type="submit" class="btn btn-primary btn-lg" style="background: #D97706; border-color: #B45309;">
-                  <i class="fa-solid fa-hand-holding-dollar"></i> Confirm Cash Received (₹{{ order.total_amount }})
+                  <i class="fa-solid fa-hand-holding-dollar"></i> Confirm Cash Received ({{ order.total_amount|inr }})
                 </button>
               </form>
             </div>
@@ -147,7 +147,7 @@
         {% elif order.payment_status == 'PAID' %}
           <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: var(--radius-md); padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 10px; color: #047857; font-weight: 700;">
             <i class="fa-solid fa-circle-check" style="font-size: 1.2rem;"></i>
-            <span>Payment of ₹{{ order.total_amount }} is Verified ({{ order.get_payment_method_display }}). Proceed to OTP Verification.</span>
+            <span>Payment of {{ order.total_amount|inr }} is Verified ({{ order.get_payment_method_display }}). Proceed to OTP Verification.</span>
           </div>
         {% endif %}
 
@@ -159,7 +159,7 @@
 
           {% if order.payment_status != 'PAID' %}
             <div style="background: #F1F5F9; border: 1px solid #E2E8F0; padding: 1rem; border-radius: 6px; color: #64748B; font-size: 0.9rem;">
-              <i class="fa-solid fa-lock"></i> <strong>OTP Locked:</strong> Payment of ₹{{ order.total_amount }} must be satisfied before generating the customer delivery OTP.
+              <i class="fa-solid fa-lock"></i> <strong>OTP Locked:</strong> Payment of {{ order.total_amount|inr }} must be satisfied before generating the customer delivery OTP.
             </div>
           {% else %}
             <!-- Payment is satisfied -> OTP Section Active -->
@@ -379,7 +379,7 @@
   <div class="table-card">
     <div class="table-card-header">
       <h3 style="font-size: 1.15rem; font-weight: 800;">Package Items ({{ order.items.count }})</h3>
-      <span style="font-weight: 800; color: var(--color-primary-dark);">Total Amount: ₹{{ order.total_amount }}</span>
+      <span style="font-weight: 800; color: var(--color-primary-dark);">Total Amount: {{ order.total_amount|inr }}</span>
     </div>
     <div class="table-responsive">
       <table class="data-table">

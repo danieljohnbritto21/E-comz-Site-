@@ -1,4 +1,7 @@
+from django.conf import settings
+from django.core.cache import cache
 from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -7,8 +10,16 @@ from django.db import transaction, models
 from django.http import JsonResponse
 from apps.accounts.forms import LoginForm, BuyerRegistrationForm, SellerRegistrationForm
 from apps.accounts.models import User, BuyerProfile, SellerProfile, DeliveryProfile
-from apps.accounts.decorators import get_role_redirect_url
+from apps.accounts.decorators import get_role_redirect_url, apply_cache_control_headers
 from apps.notifications.models import Notification
+
+
+def get_client_ip(request):
+    """Safely extract remote IP address from HTTP headers for rate limiting."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '127.0.0.1')
 
 
 def login_view(request):
@@ -20,6 +31,15 @@ def login_view(request):
         selected_role = 'BUYER'
 
     if request.method == 'POST':
+        client_ip = get_client_ip(request)
+        rate_limit_key = f"auth_lockout_{client_ip}"
+        failed_attempts = cache.get(rate_limit_key, 0)
+        if failed_attempts >= 10:
+            messages.error(request, "Too many failed login attempts. Please wait 5 minutes before trying again.")
+            form = LoginForm(request.POST)
+            response = render(request, 'auth/login.html', {'form': form, 'selected_role': selected_role})
+            return apply_cache_control_headers(response)
+
         # Track selected role from post to preserve active tab state on UI
         raw_posted_role = request.POST.get('role', selected_role).strip().upper()
         if raw_posted_role in ['CUSTOMER', 'BUYER']:
@@ -37,7 +57,7 @@ def login_view(request):
             password = form.cleaned_data['password']
             role_choice = form.cleaned_data['role']
 
-            # 1. Authenticate user credentials
+            # 1. Authenticate user credentials against database
             user = authenticate(request, username=username_or_email, password=password)
             if user is None:
                 user_obj = User.objects.filter(email__iexact=username_or_email).first()
@@ -46,13 +66,16 @@ def login_view(request):
 
             # 2. Reject if invalid username/email/password
             if user is None:
+                cache.set(rate_limit_key, failed_attempts + 1, 300)
                 messages.error(request, "Invalid username or password.")
-                return render(request, 'auth/login.html', {'form': form, 'selected_role': selected_role})
+                response = render(request, 'auth/login.html', {'form': form, 'selected_role': selected_role})
+                return apply_cache_control_headers(response)
 
             # 3. Check account active status
             if not user.is_active or user.account_status in [User.Status.SUSPENDED, User.Status.REJECTED]:
                 messages.error(request, "Your account is inactive. Please contact support.")
-                return render(request, 'auth/login.html', {'form': form, 'selected_role': selected_role})
+                response = render(request, 'auth/login.html', {'form': form, 'selected_role': selected_role})
+                return apply_cache_control_headers(response)
 
             # 4. Strict server-side role validation
             # Never trust browser role selection as proof of identity; compare with DB record
@@ -72,6 +95,7 @@ def login_view(request):
 
             # Reject completely if user role does not match the selected tab
             if not is_role_matched:
+                cache.set(rate_limit_key, failed_attempts + 1, 300)
                 role_label = {
                     'BUYER': 'Customer',
                     'SELLER': 'Seller',
@@ -83,9 +107,13 @@ def login_view(request):
                     request,
                     f"This account cannot sign in using the {role_label} role. Please select the correct role."
                 )
-                return render(request, 'auth/login.html', {'form': form, 'selected_role': selected_role})
+                response = render(request, 'auth/login.html', {'form': form, 'selected_role': selected_role})
+                return apply_cache_control_headers(response)
 
-            # 5. Create authenticated session only after verified credentials and matching role
+            # 5. Clear rate limit counter on successful credentials & matching role
+            cache.delete(rate_limit_key)
+
+            # Create authenticated session only after verified credentials and matching role
             old_session_key = request.session.session_key
             login(request, user)
             
@@ -122,27 +150,56 @@ def login_view(request):
 
             # 6. Redirect to requested next destination or role-specific dashboard
             next_url = request.POST.get('next') or request.GET.get('next')
-            if next_url and next_url.startswith('/'):
-                return redirect(next_url)
-            return redirect(get_role_redirect_url(user))
+            if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+                response = redirect(next_url)
+            else:
+                response = redirect(get_role_redirect_url(user))
+            return apply_cache_control_headers(response)
         else:
             messages.error(request, "Please enter all required fields with a valid role selection.")
     else:
         form = LoginForm(initial={'role': selected_role})
 
-    return render(request, 'auth/login.html', {
+    response = render(request, 'auth/login.html', {
         'form': form,
         'selected_role': selected_role,
         'next': request.GET.get('next', ''),
         'pending_product_id': request.GET.get('pending_product_id', ''),
         'pending_qty': request.GET.get('pending_qty', '1'),
     })
+    return apply_cache_control_headers(response)
 
 
 def logout_view(request):
+    """
+    Safely terminates authenticated session, invalidates session data on server,
+    clears cookies, sets anti-caching headers, and redirects safely.
+    Handles both POST (recommended with CSRF) and GET requests.
+    """
+    was_admin = request.user.is_authenticated and (request.user.is_superuser or request.user.role == 'ADMIN')
+    was_seller = request.user.is_authenticated and request.user.role == 'SELLER'
+    was_delivery = request.user.is_authenticated and request.user.role == 'DELIVERY'
+
+    # Terminate server session completely
     logout(request)
+
     messages.info(request, "You have been logged out successfully.")
-    return redirect('catalog:home')
+
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and next_url.startswith('/') and not next_url.startswith('//'):
+        response = redirect(next_url)
+    elif was_admin:
+        response = redirect(f"{reverse('accounts:login')}?role=ADMIN")
+    elif was_seller:
+        response = redirect(f"{reverse('accounts:login')}?role=SELLER")
+    elif was_delivery:
+        response = redirect(f"{reverse('accounts:login')}?role=DELIVERY")
+    else:
+        response = redirect('catalog:home')
+
+    # Explicitly clear session cookie on client
+    response.delete_cookie(settings.SESSION_COOKIE_NAME)
+    return apply_cache_control_headers(response)
 
 
 def role_redirect_view(request):
@@ -340,7 +397,8 @@ def profile_view(request):
         context['all_buyers'] = User.objects.filter(role=User.Role.BUYER).select_related('buyer_profile').all().order_by('id')
         context['all_admins'] = User.objects.filter(models.Q(role=User.Role.ADMIN) | models.Q(is_superuser=True)).order_by('id')
 
-    return render(request, 'auth/profile.html', context)
+    response = render(request, 'auth/profile.html', context)
+    return apply_cache_control_headers(response)
 
 
 @login_required
@@ -425,5 +483,6 @@ def api_account_details_view(request):
             'drivers_count': DeliveryProfile.objects.count(),
             'buyers_count': User.objects.filter(role=User.Role.BUYER).count(),
         }
-    return JsonResponse({'status': 'success', 'account': data})
+    response = JsonResponse({'status': 'success', 'account': data})
+    return apply_cache_control_headers(response)
 
