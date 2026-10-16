@@ -422,12 +422,92 @@ class Command(BaseCommand):
                     status=SellerSubOrder.Status.PACKED
                 )
 
+                # Order Items for demo order
+                first_prod = Product.objects.filter(seller=seller1).first()
+                if first_prod:
+                    OrderItem.objects.create(
+                        order=order,
+                        sub_order=sub1,
+                        seller=seller1,
+                        product=first_prod,
+                        product_name=first_prod.name,
+                        brand=first_prod.brand,
+                        unit_value=first_prod.unit_value,
+                        unit_price=first_prod.selling_price,
+                        mrp=first_prod.mrp,
+                        quantity=2,
+                        total_price=first_prod.selling_price * 2,
+                        image_url=first_prod.primary_image_url
+                    )
+
                 # Assign to delivery driver
                 DeliveryAssignment.objects.create(
                     order=order,
                     delivery_person=driver,
                     assigned_by=admin_user,
                     status=DeliveryAssignment.Status.ASSIGNED
+                )
+
+            # 8. Delivered / Completed Order for Seller Order History Demonstration
+            delivered_order_id = "ORD-20261015-DELIV1"
+            deliv_order, d_created = Order.objects.get_or_create(
+                order_id=delivered_order_id,
+                defaults={
+                    'buyer': buyer,
+                    'recipient_name': 'Pooja Sharma',
+                    'recipient_phone': '+91 98999 88776',
+                    'delivery_address_text': 'Flat 304, Tower B, Sunrise Residency, Palm Grove Road, Downtown Sector 4, Central City - 110001',
+                    'pin_code': '110001',
+                    'delivery_slot': '07:00 AM - 10:00 AM',
+                    'status': Order.Status.DELIVERED,
+                    'payment_method': Order.PaymentMethod.COD,
+                    'payment_status': Order.PaymentStatus.PAID,
+                    'subtotal': Decimal('132.00'),
+                    'delivery_fee': Decimal('0.00'),
+                    'total_amount': Decimal('132.00'),
+                }
+            )
+
+            if d_created:
+                deliv_order.add_status_history(Order.Status.ORDER_PLACED, buyer, "Order placed successfully.")
+                deliv_order.add_status_history(Order.Status.ORDER_CONFIRMED, seller1, "Order confirmed by vendor.")
+                deliv_order.add_status_history(Order.Status.PACKED, seller1, "All vegetables sealed in eco bags.")
+                deliv_order.add_status_history(Order.Status.DELIVERED, driver, "Delivered to customer doorstep. Verified via Customer OTP.")
+
+                sub_deliv = SellerSubOrder.objects.create(
+                    order=deliv_order,
+                    seller=seller1,
+                    subtotal=Decimal('132.00'),
+                    status=SellerSubOrder.Status.DELIVERED
+                )
+
+                seller1_prods = list(Product.objects.filter(seller=seller1)[:2])
+                if seller1_prods:
+                    for p in seller1_prods:
+                        OrderItem.objects.create(
+                            order=deliv_order,
+                            sub_order=sub_deliv,
+                            seller=seller1,
+                            product=p,
+                            product_name=p.name,
+                            brand=p.brand,
+                            unit_value=p.unit_value,
+                            unit_price=p.selling_price,
+                            mrp=p.mrp,
+                            quantity=2,
+                            total_price=p.selling_price * 2,
+                            image_url=p.primary_image_url
+                        )
+
+                DeliveryAssignment.objects.create(
+                    order=deliv_order,
+                    delivery_person=driver,
+                    assigned_by=admin_user,
+                    status=DeliveryAssignment.Status.DELIVERED,
+                    delivered_time=timezone.now() - timezone.timedelta(hours=3),
+                    cod_collected=True,
+                    cod_collected_amount=Decimal('132.00'),
+                    shop_verified=True
                 )
 
         self.stdout.write(self.style.SUCCESS("""

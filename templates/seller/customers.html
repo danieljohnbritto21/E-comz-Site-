@@ -24,26 +24,70 @@
             <th>Amount</th>
             <th>Date</th>
             <th>Destination</th>
+            <th style="text-align: center;">Action</th>
           </tr>
         </thead>
         <tbody>
           {% for item in recent_buyers %}
             <tr>
-              <td><a href="{% url 'seller:order_detail' item.order.order_id %}" style="color: var(--color-primary-dark); font-weight: 700;">#{{ item.order.order_id }}</a></td>
               <td>
-                <div style="font-weight: 600;">{{ item.order.recipient_name }}</div>
+                <a href="{% url 'seller:order_detail' item.order.order_id %}" style="color: var(--color-primary-dark); font-weight: 700; text-decoration: none;">
+                  #{{ item.order.order_id }}
+                </a>
+              </td>
+              <td>
+                <div style="font-weight: 600; color: var(--text-primary);">{{ item.order.recipient_name }}</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.order.recipient_phone }}</div>
               </td>
-              <td>{{ item.product_name }}</td>
-              <td>{{ item.quantity }}</td>
-              <td><strong>{{ item.total_price|inr }}</strong></td>
-              <td style="font-size: 0.8rem; color: var(--text-muted);">{{ item.created_at|date:"d M Y" }}</td>
-              <td style="font-size: 0.8rem; color: var(--text-secondary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.order.delivery_address_text }}</td>
+              <td>
+                {% if item.items and item.items|length > 1 %}
+                  <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 2px;">
+                    {{ item.items|length }} Products
+                  </div>
+                  <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.35;">
+                    {% for pi in item.items %}
+                      <div>&bull; {{ pi.product_name }} <span style="color: var(--text-muted); font-size: 0.75rem;">(&times;{{ pi.quantity }})</span></div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <div style="font-weight: 600; color: var(--text-primary);">{{ item.product_name }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <span style="font-weight: 700; color: var(--text-primary);">{{ item.quantity }}</span>
+              </td>
+              <td>
+                <strong style="color: var(--color-primary-dark); font-size: 0.95rem;">{{ item.total_price|inr }}</strong>
+              </td>
+              <td style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">
+                {{ item.created_at|date:"d M Y" }}
+              </td>
+              <td style="font-size: 0.8rem; color: var(--text-secondary); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ item.destination }}">
+                {{ item.destination }}
+              </td>
+              <td style="text-align: center; white-space: nowrap;">
+                <button type="button" 
+                        id="btn-view-{{ item.order.order_id }}"
+                        data-testid="view-order-details"
+                        class="btn btn-sm btn-outline-primary" 
+                        onclick="openOrderDetailsModal('{{ item.order.order_id }}')" 
+                        style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-weight: 700; border-radius: 8px; font-size: 0.8rem; cursor: pointer;">
+                  <i class="fa-solid fa-eye"></i> View Details
+                </button>
+              </td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                No customer orders received yet.
+              <td colspan="8" style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
+                <div style="font-size: 2rem; color: #CBD5E1; margin-bottom: 0.5rem;">
+                  <i class="fa-solid fa-clipboard-list"></i>
+                </div>
+                <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary); margin-bottom: 0.25rem;">
+                  No customer orders received yet.
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-muted);">
+                  When customer orders containing your products are fulfilled and delivered, they will automatically appear here.
+                </div>
               </td>
             </tr>
           {% endfor %}
@@ -51,5 +95,291 @@
       </table>
     </div>
   </div>
+
+  <!-- Order Details Modals for Completed Orders -->
+  {% for item in recent_buyers %}
+    <div id="modal-{{ item.order.order_id }}" class="customer-order-modal-backdrop" onclick="handleCustomerModalBackdrop(event, '{{ item.order.order_id }}')">
+      <div class="customer-order-modal-card" role="dialog" aria-labelledby="modal-title-{{ item.order.order_id }}" aria-modal="true">
+        
+        <!-- Modal Header -->
+        <div class="customer-modal-header">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <h3 id="modal-title-{{ item.order.order_id }}" style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">
+                Order #{{ item.order.order_id }}
+              </h3>
+              <span class="badge badge-delivered" style="font-size: 0.72rem; padding: 3px 8px;">
+                <i class="fa-solid fa-circle-check"></i> {{ item.order.get_status_display }}
+              </span>
+              {% if item.order.payment_status == 'PAID' %}
+                <span class="badge badge-success" style="font-size: 0.72rem; padding: 3px 8px;">
+                  <i class="fa-solid fa-credit-card"></i> Paid Online
+                </span>
+              {% elif item.order.payment_method == 'COD' %}
+                <span class="badge badge-info" style="font-size: 0.72rem; padding: 3px 8px; background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;">
+                  <i class="fa-solid fa-hand-holding-dollar"></i> Cash on Delivery
+                </span>
+              {% endif %}
+            </div>
+            <p style="margin: 4px 0 0; font-size: 0.78rem; color: var(--text-muted);">
+              Delivered on {{ item.created_at|date:"d M Y, h:i A" }}
+            </p>
+          </div>
+          <button type="button" class="btn-close-modal" onclick="closeOrderDetailsModal('{{ item.order.order_id }}')" aria-label="Close modal">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="customer-modal-body">
+          
+          <!-- Customer & Destination Details Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1rem;">
+            <div>
+              <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                <i class="fa-solid fa-user"></i> Customer Information
+              </div>
+              <div style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">
+                {{ item.order.recipient_name }}
+              </div>
+              <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 3px;">
+                <i class="fa-solid fa-phone" style="font-size: 0.75rem; color: var(--text-muted);"></i> {{ item.order.recipient_phone }}
+              </div>
+              {% if item.order.buyer.email %}
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+                  <i class="fa-solid fa-envelope" style="font-size: 0.75rem;"></i> {{ item.order.buyer.email }}
+                </div>
+              {% endif %}
+            </div>
+
+            <div>
+              <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                <i class="fa-solid fa-location-dot"></i> Delivery Destination
+              </div>
+              <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;">
+                {{ item.destination }}
+              </div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+                PIN: <strong>{{ item.order.pin_code }}</strong> &bull; Slot: {{ item.order.delivery_slot }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Products Purchased from this store -->
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+              <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fa-solid fa-basket-shopping" style="color: var(--color-primary-dark);"></i> Products Purchased from Your Store
+              </h4>
+              <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">
+                {{ item.items|length }} item{{ item.items|length|pluralize }}
+              </span>
+            </div>
+
+            <div style="border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <thead>
+                  <tr style="background: #F1F5F9; border-bottom: 1px solid #E2E8F0; text-align: left; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">
+                    <th style="padding: 8px 12px;">Product</th>
+                    <th style="padding: 8px 12px; text-align: right;">Unit Price</th>
+                    <th style="padding: 8px 12px; text-align: center;">Qty</th>
+                    <th style="padding: 8px 12px; text-align: right;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for pi in item.items %}
+                    <tr style="border-bottom: 1px solid #F1F5F9;">
+                      <td style="padding: 10px 12px;">
+                        <div style="font-weight: 700; color: var(--text-primary);">{{ pi.product_name }}</div>
+                        {% if pi.brand or pi.unit_value %}
+                          <div style="font-size: 0.75rem; color: var(--text-muted);">
+                            {% if pi.brand %}{{ pi.brand }}{% endif %}
+                            {% if pi.brand and pi.unit_value %} &bull; {% endif %}
+                            {% if pi.unit_value %}{{ pi.unit_value }}{% endif %}
+                          </div>
+                        {% endif %}
+                      </td>
+                      <td style="padding: 10px 12px; text-align: right; color: var(--text-secondary); font-weight: 600;">
+                        {{ pi.unit_price|inr }}
+                      </td>
+                      <td style="padding: 10px 12px; text-align: center; font-weight: 700;">
+                        &times;{{ pi.quantity }}
+                      </td>
+                      <td style="padding: 10px 12px; text-align: right; font-weight: 700; color: var(--color-primary-dark);">
+                        {{ pi.total_price|inr }}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot>
+                  <tr style="background: #F8FAFC; border-top: 1.5px solid #E2E8F0;">
+                    <td colspan="2" style="padding: 10px 12px; font-weight: 700; color: var(--text-primary);">
+                      Store Subtotal
+                    </td>
+                    <td style="padding: 10px 12px; text-align: center; font-weight: 800; color: var(--text-primary);">
+                      {{ item.quantity }}
+                    </td>
+                    <td style="padding: 10px 12px; text-align: right; font-weight: 800; font-size: 1.05rem; color: var(--color-primary-dark);">
+                      {{ item.total_price|inr }}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Order Timeline & Fulfillment Metadata -->
+          <div style="background: #FAFAFA; border: 1px solid #E5E7EB; border-radius: 12px; padding: 0.85rem 1rem; font-size: 0.78rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; justify-content: space-between;">
+              <span>Payment Mode:</span>
+              <strong>{{ item.order.get_payment_method_display }} ({{ item.order.get_payment_status_display }})</strong>
+            </div>
+            {% if item.order.delivery_assignment and item.order.delivery_assignment.delivery_person %}
+              <div style="display: flex; justify-content: space-between;">
+                <span>Delivered By Fleet Partner:</span>
+                <strong>{{ item.order.delivery_assignment.delivery_person.get_full_name|default:item.order.delivery_assignment.delivery_person.username }}</strong>
+              </div>
+            {% endif %}
+            <div style="display: flex; justify-content: space-between;">
+              <span>Store Dispatch Sub-Order ID:</span>
+              <strong style="font-family: monospace; color: var(--color-primary-dark);">#{{ item.sub_order.sub_order_id|default:item.order.order_id }}</strong>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="customer-modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeOrderDetailsModal('{{ item.order.order_id }}')">
+            Close
+          </button>
+          <a href="{% url 'seller:order_detail' item.order.order_id %}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+            <i class="fa-solid fa-up-right-from-square"></i> Full Fulfillment Page
+          </a>
+        </div>
+
+      </div>
+    </div>
+  {% endfor %}
 </div>
+
+<style>
+.customer-order-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.customer-order-modal-backdrop.is-active {
+  display: flex !important;
+}
+
+.customer-order-modal-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  animation: modalScaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalScaleUp {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.customer-modal-header {
+  padding: 1.15rem 1.5rem;
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.btn-close-modal {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #F1F5F9;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  transition: all 0.15s ease;
+  font-size: 0.9rem;
+}
+
+.btn-close-modal:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.customer-modal-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.customer-modal-footer {
+  padding: 0.85rem 1.5rem;
+  background: #F8FAFC;
+  border-top: 1px solid #E2E8F0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+</style>
+
+<script>
+function openOrderDetailsModal(orderId) {
+  const modal = document.getElementById('modal-' + orderId);
+  if (modal) {
+    modal.classList.add('is-active');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeOrderDetailsModal(orderId) {
+  const modal = document.getElementById('modal-' + orderId);
+  if (modal) {
+    modal.classList.remove('is-active');
+    document.body.style.overflow = '';
+  }
+}
+
+function handleCustomerModalBackdrop(event, orderId) {
+  if (event.target.classList.contains('customer-order-modal-backdrop')) {
+    closeOrderDetailsModal(orderId);
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.customer-order-modal-backdrop.is-active').forEach(function(m) {
+      m.classList.remove('is-active');
+    });
+    document.body.style.overflow = '';
+  }
+});
+</script>
 {% endblock %}

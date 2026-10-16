@@ -669,10 +669,89 @@ def seller_offers_view(request):
 
 @role_required(['SELLER'])
 def seller_customers_view(request):
-    """Customer overview: buyers who ordered produce from this seller."""
+    """
+    Customer Order History: Displays orders containing products from this seller
+    that have reached a completed / delivered status.
+    
+    Adheres strictly to seller data isolation:
+    - Only retrieves products, quantities, and subtotal amounts belonging to request.user.
+    - Groups multiple products purchased in the same customer order into a single unified row
+      to prevent double counting or confusing duplicated order references.
+    - Sorts most recent completed orders first.
+    """
     seller = request.user
-    recent_buyers = OrderItem.objects.filter(seller=seller).select_related('order', 'order__buyer').order_by('-created_at')[:25]
-    return render(request, 'seller/customers.html', {'recent_buyers': recent_buyers})
+
+    # Fetch qualifying order items belonging to this seller from delivered/completed orders
+    # Matching across seller, product__seller, or sub_order__seller guarantees full relationship integrity
+    qualifying_items = OrderItem.objects.filter(
+        Q(seller=seller) | Q(product__seller=seller) | Q(sub_order__seller=seller)
+    ).filter(
+        Q(sub_order__status=SellerSubOrder.Status.DELIVERED) |
+        Q(order__status=Order.Status.DELIVERED) |
+        Q(order__delivery_assignment__status=DeliveryAssignment.Status.DELIVERED)
+    ).exclude(
+        order__status__in=[Order.Status.CANCELLED, Order.Status.FAILED_DELIVERY, Order.Status.REFUNDED]
+    ).exclude(
+        sub_order__status__in=[SellerSubOrder.Status.REJECTED, SellerSubOrder.Status.CANCELLED]
+    ).select_related(
+        'order', 'order__buyer', 'order__delivery_assignment', 'sub_order', 'product'
+    ).order_by('-order__created_at', '-id')
+
+    # Group items by order so each customer order appears once with all items for this seller
+    orders_map = {}
+    for item in qualifying_items:
+        order = item.order
+        if order.id not in orders_map:
+            # Determine relevant completion/delivery date
+            completion_date = order.created_at
+            if hasattr(order, 'delivery_assignment') and order.delivery_assignment and order.delivery_assignment.delivered_time:
+                completion_date = order.delivery_assignment.delivered_time
+            elif item.sub_order and item.sub_order.updated_at:
+                completion_date = item.sub_order.updated_at
+            elif order.updated_at:
+                completion_date = order.updated_at
+
+            orders_map[order.id] = {
+                'order': order,
+                'sub_order': item.sub_order,
+                'completion_date': completion_date,
+                'items': [],
+                'total_quantity': 0,
+                'total_amount': Decimal('0.00'),
+            }
+
+        orders_map[order.id]['items'].append(item)
+        orders_map[order.id]['total_quantity'] += item.quantity
+        orders_map[order.id]['total_amount'] += item.total_price
+
+    # Build clean history entry objects
+    history_entries = []
+    for order_id, data in orders_map.items():
+        items = data['items']
+        order = data['order']
+
+        if len(items) == 1:
+            product_name_display = items[0].product_name
+        else:
+            product_name_display = ", ".join(f"{it.product_name} (x{it.quantity})" for it in items)
+
+        history_entries.append({
+            'order': order,
+            'sub_order': data['sub_order'],
+            'items': items,
+            'product_name': product_name_display,
+            'quantity': data['total_quantity'],
+            'total_price': data['total_amount'],
+            'created_at': data['completion_date'],
+            'destination': order.delivery_address_text,
+        })
+
+    # Sort most recent completed first
+    history_entries.sort(key=lambda x: x['created_at'], reverse=True)
+
+    return render(request, 'seller/customers.html', {
+        'recent_buyers': history_entries,
+    })
 
 
 @role_required(['SELLER'])

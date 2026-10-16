@@ -541,3 +541,433 @@ class PriceFormattingStandardizationTests(TestCase):
         # Ensure original variable has not been mutated
         self.assertEqual(original, Decimal('99.999'))
 
+
+class SellerCustomerHistoryTests(TestCase):
+    """
+    Automated test suite validating Seller Customer Order History:
+    1. A completed order containing Seller 1's product appears in Seller 1's Customer History.
+    2. The same order does not expose Seller 1's item details to Seller 2.
+    3. Seller 2's completed orders appear in Seller 2's history.
+    4. Orders that have not reached the required completed status are handled according to existing workflow.
+    5. Multiple products from one seller are displayed and totalled correctly without double counting.
+    6. An order containing products from multiple sellers shows each seller only their own items and attributable amounts.
+    7. The correct customer, Order ID, quantities, dates, and destination are displayed.
+    8. Completing delivery through the existing OTP workflow updates the order so it qualifies for history.
+    9. Sellers cannot access another seller's history by changing a URL or request parameter.
+    10. The empty-state message appears only when no qualifying records exist.
+    """
+    def setUp(self):
+        from django.utils import timezone
+
+        # Create Sellers
+        self.seller1 = User.objects.create_user(
+            username='history_seller_1',
+            email='seller1@historytest.local',
+            password='password123',
+            role=User.Role.SELLER
+        )
+        SellerProfile.objects.create(user=self.seller1, store_name='Orchard Store', is_approved=True)
+
+        self.seller2 = User.objects.create_user(
+            username='history_seller_2',
+            email='seller2@historytest.local',
+            password='password123',
+            role=User.Role.SELLER
+        )
+        SellerProfile.objects.create(user=self.seller2, store_name='Dairy Store', is_approved=True)
+
+        # Create Customer
+        self.customer = User.objects.create_user(
+            username='history_customer',
+            email='customer@historytest.local',
+            password='password123',
+            role=User.Role.BUYER,
+            first_name='Ananya',
+            last_name='Iyer'
+        )
+        BuyerProfile.objects.create(user=self.customer)
+
+        # Create Delivery Agent
+        self.delivery_agent = User.objects.create_user(
+            username='history_delivery',
+            email='delivery@historytest.local',
+            password='password123',
+            role=User.Role.DELIVERY
+        )
+        DeliveryProfile.objects.create(user=self.delivery_agent, vehicle_type='BIKE', vehicle_number='DL-01-9999')
+
+        # Category & Products
+        self.category = Category.objects.create(name='Farm Organics', slug='farm-organics')
+
+        self.prod_s1_apple = Product.objects.create(
+            seller=self.seller1, category=self.category, name='Himachal Apples',
+            mrp=Decimal('120.00'), selling_price=Decimal('100.00'), sku='SKU-HIM-APP', is_active=True
+        )
+        StockRecord.objects.create(product=self.prod_s1_apple, current_stock=50)
+
+        self.prod_s1_pear = Product.objects.create(
+            seller=self.seller1, category=self.category, name='Nashik Pears',
+            mrp=Decimal('80.00'), selling_price=Decimal('60.00'), sku='SKU-NAS-PEAR', is_active=True
+        )
+        StockRecord.objects.create(product=self.prod_s1_pear, current_stock=50)
+
+        self.prod_s2_milk = Product.objects.create(
+            seller=self.seller2, category=self.category, name='Organic Cow Milk',
+            mrp=Decimal('70.00'), selling_price=Decimal('50.00'), sku='SKU-COW-MILK', is_active=True
+        )
+        StockRecord.objects.create(product=self.prod_s2_milk, current_stock=50)
+
+        # Clients
+        self.client_s1 = Client()
+        self.client_s1.force_login(self.seller1)
+
+        self.client_s2 = Client()
+        self.client_s2.force_login(self.seller2)
+
+        self.client_driver = Client()
+        self.client_driver.force_login(self.delivery_agent)
+
+    def test_01_and_02_completed_order_appears_for_seller1_and_isolated_from_seller2(self):
+        # Create delivered order for Seller 1
+        order = Order.objects.create(
+            order_id='ORD-TEST-DELIV-01',
+            buyer=self.customer,
+            recipient_name='Ananya Iyer',
+            recipient_phone='+91 98888 77777',
+            delivery_address_text='Flat 204, Green Heights, Central City - 110001',
+            status=Order.Status.DELIVERED,
+            subtotal=Decimal('200.00'),
+            total_amount=Decimal('200.00')
+        )
+        sub1 = SellerSubOrder.objects.create(
+            order=order, seller=self.seller1, subtotal=Decimal('200.00'), status=SellerSubOrder.Status.DELIVERED
+        )
+        OrderItem.objects.create(
+            order=order, sub_order=sub1, seller=self.seller1, product=self.prod_s1_apple,
+            product_name='Himachal Apples', unit_price=Decimal('100.00'), mrp=Decimal('120.00'),
+            quantity=2, total_price=Decimal('200.00')
+        )
+
+        # 1. Seller 1 sees their completed order
+        resp_s1 = self.client_s1.get(reverse('seller:customers'))
+        self.assertEqual(resp_s1.status_code, 200)
+        self.assertContains(resp_s1, 'ORD-TEST-DELIV-01')
+        self.assertContains(resp_s1, 'Himachal Apples')
+        self.assertContains(resp_s1, 'Ananya Iyer')
+        self.assertContains(resp_s1, '₹200.00')
+
+        # 2. Seller 2 sees NONE of Seller 1's order details
+        resp_s2 = self.client_s2.get(reverse('seller:customers'))
+        self.assertEqual(resp_s2.status_code, 200)
+        self.assertNotContains(resp_s2, 'ORD-TEST-DELIV-01')
+        self.assertNotContains(resp_s2, 'Himachal Apples')
+        self.assertContains(resp_s2, 'No customer orders received yet')
+
+    def test_03_seller2_completed_order_appears_in_seller2_history(self):
+        order2 = Order.objects.create(
+            order_id='ORD-TEST-DELIV-02',
+            buyer=self.customer,
+            recipient_name='Ananya Iyer',
+            recipient_phone='+91 98888 77777',
+            delivery_address_text='Flat 204, Green Heights, Central City - 110001',
+            status=Order.Status.DELIVERED,
+            subtotal=Decimal('100.00'),
+            total_amount=Decimal('100.00')
+        )
+        sub2 = SellerSubOrder.objects.create(
+            order=order2, seller=self.seller2, subtotal=Decimal('100.00'), status=SellerSubOrder.Status.DELIVERED
+        )
+        OrderItem.objects.create(
+            order=order2, sub_order=sub2, seller=self.seller2, product=self.prod_s2_milk,
+            product_name='Organic Cow Milk', unit_price=Decimal('50.00'), mrp=Decimal('70.00'),
+            quantity=2, total_price=Decimal('100.00')
+        )
+
+        resp_s2 = self.client_s2.get(reverse('seller:customers'))
+        self.assertEqual(resp_s2.status_code, 200)
+        self.assertContains(resp_s2, 'ORD-TEST-DELIV-02')
+        self.assertContains(resp_s2, 'Organic Cow Milk')
+        self.assertContains(resp_s2, '₹100.00')
+
+        # Seller 1 does not see Seller 2's order
+        resp_s1 = self.client_s1.get(reverse('seller:customers'))
+        self.assertNotContains(resp_s1, 'ORD-TEST-DELIV-02')
+        self.assertNotContains(resp_s1, 'Organic Cow Milk')
+
+    def test_04_uncompleted_order_does_not_appear_in_completed_history(self):
+        # Order in PREPARING status
+        order_prep = Order.objects.create(
+            order_id='ORD-TEST-PREPARING-01',
+            buyer=self.customer,
+            recipient_name='Ananya Iyer',
+            recipient_phone='+91 98888 77777',
+            delivery_address_text='Flat 204, Green Heights, Central City',
+            status=Order.Status.PREPARING,
+            subtotal=Decimal('100.00'),
+            total_amount=Decimal('100.00')
+        )
+        sub_prep = SellerSubOrder.objects.create(
+            order=order_prep, seller=self.seller1, subtotal=Decimal('100.00'), status=SellerSubOrder.Status.PREPARING
+        )
+        OrderItem.objects.create(
+            order=order_prep, sub_order=sub_prep, seller=self.seller1, product=self.prod_s1_apple,
+            product_name='Himachal Apples', unit_price=Decimal('100.00'), mrp=Decimal('120.00'),
+            quantity=1, total_price=Decimal('100.00')
+        )
+
+        resp = self.client_s1.get(reverse('seller:customers'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'ORD-TEST-PREPARING-01')
+        self.assertContains(resp, 'No customer orders received yet')
+
+    def test_05_multiple_products_from_same_seller_totalled_and_displayed_correctly(self):
+        # Single order with 2 different products from Seller 1:
+        # Apples: 2 x 100 = 200
+        # Pears:  3 x 60  = 180
+        # Total Seller 1 Qty = 5, Total Seller 1 Amount = 380
+        order = Order.objects.create(
+            order_id='ORD-TEST-MULTI-ITEMS',
+            buyer=self.customer,
+            recipient_name='Ananya Iyer',
+            recipient_phone='+91 98888 77777',
+            delivery_address_text='Palm Street 12, Central City',
+            status=Order.Status.DELIVERED,
+            subtotal=Decimal('380.00'),
+            total_amount=Decimal('380.00')
+        )
+        sub1 = SellerSubOrder.objects.create(
+            order=order, seller=self.seller1, subtotal=Decimal('380.00'), status=SellerSubOrder.Status.DELIVERED
+        )
+        OrderItem.objects.create(
+            order=order, sub_order=sub1, seller=self.seller1, product=self.prod_s1_apple,
+            product_name='Himachal Apples', unit_price=Decimal('100.00'), mrp=Decimal('120.00'),
+            quantity=2, total_price=Decimal('200.00')
+        )
+        OrderItem.objects.create(
+            order=order, sub_order=sub1, seller=self.seller1, product=self.prod_s1_pear,
+            product_name='Nashik Pears', unit_price=Decimal('60.00'), mrp=Decimal('80.00'),
+            quantity=3, total_price=Decimal('180.00')
+        )
+
+        resp = self.client_s1.get(reverse('seller:customers'))
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode('utf-8')
+
+        # Order ID appears exactly once in the table (grouped without row duplication)
+        self.assertEqual(len(resp.context['recent_buyers']), 1)
+        self.assertEqual(content.count('id="btn-view-ORD-TEST-MULTI-ITEMS"'), 1)
+        self.assertContains(resp, 'Himachal Apples')
+        self.assertContains(resp, 'Nashik Pears')
+        self.assertContains(resp, '2 Products')
+        self.assertContains(resp, '5')  # Total quantity
+        self.assertContains(resp, '₹380.00')  # Total amount formatted
+
+    def test_06_multi_seller_order_isolates_each_sellers_items_and_amounts(self):
+        # Order containing products from Seller 1 (Apples: 1 x 100 = 100) AND Seller 2 (Milk: 2 x 50 = 100)
+        # Total Order Amount = 200
+        order = Order.objects.create(
+            order_id='ORD-TEST-MULTI-SELLER',
+            buyer=self.customer,
+            recipient_name='Ananya Iyer',
+            recipient_phone='+91 98888 77777',
+            delivery_address_text='Sunrise Apartment 5B, Central City',
+            status=Order.Status.DELIVERED,
+            subtotal=Decimal('200.00'),
+            total_amount=Decimal('200.00')
+        )
+        sub1 = SellerSubOrder.objects.create(
+            order=order, seller=self.seller1, subtotal=Decimal('100.00'), status=SellerSubOrder.Status.DELIVERED
+        )
+        OrderItem.objects.create(
+            order=order, sub_order=sub1, seller=self.seller1, product=self.prod_s1_apple,
+            product_name='Himachal Apples', unit_price=Decimal('100.00'), mrp=Decimal('120.00'),
+            quantity=1, total_price=Decimal('100.00')
+        )
+
+        sub2 = SellerSubOrder.objects.create(
+            order=order, seller=self.seller2, subtotal=Decimal('100.00'), status=SellerSubOrder.Status.DELIVERED
+        )
+        OrderItem.objects.create(
+            order=order, sub_order=sub2, seller=self.seller2, product=self.prod_s2_milk,
+            product_name='Organic Cow Milk', unit_price=Decimal('50.00'), mrp=Decimal('70.00'),
+            quantity=2, total_price=Decimal('100.00')
+        )
+
+        # Seller 1 view
+        resp1 = self.client_s1.get(reverse('seller:customers'))
+        self.assertEqual(resp1.status_code, 200)
+        self.assertContains(resp1, 'ORD-TEST-MULTI-SELLER')
+        self.assertContains(resp1, 'Himachal Apples')
+        self.assertContains(resp1, '₹100.00')
+        self.assertNotContains(resp1, 'Organic Cow Milk')
+
+        # Seller 2 view
+        resp2 = self.client_s2.get(reverse('seller:customers'))
+        self.assertEqual(resp2.status_code, 200)
+        self.assertContains(resp2, 'ORD-TEST-MULTI-SELLER')
+        self.assertContains(resp2, 'Organic Cow Milk')
+        self.assertContains(resp2, '₹100.00')
+        self.assertNotContains(resp2, 'Himachal Apples')
+
+    def test_07_correct_customer_order_id_quantities_dates_and_destination_displayed(self):
+        from django.utils import timezone
+        order = Order.objects.create(
+            order_id='ORD-TEST-DETAILS-77',
+            buyer=self.customer,
+            recipient_name='Ananya Iyer',
+            recipient_phone='+91 98888 77777',
+            delivery_address_text='Flat 502, Lotus Tower, Downtown Sector 9',
+            status=Order.Status.DELIVERED,
+            subtotal=Decimal('100.00'),
+            total_amount=Decimal('100.00')
+        )
+        sub1 = SellerSubOrder.objects.create(
+            order=order, seller=self.seller1, subtotal=Decimal('100.00'), status=SellerSubOrder.Status.DELIVERED
+        )
+        OrderItem.objects.create(
+            order=order, sub_order=sub1, seller=self.seller1, product=self.prod_s1_apple,
+            product_name='Himachal Apples', unit_price=Decimal('100.00'), mrp=Decimal('120.00'),
+            quantity=1, total_price=Decimal('100.00')
+        )
+
+        resp = self.client_s1.get(reverse('seller:customers'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '#ORD-TEST-DETAILS-77')
+        self.assertContains(resp, 'Ananya Iyer')
+        self.assertContains(resp, '+91 98888 77777')
+        self.assertContains(resp, 'Himachal Apples')
+        self.assertContains(resp, '₹100.00')
+        self.assertContains(resp, 'Flat 502, Lotus Tower, Downtown Sector 9')
+        # Check formatted date (day month year)
+        date_str = order.created_at.strftime('%d %b %Y')
+        self.assertContains(resp, date_str)
+
+    def test_08_completing_delivery_via_otp_workflow_automatically_updates_history(self):
+        # 1. Create order in PACKED state with DeliveryAssignment and active OTP
+        order = Order.objects.create(
+            order_id='ORD-TEST-OTP-FLOW',
+            buyer=self.customer,
+            recipient_name='Ananya Iyer',
+            recipient_phone='+91 98888 77777',
+            delivery_address_text='Lakeview Villa 4, Central City',
+            status=Order.Status.OUT_FOR_DELIVERY,
+            payment_status=Order.PaymentStatus.PAID,
+            subtotal=Decimal('100.00'),
+            total_amount=Decimal('100.00')
+        )
+        sub1 = SellerSubOrder.objects.create(
+            order=order, seller=self.seller1, subtotal=Decimal('100.00'), status=SellerSubOrder.Status.SHIPPED
+        )
+        OrderItem.objects.create(
+            order=order, sub_order=sub1, seller=self.seller1, product=self.prod_s1_apple,
+            product_name='Himachal Apples', unit_price=Decimal('100.00'), mrp=Decimal('120.00'),
+            quantity=1, total_price=Decimal('100.00')
+        )
+
+        assignment = DeliveryAssignment.objects.create(
+            order=order, delivery_person=self.delivery_agent, status=DeliveryAssignment.Status.OUT_FOR_DELIVERY
+        )
+        otp_record, raw_code = DeliveryOTP.generate(assignment, raw_code='482910')
+
+        # Before OTP verification: Order is NOT in completed history
+        resp_before = self.client_s1.get(reverse('seller:customers'))
+        self.assertNotContains(resp_before, 'ORD-TEST-OTP-FLOW')
+
+        # 2. Delivery driver completes OTP verification
+        verify_resp = self.client_driver.post(reverse('delivery:order_detail', args=[assignment.id]), {
+            'action': 'verify_otp',
+            'otp_code': '482910',
+            'proof_note': 'Handed to customer at gate'
+        })
+        self.assertEqual(verify_resp.status_code, 302)
+
+        # 3. Verify order and suborder are now DELIVERED
+        order.refresh_from_db()
+        sub1.refresh_from_db()
+        assignment.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.DELIVERED)
+        self.assertEqual(sub1.status, SellerSubOrder.Status.DELIVERED)
+        self.assertEqual(assignment.status, DeliveryAssignment.Status.DELIVERED)
+
+        # 4. Order now AUTOMATICALLY appears in Seller 1's Customer History
+        resp_after = self.client_s1.get(reverse('seller:customers'))
+        self.assertEqual(resp_after.status_code, 200)
+        self.assertContains(resp_after, 'ORD-TEST-OTP-FLOW')
+        self.assertContains(resp_after, 'Himachal Apples')
+        self.assertContains(resp_after, '₹100.00')
+
+    def test_09_sellers_cannot_access_another_sellers_history_via_parameters(self):
+        # Seller 2 has a delivered order
+        order = Order.objects.create(
+            order_id='ORD-TEST-PRIVATE-S2',
+            buyer=self.customer,
+            recipient_name='Ananya Iyer',
+            recipient_phone='+91 98888 77777',
+            delivery_address_text='Test Destination',
+            status=Order.Status.DELIVERED,
+            subtotal=Decimal('50.00'),
+            total_amount=Decimal('50.00')
+        )
+        sub2 = SellerSubOrder.objects.create(
+            order=order, seller=self.seller2, subtotal=Decimal('50.00'), status=SellerSubOrder.Status.DELIVERED
+        )
+        OrderItem.objects.create(
+            order=order, sub_order=sub2, seller=self.seller2, product=self.prod_s2_milk,
+            product_name='Organic Cow Milk', unit_price=Decimal('50.00'), mrp=Decimal('70.00'),
+            quantity=1, total_price=Decimal('50.00')
+        )
+
+        # Seller 1 attempts to pass seller_id parameter in query string
+        resp = self.client_s1.get(f"{reverse('seller:customers')}?seller_id={self.seller2.id}&user={self.seller2.username}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'ORD-TEST-PRIVATE-S2')
+        self.assertNotContains(resp, 'Organic Cow Milk')
+
+    def test_10_empty_state_shown_when_no_qualifying_orders_exist(self):
+        resp = self.client_s1.get(reverse('seller:customers'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'No customer orders received yet')
+
+    def test_11_view_details_button_and_modal_rendered_with_full_order_details(self):
+        order = Order.objects.create(
+            order_id='ORD-TEST-MODAL-VIEW',
+            buyer=self.customer,
+            recipient_name='Pooja Sharma',
+            recipient_phone='+91 98999 88776',
+            delivery_address_text='Flat 304, Tower B, Sunrise Residency',
+            pin_code='110001',
+            status=Order.Status.DELIVERED,
+            subtotal=Decimal('100.00'),
+            total_amount=Decimal('100.00')
+        )
+        sub1 = SellerSubOrder.objects.create(
+            order=order, seller=self.seller1, subtotal=Decimal('100.00'), status=SellerSubOrder.Status.DELIVERED
+        )
+        OrderItem.objects.create(
+            order=order, sub_order=sub1, seller=self.seller1, product=self.prod_s1_apple,
+            product_name='Himachal Apples', unit_price=Decimal('100.00'), mrp=Decimal('120.00'),
+            quantity=1, total_price=Decimal('100.00')
+        )
+
+        resp = self.client_s1.get(reverse('seller:customers'))
+        self.assertEqual(resp.status_code, 200)
+        
+        # Action column and View button present
+        self.assertContains(resp, 'Action')
+        self.assertContains(resp, 'View Details')
+        self.assertContains(resp, 'data-testid="view-order-details"')
+        self.assertContains(resp, 'openOrderDetailsModal(\'ORD-TEST-MODAL-VIEW\')')
+
+        # Modal dialog elements
+        self.assertContains(resp, 'id="modal-ORD-TEST-MODAL-VIEW"')
+        self.assertContains(resp, 'Customer Information')
+        self.assertContains(resp, 'Pooja Sharma')
+        self.assertContains(resp, '+91 98999 88776')
+        self.assertContains(resp, 'Flat 304, Tower B, Sunrise Residency')
+        self.assertContains(resp, 'Products Purchased from Your Store')
+        self.assertContains(resp, 'Himachal Apples')
+        self.assertContains(resp, '₹100.00')
+        self.assertContains(resp, 'Store Subtotal')
+
+
+
