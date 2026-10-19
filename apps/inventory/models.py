@@ -4,6 +4,10 @@ from django.utils import timezone
 from apps.catalog.models import Product
 
 
+from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+
+
 class StockRecord(models.Model):
     class Status(models.TextChoices):
         IN_STOCK = 'IN_STOCK', 'In Stock'
@@ -13,12 +17,25 @@ class StockRecord(models.Model):
         EXPIRED = 'EXPIRED', 'Expired'
 
     product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='stock_record')
-    current_stock = models.IntegerField(default=0)
+    current_stock = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     low_stock_threshold = models.PositiveIntegerField(default=10)
     expiry_date = models.DateField(blank=True, null=True)
     last_restocked_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(current_stock__gte=0),
+                name='stockrecord_current_stock_non_negative'
+            )
+        ]
+
+    def clean(self):
+        if self.current_stock is not None and self.current_stock < 0:
+            raise ValidationError({'current_stock': 'Current stock quantity cannot be negative.'})
+        super().clean()
 
     @property
     def status(self):
@@ -38,6 +55,15 @@ class StockRecord(models.Model):
             return 'bg-warning text-dark'
         return 'bg-success text-white'
 
+    def get_unit_label(self, quantity=None):
+        if quantity is None:
+            quantity = self.current_stock
+        return self.product.get_unit_label(quantity)
+
+    @property
+    def stock_display(self):
+        return f"{self.current_stock} {self.get_unit_label()}"
+
     def adjust_stock(self, quantity_change, change_type, user=None, notes=""):
         """
         Thread-safe / atomic adjustment of stock with movement logging.
@@ -49,7 +75,11 @@ class StockRecord(models.Model):
             stock_before = record.current_stock
             new_stock = stock_before + quantity_change
             if new_stock < 0:
-                raise ValueError(f"Insufficient stock for {record.product.name}. Available: {stock_before}, Requested deduction: {-quantity_change}")
+                unit_label = record.product.get_unit_label(stock_before)
+                raise ValueError(
+                    f"Insufficient stock for {record.product.name}. "
+                    f"Available: {stock_before} {unit_label}, Requested deduction: {-quantity_change} {record.product.get_unit_label(-quantity_change)}"
+                )
             
             record.current_stock = new_stock
             if quantity_change > 0:
@@ -65,6 +95,7 @@ class StockRecord(models.Model):
                 notes=notes,
                 created_by=user
             )
+            self.current_stock = new_stock
             return record
 
     def __str__(self):

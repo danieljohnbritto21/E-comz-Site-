@@ -95,8 +95,8 @@
                   <img src="{{ product.primary_image_url }}" alt="{{ product.name }}" style="width: 48px; height: 48px; object-fit: contain; background: #FAFAFA; border-radius: 6px; border: 1px solid var(--bg-border);">
                   <div>
                     <div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;">{{ product.name }}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">
-                      Unit: <strong>{{ product.unit_value }}</strong> &bull; SKU: <span style="font-family: monospace;">{{ product.sku }}</span>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                      Package: <strong>{{ product.unit_value }}</strong> &bull; Unit: <strong>{{ product.get_unit_display }}</strong> &bull; SKU: <span style="font-family: monospace;">{{ product.sku }}</span>
                     </div>
                   </div>
                 </div>
@@ -114,21 +114,34 @@
                 <div style="font-size: 0.75rem; color: var(--text-muted); text-decoration: line-through;">MRP: {{ product.mrp|inr }}</div>
               </td>
 
-              <!-- Stock health -->
+              <!-- Stock & Per-Order Limit -->
               <td>
-                {% if product.stock_record.current_stock <= 0 %}
-                  <span class="badge badge-danger" style="display: inline-flex; align-items: center; gap: 4px;">
-                    <i class="fa-solid fa-circle-xmark"></i> Red: Out of Stock (0)
+                <div>
+                  <span style="font-weight: 800; font-size: 0.95rem; {% if product.stock_record.current_stock <= 0 %}color: #DC2626;{% elif product.stock_record.current_stock <= product.stock_record.low_stock_threshold %}color: #D97706;{% else %}color: #047857;{% endif %}">
+                    Stock: {{ product.stock_record.current_stock }} {{ product.get_unit_label }}
                   </span>
-                {% elif product.stock_record.current_stock <= product.stock_record.low_stock_threshold %}
-                  <span class="badge badge-warning" style="display: inline-flex; align-items: center; gap: 4px;">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Orange: Low Stock ({{ product.stock_record.current_stock }} left)
+                </div>
+                <div style="margin-top: 4px;">
+                  {% if product.stock_record.current_stock <= 0 %}
+                    <span class="badge badge-danger" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem;">
+                      <i class="fa-solid fa-circle-xmark"></i> Out of Stock
+                    </span>
+                  {% elif product.stock_record.current_stock <= product.stock_record.low_stock_threshold %}
+                    <span class="badge badge-warning" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem;">
+                      <i class="fa-solid fa-triangle-exclamation"></i> Low Stock ({{ product.stock_record.current_stock }} left)
+                    </span>
+                  {% else %}
+                    <span class="badge badge-success" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem;">
+                      <i class="fa-solid fa-circle-check"></i> In Stock
+                    </span>
+                  {% endif %}
+                </div>
+                <!-- Maximum per order clearly separated from stock -->
+                <div style="margin-top: 6px;">
+                  <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="fa-solid fa-bicycle"></i> Maximum {{ product.per_order_limit }} {{ product.get_unit_label }} per order
                   </span>
-                {% else %}
-                  <span class="badge badge-success" style="display: inline-flex; align-items: center; gap: 4px;">
-                    <i class="fa-solid fa-circle-check"></i> Green: In Stock ({{ product.stock_record.current_stock }})
-                  </span>
-                {% endif %}
+                </div>
               </td>
 
               <!-- Store Status -->

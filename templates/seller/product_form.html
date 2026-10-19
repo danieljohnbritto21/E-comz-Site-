@@ -81,21 +81,49 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Measurement Unit</label>
+            <label class="form-label">Measurement Unit *</label>
             <select name="unit" class="form-select">
-              <option value="kg" {% if product.unit == 'kg' %}selected{% endif %}>Kilogram (kg)</option>
+              <option value="packet" {% if product.unit == 'packet' or product.unit == 'packets' or product.unit == 'pack' %}selected{% endif %}>Packet(s) / Packs (e.g. Lay's, Biscuits)</option>
+              <option value="kg" {% if product.unit == 'kg' %}selected{% endif %}>Kilogram (kg) (e.g. Potatoes, Rice)</option>
               <option value="g" {% if product.unit == 'g' %}selected{% endif %}>Gram (g)</option>
-              <option value="l" {% if product.unit == 'l' %}selected{% endif %}>Litre (L)</option>
+              <option value="litre" {% if product.unit == 'litre' or product.unit == 'l' or product.unit == 'litres' %}selected{% endif %}>Litre (L) (e.g. Milk, Oil)</option>
               <option value="ml" {% if product.unit == 'ml' %}selected{% endif %}>Millilitre (ml)</option>
-              <option value="pcs" {% if product.unit == 'pcs' %}selected{% endif %}>Piece(s)</option>
-              <option value="pack" {% if product.unit == 'pack' %}selected{% endif %}>Pack</option>
-              <option value="bunch" {% if product.unit == 'bunch' %}selected{% endif %}>Bunch</option>
-              <option value="dozen" {% if product.unit == 'dozen' %}selected{% endif %}>Dozen</option>
+              <option value="piece" {% if product.unit == 'piece' or product.unit == 'pcs' or product.unit == 'pieces' %}selected{% endif %}>Piece(s) (e.g. Eggs, Melons)</option>
+              <option value="bottle" {% if product.unit == 'bottle' or product.unit == 'bottles' %}selected{% endif %}>Bottle(s)</option>
+              <option value="box" {% if product.unit == 'box' or product.unit == 'boxes' %}selected{% endif %}>Box(es)</option>
+              <option value="bunch" {% if product.unit == 'bunch' or product.unit == 'bunches' %}selected{% endif %}>Bunch (e.g. Spinach, Coriander)</option>
+              <option value="dozen" {% if product.unit == 'dozen' %}selected{% endif %}>Dozen (e.g. Bananas)</option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Unit Display Value *</label>
-            <input type="text" name="unit_value" class="form-control" placeholder="e.g. 500 g, 1 kg, 1 bunch" value="{{ product.unit_value|default:'1 kg' }}" required>
+            <input type="text" name="unit_value" class="form-control" placeholder="e.g. 500 g, 1 kg, 1 bunch, 1 packet" value="{{ product.unit_value|default:'1 kg' }}" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Minimum Purchase Quantity</label>
+            <input type="number" name="min_purchase_quantity" class="form-control" placeholder="1" value="{{ product.min_purchase_quantity|default:'1' }}" min="1" required>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+              Minimum order quantity a customer can add to cart.
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Selling Increment Step</label>
+            <input type="number" name="quantity_step" class="form-control" placeholder="1" value="{{ product.quantity_step|default:'1' }}" min="1" required>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+              Quantity multiples allowed (e.g. 1 packet, 1 kg).
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fa-solid fa-bicycle" style="color: var(--primary);"></i> Max Quantity Per Order (Bike Limit)
+            </label>
+            <input type="number" name="max_quantity_per_order" class="form-control" placeholder="Default: 5" value="{{ product.max_quantity_per_order|default:'' }}" min="1">
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+              Leave blank for default (5 {{ product.get_unit_label|default:'units' }} max per bike delivery).
+            </div>
           </div>
         </div>
       </div>
@@ -110,12 +138,18 @@
           <!-- For New Product Creation -->
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Initial Stock Units *</label>
+              <label class="form-label">Initial Stock Quantity *</label>
               <input type="number" name="initial_stock" class="form-control" value="25" min="0" required>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                Available physical stock in selected unit.
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">Low-Stock Alert Level *</label>
               <input type="number" name="low_stock_threshold" class="form-control" value="5" min="1" required>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                Alert seller when available inventory reaches this level.
+              </div>
             </div>
           </div>
         {% else %}
@@ -128,11 +162,11 @@
                 <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary);">Current Live Stock:</div>
                 <span class="badge {% if product.stock_record.current_stock <= 0 %}badge-danger{% elif product.stock_record.current_stock <= product.stock_record.low_stock_threshold %}badge-warning{% else %}badge-success{% endif %}" style="font-size: 0.85rem; padding: 4px 10px;">
                   {% if product.stock_record.current_stock <= 0 %}
-                    <i class="fa-solid fa-circle-xmark"></i> Out of Stock (0 units)
+                    <i class="fa-solid fa-circle-xmark"></i> Out of Stock (0 {{ product.get_unit_label }})
                   {% elif product.stock_record.current_stock <= product.stock_record.low_stock_threshold %}
-                    <i class="fa-solid fa-triangle-exclamation"></i> Low Stock ({{ product.stock_record.current_stock }} left)
+                    <i class="fa-solid fa-triangle-exclamation"></i> Low Stock ({{ product.stock_record.current_stock }} {{ product.get_unit_label }} left)
                   {% else %}
-                    <i class="fa-solid fa-circle-check"></i> Healthy Stock ({{ product.stock_record.current_stock }} units)
+                    <i class="fa-solid fa-circle-check"></i> Healthy Stock ({{ product.stock_record.current_stock }} {{ product.get_unit_label }})
                   {% endif %}
                 </span>
               </div>

@@ -16,6 +16,7 @@ from apps.notifications.models import Notification
 from apps.accounts.models import User
 from apps.delivery.models import DeliveryAssignment
 from apps.delivery.services import auto_assign_delivery_partner
+from apps.inventory.services import restore_stock_for_sub_order
 
 
 @role_required(['SELLER'])
@@ -32,7 +33,7 @@ def seller_dashboard(request):
     out_of_stock = products_qs.filter(stock_record__current_stock__lte=0).count()
     low_stock = products_qs.filter(
         stock_record__current_stock__gt=0,
-        stock_record__current_stock__lte=10
+        stock_record__current_stock__lte=models.F('stock_record__low_stock_threshold')
     ).count()
 
     # Sub orders metrics
@@ -48,7 +49,10 @@ def seller_dashboard(request):
     recent_sub_orders = sub_orders_qs.select_related('order', 'order__buyer').order_by('-created_at')[:8]
 
     # Critical low stock alerts
-    low_stock_products = products_qs.filter(stock_record__current_stock__lte=10).select_related('stock_record')[:6]
+    low_stock_products = products_qs.filter(
+        stock_record__current_stock__gt=0,
+        stock_record__current_stock__lte=models.F('stock_record__low_stock_threshold')
+    ).select_related('stock_record')[:6]
 
     return render(request, 'seller/dashboard.html', {
         'total_products': total_products,
@@ -77,7 +81,7 @@ def seller_product_list(request):
     in_stock_count = products_qs.filter(stock_record__current_stock__gt=0).count()
     low_stock_count = products_qs.filter(
         stock_record__current_stock__gt=0,
-        stock_record__current_stock__lte=10
+        stock_record__current_stock__lte=models.F('stock_record__low_stock_threshold')
     ).count()
     out_of_stock_count = products_qs.filter(stock_record__current_stock__lte=0).count()
 
@@ -109,7 +113,7 @@ def seller_product_list(request):
     elif stock_filter == 'low_stock':
         products_qs = products_qs.filter(
             stock_record__current_stock__gt=0,
-            stock_record__current_stock__lte=10
+            stock_record__current_stock__lte=models.F('stock_record__low_stock_threshold')
         )
     elif stock_filter == 'out_of_stock':
         products_qs = products_qs.filter(stock_record__current_stock__lte=0)
@@ -186,12 +190,18 @@ def seller_product_add(request):
         try:
             initial_stock = int(request.POST.get('initial_stock', '10').strip() or '10')
             low_stock_threshold = int(request.POST.get('low_stock_threshold', '5').strip() or '5')
+            min_purchase_quantity = int(request.POST.get('min_purchase_quantity', '1').strip() or '1')
+            quantity_step = int(request.POST.get('quantity_step', '1').strip() or '1')
         except Exception:
-            messages.error(request, "Please enter valid integer values for stock quantities.")
+            messages.error(request, "Please enter valid integer values for stock quantities and purchase increments.")
             return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
 
-        if initial_stock < 0 or low_stock_threshold < 0:
-            messages.error(request, "Stock quantities cannot be negative.")
+        if initial_stock < 0 or low_stock_threshold <= 0:
+            messages.error(request, "Initial stock cannot be negative, and low-stock threshold must be at least 1.")
+            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
+
+        if min_purchase_quantity < 1 or quantity_step < 1:
+            messages.error(request, "Minimum purchase quantity and increment step must be at least 1.")
             return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
 
         if not sku or Product.objects.filter(sku=sku).exists():
@@ -205,6 +215,16 @@ def seller_product_add(request):
         subcategory = None
         if subcategory_id:
             subcategory = SubCategory.objects.filter(id=subcategory_id, category_id=category_id).first()
+
+        max_order_limit_input = request.POST.get('max_quantity_per_order', '').strip()
+        max_quantity_per_order = None
+        if max_order_limit_input:
+            try:
+                val = int(max_order_limit_input)
+                if val > 0:
+                    max_quantity_per_order = val
+            except (ValueError, TypeError):
+                pass
 
         try:
             with transaction.atomic():
@@ -220,6 +240,9 @@ def seller_product_add(request):
                     selling_price=selling_price,
                     unit=unit,
                     unit_value=unit_value or '1 unit',
+                    min_purchase_quantity=min_purchase_quantity,
+                    quantity_step=quantity_step,
+                    max_quantity_per_order=max_quantity_per_order,
                     sku=sku,
                     origin=origin,
                     freshness_info=freshness_info,
@@ -330,22 +353,57 @@ def seller_product_edit(request, product_id):
             except (ValueError, TypeError):
                 pass
 
+        min_qty_input = request.POST.get('min_purchase_quantity')
+        if min_qty_input:
+            try:
+                product.min_purchase_quantity = max(1, int(min_qty_input))
+                product.save(update_fields=['min_purchase_quantity'])
+            except (ValueError, TypeError):
+                pass
+
+        step_input = request.POST.get('quantity_step')
+        if step_input:
+            try:
+                product.quantity_step = max(1, int(step_input))
+                product.save(update_fields=['quantity_step'])
+            except (ValueError, TypeError):
+                pass
+
+        max_order_limit_input = request.POST.get('max_quantity_per_order')
+        if max_order_limit_input is not None:
+            max_order_limit_input = max_order_limit_input.strip()
+            if max_order_limit_input == '' or max_order_limit_input.lower() == 'default':
+                product.max_quantity_per_order = None
+                product.save(update_fields=['max_quantity_per_order'])
+            else:
+                try:
+                    val = int(max_order_limit_input)
+                    if val > 0:
+                        product.max_quantity_per_order = val
+                        product.save(update_fields=['max_quantity_per_order'])
+                except (ValueError, TypeError):
+                    pass
+
         current_stock_input = request.POST.get('current_stock')
         stock_reason = request.POST.get('stock_reason', '').strip()
 
         if current_stock_input is not None:
             try:
-                new_stock = max(0, int(current_stock_input.strip() or '0'))
-                diff = new_stock - stock_record.current_stock
-                if diff != 0:
-                    change_type = StockMovement.ChangeType.RESTOCK if diff > 0 else StockMovement.ChangeType.MANUAL
-                    default_note = f"Restocked +{diff} units via product edit" if diff > 0 else f"Manual adjustment: {diff} units via product edit"
-                    stock_record.adjust_stock(
-                        quantity_change=diff,
-                        change_type=change_type,
-                        user=request.user,
-                        notes=stock_reason or default_note
-                    )
+                new_stock = int(current_stock_input.strip() or '0')
+                if new_stock < 0:
+                    messages.error(request, "Available stock quantity cannot be negative.")
+                else:
+                    diff = new_stock - stock_record.current_stock
+                    if diff != 0:
+                        change_type = StockMovement.ChangeType.RESTOCK if diff > 0 else StockMovement.ChangeType.MANUAL
+                        unit_str = product.get_unit_label(abs(diff))
+                        default_note = f"Restocked +{diff} {unit_str} via product edit" if diff > 0 else f"Manual adjustment: {diff} {unit_str} via product edit"
+                        stock_record.adjust_stock(
+                            quantity_change=diff,
+                            change_type=change_type,
+                            user=request.user,
+                            notes=stock_reason or default_note
+                        )
             except (ValueError, TypeError) as e:
                 messages.warning(request, f"Stock quantity could not be updated: {e}")
 
@@ -412,7 +470,12 @@ def seller_inventory_view(request):
 
     if request.method == 'POST':
         product_id = request.POST.get('product_id')
-        qty_change = int(request.POST.get('quantity_change', 0))
+        try:
+            qty_change = int(request.POST.get('quantity_change', 0))
+        except (ValueError, TypeError):
+            messages.error(request, "Invalid quantity change specified.")
+            return redirect('seller:inventory')
+
         reason = request.POST.get('reason', 'Manual Inventory Update')
         change_type = request.POST.get('change_type', StockMovement.ChangeType.MANUAL)
 
@@ -424,7 +487,8 @@ def seller_inventory_view(request):
                 user=seller,
                 notes=reason
             )
-            messages.success(request, f"Adjusted stock for {product.name} ({qty_change:+d} units).")
+            unit_label = product.get_unit_label(abs(qty_change))
+            messages.success(request, f"Adjusted stock for {product.name} ({qty_change:+d} {unit_label}).")
         except Exception as e:
             messages.error(request, f"Adjustment failed: {str(e)}")
         return redirect('seller:inventory')
@@ -620,15 +684,8 @@ def seller_order_detail_view(request, order_id):
                 sub_order.save()
                 order.add_status_history(Order.Status.CANCELLED, seller, f"Rejected by seller: {reason}")
                 
-                # Restore stock atomically
-                for item in sub_order.items.all():
-                    if item.product and hasattr(item.product, 'stock_record'):
-                        item.product.stock_record.adjust_stock(
-                            item.quantity,
-                            StockMovement.ChangeType.CANCEL_RESTORE,
-                            user=seller,
-                            notes=f"Restored from rejected order #{order.order_id}"
-                        )
+                # Restore stock safely and exactly once
+                restore_stock_for_sub_order(sub_order, actor=seller, reason=f"Restored from rejected order #{order.order_id}")
                 messages.warning(request, f"Order #{order.order_id} rejected.")
 
         return redirect('seller:order_detail', order_id=order.order_id)

@@ -7,7 +7,8 @@ from django.db import transaction
 from django.utils import timezone
 from apps.cart.models import Cart
 from apps.orders.models import Order, OrderItem, SellerSubOrder, OrderStatusHistory, Address
-from apps.inventory.models import StockMovement
+from apps.inventory.models import StockMovement, StockRecord
+from apps.inventory.services import restore_stock_for_order
 from apps.notifications.models import Notification
 from apps.accounts.models import User
 
@@ -34,12 +35,36 @@ def checkout_view(request):
         messages.warning(request, "Your basket is empty. Please add items before checkout.")
         return redirect('catalog:product_list')
 
+    # Merge duplicate cart lines for the same product if any exist
+    seen_products = {}
+    for item in list(cart.items.select_related('product')):
+        pid = item.product_id
+        if pid in seen_products:
+            primary_item = seen_products[pid]
+            primary_item.quantity += item.quantity
+            primary_item.save(update_fields=['quantity', 'updated_at'])
+            item.delete()
+        else:
+            seen_products[pid] = item
+
     cart_items = cart.items.select_related('product', 'product__stock_record', 'product__seller')
     
-    # Pre-check stock
+    # Pre-check stock & bike delivery per-order limits
     for item in cart_items:
+        prod = item.product
+        stock = prod.current_stock_count
+        limit = prod.per_order_limit
+        actual_max = prod.actual_max_order_quantity
+        stock_unit = prod.get_unit_label(stock)
+        limit_unit = prod.get_unit_label(limit)
+
         if not item.is_available:
-            messages.error(request, f"Cannot proceed. {item.product.name} only has {item.product.current_stock_count} units left.")
+            if stock <= 0:
+                messages.error(request, f"Cannot proceed to checkout. '{prod.name}' is currently out of stock. Please remove it from your basket.")
+            elif stock < limit and item.quantity > stock:
+                messages.error(request, f"Cannot proceed to checkout. '{prod.name}' only has {stock} {stock_unit} available in stock (you have {item.quantity} in basket). Please adjust your basket.")
+            else:
+                messages.error(request, f"Cannot proceed to checkout. You can order a maximum of {limit} {limit_unit} of '{prod.name}' per order for bike delivery (you have {item.quantity} in basket). Please adjust your basket.")
             return redirect('cart:view_cart')
 
     addresses = Address.objects.filter(user=request.user) if request.user.is_authenticated else Address.objects.none()
@@ -102,6 +127,7 @@ def checkout_view(request):
             'delivery_instructions': instructions,
             'payment_method': payment_method,
             'address_id': address_id,
+            'checkout_token': uuid.uuid4().hex[:16],
         }
 
     if request.method == 'POST':
@@ -244,6 +270,14 @@ def checkout_view(request):
         delivery_fee = cart.delivery_fee
         final_payable = cart.grand_total
 
+        checkout_token = request.POST.get('checkout_token', '').strip()
+        if checkout_token:
+            existing_token_order = Order.objects.filter(buyer=buyer_user, checkout_token=checkout_token).first()
+            if existing_token_order:
+                cart.items.all().delete()
+                messages.info(request, f"Your order #{existing_token_order.order_id} has already been received.")
+                return redirect('orders:confirmation', order_id=existing_token_order.order_id)
+
         # Prevent duplicate submissions (within 30s)
         recent_duplicate = Order.objects.filter(
             buyer=buyer_user,
@@ -258,11 +292,29 @@ def checkout_view(request):
         # Atomic order placement & inventory reservation
         try:
             with transaction.atomic():
-                # Re-verify and deduct stock safely
-                for item in cart_items:
-                    record = item.product.stock_record
-                    if record.current_stock < item.quantity:
-                        raise ValueError(f"Insufficient stock for {item.product.name}. Only {record.current_stock} left in store.")
+                # Re-verify and deduct stock safely with deadlock-free consistent lock ordering
+                sorted_cart_items = sorted(list(cart_items), key=lambda it: it.product_id or 0)
+                product_totals = {}
+                for it in sorted_cart_items:
+                    product_totals[it.product_id] = product_totals.get(it.product_id, 0) + it.quantity
+
+                for item in sorted_cart_items:
+                    prod = item.product
+                    limit = prod.per_order_limit
+                    total_ordered = product_totals.get(item.product_id, item.quantity)
+                    if total_ordered > limit:
+                        limit_unit = prod.get_unit_label(limit)
+                        raise ValueError(
+                            f"You can order a maximum of {limit} {limit_unit} of '{prod.name}' per order."
+                        )
+                    record = StockRecord.objects.select_for_update().get(product_id=item.product_id)
+                    if record.current_stock < total_ordered:
+                        avail_unit = prod.get_unit_label(record.current_stock)
+                        req_unit = prod.get_unit_label(total_ordered)
+                        raise ValueError(
+                            f"Insufficient stock for {prod.name}. "
+                            f"Available: {record.current_stock} {avail_unit}, Requested: {total_ordered} {req_unit}."
+                        )
                     record.adjust_stock(
                         -item.quantity,
                         StockMovement.ChangeType.SALE,
@@ -292,7 +344,10 @@ def checkout_view(request):
                     discount_amount=cart.total_discount,
                     delivery_fee=delivery_fee,
                     tax_amount=Decimal('0.00'),
-                    total_amount=final_payable
+                    total_amount=final_payable,
+                    stock_deducted=True,
+                    stock_restored=False,
+                    checkout_token=checkout_token
                 )
 
                 # Create status history
@@ -447,27 +502,26 @@ def payment_verify_view(request, order_id):
     else:
         # Failure or cancellation
         with transaction.atomic():
-            order.payment_status = Order.PaymentStatus.FAILED
-            order.status = Order.Status.CANCELLED
-            order.save(update_fields=['payment_status', 'status', 'updated_at'])
+            locked_order = Order.objects.select_for_update().get(id=order.id)
+            if locked_order.status != Order.Status.CANCELLED:
+                locked_order.payment_status = Order.PaymentStatus.FAILED
+                locked_order.status = Order.Status.CANCELLED
+                locked_order.save(update_fields=['payment_status', 'status', 'updated_at'])
 
-            order.add_status_history(
-                Order.Status.CANCELLED,
-                request.user,
-                "Online payment authorization failed or was declined by user."
-            )
+                locked_order.add_status_history(
+                    Order.Status.CANCELLED,
+                    request.user,
+                    "Online payment authorization failed or was declined by user."
+                )
 
-            # Restore reserved inventory
-            for item in order.items.all():
-                if item.product and hasattr(item.product, 'stock_record'):
-                    item.product.stock_record.adjust_stock(
-                        item.quantity,
-                        StockMovement.ChangeType.CANCEL_RESTORE,
-                        user=request.user,
-                        notes=f"Restored from failed payment order #{order.order_id}"
-                    )
+                # Restore reserved inventory exactly once
+                restore_stock_for_order(
+                    locked_order,
+                    actor=request.user,
+                    reason=f"Restored from failed payment order #{locked_order.order_id}"
+                )
 
-            order.sub_orders.update(status=SellerSubOrder.Status.CANCELLED)
+                locked_order.sub_orders.update(status=SellerSubOrder.Status.CANCELLED, stock_restored=True)
 
         messages.error(request, f"Payment authorization failed for Order #{order.order_id}.")
         return render(request, 'buyer/payment_failed.html', {'order': order})
@@ -550,18 +604,20 @@ def cancel_order_view(request, order_id):
         return redirect('orders:track', order_id=order.order_id)
 
     with transaction.atomic():
-        # Restore inventory
-        for item in order.items.all():
-            if item.product and hasattr(item.product, 'stock_record'):
-                item.product.stock_record.adjust_stock(
-                    item.quantity,
-                    StockMovement.ChangeType.CANCEL_RESTORE,
-                    user=request.user,
-                    notes=f"Restored from cancelled order #{order.order_id}"
-                )
+        locked_order = Order.objects.select_for_update().get(id=order.id)
+        if locked_order.status not in cancellable_statuses:
+            messages.error(request, "This order is already packed or out for delivery and cannot be cancelled online. Please contact support.")
+            return redirect('orders:track', order_id=locked_order.order_id)
 
-        order.add_status_history(Order.Status.CANCELLED, request.user, "Order cancelled by customer.")
-        order.sub_orders.update(status=SellerSubOrder.Status.CANCELLED)
+        # Restore inventory exactly once
+        restore_stock_for_order(
+            locked_order,
+            actor=request.user,
+            reason=f"Restored from customer cancelled order #{locked_order.order_id}"
+        )
+
+        locked_order.add_status_history(Order.Status.CANCELLED, request.user, "Order cancelled by customer.")
+        locked_order.sub_orders.update(status=SellerSubOrder.Status.CANCELLED, stock_restored=True)
 
         # Notify sellers
         for sub in order.sub_orders.all():

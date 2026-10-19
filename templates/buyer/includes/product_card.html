@@ -28,7 +28,11 @@
     <!-- Stock Warning Badge (positioned on image media) -->
     {% if product.is_in_stock and product.is_low_stock %}
       <div class="product-media-stock-alert">
-        <i class="fa-solid fa-clock-rotate-left"></i> Only {{ product.current_stock_count }} left in stock!
+        <i class="fa-solid fa-clock-rotate-left"></i> Only {{ product.current_stock_count }} {{ product.get_unit_label }} left in stock!
+      </div>
+    {% elif not product.is_in_stock %}
+      <div class="product-media-stock-alert out-of-stock" style="background: rgba(220, 38, 38, 0.92); color: white;">
+        <i class="fa-solid fa-circle-xmark"></i> Out of Stock
       </div>
     {% endif %}
   </div>
@@ -52,9 +56,12 @@
       </a>
     </h3>
 
-    <!-- 6. Unit or Package Size -->
-    <div class="product-unit">
+    <!-- 6. Unit or Package Size & Bike Limit -->
+    <div class="product-unit" style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
       <span>{{ product.unit_value|default:"1 unit" }}</span>
+      <span style="font-size: 0.72rem; color: #047857; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;" title="Maximum order limit for bike delivery">
+        <i class="fa-solid fa-bicycle"></i> Max {{ product.per_order_limit }} {{ product.get_unit_label }}
+      </span>
     </div>
 
     <!-- 7. Pricing & Savings (Pushed to bottom alignment via margin-top: auto) -->
@@ -74,13 +81,20 @@
     <div class="product-footer-action">
       {% if product.is_in_stock %}
         {% with current_qty=cart_items_map|get_item:product.id %}
-          <div class="product-cart-action-wrap" id="cart-wrap-{{ product.id }}">
+          <div class="product-cart-action-wrap" id="cart-wrap-{{ product.id }}"
+               data-product-id="{{ product.id }}"
+               data-max-stock="{{ product.current_stock_count }}"
+               data-actual-max="{{ product.actual_max_order_quantity }}"
+               data-order-limit="{{ product.per_order_limit }}"
+               data-unit="{{ product.get_unit_label }}"
+               data-step="{{ product.quantity_step|default:1 }}"
+               data-min="{{ product.min_purchase_quantity|default:1 }}">
             
             <!-- Default Add Button (visible when 0 in cart) -->
             <button type="button" 
                     class="btn-add-cart {% if current_qty > 0 %}is-hidden{% endif %}" 
                     id="add-btn-{{ product.id }}" 
-                    onclick="handleCartAction({{ product.id }}, 1)">
+                    onclick="handleCartAction({{ product.id }}, {{ product.quantity_step|default:1 }}, {{ product.actual_max_order_quantity }}, '{{ product.get_unit_label|escapejs }}', {{ product.current_stock_count }}, {{ product.per_order_limit }})">
               <i class="fa-solid fa-cart-plus"></i>
               <span>Add to Cart</span>
             </button>
@@ -90,7 +104,7 @@
                  id="stepper-{{ product.id }}">
               <button type="button" 
                       class="stepper-btn minus" 
-                      onclick="handleCartAction({{ product.id }}, -1)" 
+                      onclick="handleCartAction({{ product.id }}, -{{ product.quantity_step|default:1 }}, {{ product.actual_max_order_quantity }}, '{{ product.get_unit_label|escapejs }}', {{ product.current_stock_count }}, {{ product.per_order_limit }})" 
                       aria-label="Decrease quantity">
                 <i class="fa-solid fa-minus"></i>
               </button>
@@ -99,7 +113,7 @@
               </span>
               <button type="button" 
                       class="stepper-btn plus" 
-                      onclick="handleCartAction({{ product.id }}, 1)" 
+                      onclick="handleCartAction({{ product.id }}, {{ product.quantity_step|default:1 }}, {{ product.actual_max_order_quantity }}, '{{ product.get_unit_label|escapejs }}', {{ product.current_stock_count }}, {{ product.per_order_limit }})" 
                       aria-label="Increase quantity">
                 <i class="fa-solid fa-plus"></i>
               </button>
@@ -109,7 +123,7 @@
         {% endwith %}
 
       {% else %}
-        <button type="button" class="btn-out-of-stock" disabled>
+        <button type="button" class="btn-out-of-stock" id="add-btn-{{ product.id }}" disabled aria-disabled="true">
           <i class="fa-solid fa-circle-xmark"></i> Out of Stock
         </button>
       {% endif %}

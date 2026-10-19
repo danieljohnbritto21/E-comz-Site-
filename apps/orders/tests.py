@@ -351,11 +351,16 @@ class GrocerySynchronizationAndCheckoutTests(TestCase):
         )
         StockRecord.objects.create(product=product, current_stock=1, low_stock_threshold=1)
 
-        # Buyer attempts to add 5 units
-        res = self.client_buyer.post(reverse('cart:add_to_cart', args=[product.id]), {'quantity': 5})
+        # Buyer attempts to add 5 units -> rejected because only 1 is available
+        res_fail = self.client_buyer.post(reverse('cart:add_to_cart', args=[product.id]), {'quantity': 5})
+        self.assertEqual(res_fail.status_code, 302)
         cart = Cart.objects.get(user=self.buyer)
-        item = cart.items.first()
-        # Cart clamps quantity to available stock (1)
+        self.assertFalse(cart.items.filter(product=product).exists())
+
+        # Adding valid quantity of 1 succeeds
+        res_ok = self.client_buyer.post(reverse('cart:add_to_cart', args=[product.id]), {'quantity': 1})
+        self.assertEqual(res_ok.status_code, 302)
+        item = cart.items.get(product=product)
         self.assertEqual(item.quantity, 1)
 
     def test_13_buyer_can_track_order(self):

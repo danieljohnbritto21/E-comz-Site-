@@ -3,6 +3,143 @@
 
 {% block title %}Checkout - FreshMart{% endblock %}
 
+{% block extra_css %}
+<style>
+  /* 1. Hide floating cart dock on checkout page to avoid clutter */
+  #floating-cart-bar {
+    display: none !important;
+  }
+
+  /* 2. Modal Backdrop & Dialog Container */
+  .address-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 99999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    overflow-y: auto;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+  }
+
+  .address-modal-backdrop.is-visible {
+    display: flex;
+    opacity: 1;
+  }
+
+  .address-modal-container {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 620px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    transform: translateY(20px) scale(0.98);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+
+  .address-modal-backdrop.is-visible .address-modal-container {
+    transform: translateY(0) scale(1);
+  }
+
+  .address-modal-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #E5E7EB;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #F8FAF9;
+  }
+
+  .address-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .address-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #E5E7EB;
+    background: #F8FAF9;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .modal-close-btn {
+    background: #E5E7EB;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #4B5563;
+    transition: all 0.15s ease;
+  }
+
+  .modal-close-btn:hover {
+    background: #DC2626;
+    color: #ffffff;
+  }
+
+  .btn-add-new-address {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0.9rem 1.25rem;
+    border: 1.5px dashed #059669;
+    background: #F0FDF4;
+    border-radius: 10px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #047857;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+
+  .btn-add-new-address:hover {
+    background: #DCFCE7;
+    border-color: #047857;
+    transform: translateY(-1px);
+  }
+
+  .saved-address-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 1rem;
+    border: 1.5px solid var(--bg-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+
+  .saved-address-card:hover {
+    border-color: #CBD5E1;
+  }
+
+  .saved-address-card.is-selected {
+    border-color: var(--color-primary);
+    background: #F0FDF4;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
   
@@ -24,6 +161,7 @@
 
   <form method="POST" action="{% url 'orders:checkout' %}" id="checkout-form">
     {% csrf_token %}
+    <input type="hidden" name="checkout_token" id="id_checkout_token" value="{{ checkout_token }}">
 
     <div class="checkout-grid">
       
@@ -54,24 +192,30 @@
           </div>
         </div>
 
-        <!-- B. Delivery Address Card -->
+        <!-- B. Delivery Address Card (Compact, Non-Scrolling Layout) -->
         <div class="form-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.25rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+            <h2 style="font-size: 1.25rem; font-weight: 800; display: flex; align-items: center; gap: 8px; margin: 0;">
               <span style="background: var(--color-primary-subtle); color: var(--color-primary-dark); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">2</span>
               Delivery Address
             </h2>
+            {% if addresses %}
+              <button type="button" class="btn btn-outline btn-sm" onclick="openAddressModal()" style="font-size: 0.8rem; font-weight: 700; color: var(--color-primary-dark); border-color: var(--color-primary);">
+                <i class="fa-solid fa-plus"></i> New Address
+              </button>
+            {% endif %}
           </div>
 
           {% if addresses %}
+            <!-- Saved Addresses List -->
             <div style="margin-bottom: 1.25rem;">
-              <label class="form-label">Select Saved Delivery Address:</label>
-              <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <label class="form-label">Select Delivery Address:</label>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem;" id="address-selection-container">
                 {% for addr in addresses %}
-                  <label style="display: flex; align-items: flex-start; gap: 10px; padding: 1rem; border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); cursor: pointer; transition: var(--transition-fast);">
-                    <input type="radio" name="address_id" value="{{ addr.id }}" {% if address_id == addr.id|stringformat:"s" or not address_id and forloop.first %}checked{% endif %} style="margin-top: 4px;" onchange="toggleNewAddress(false)">
-                    <div>
-                      <div style="font-weight: 700; font-size: 0.95rem;">
+                  <label class="saved-address-card {% if address_id == addr.id|stringformat:'s' or not address_id and forloop.first and not house_number %}is-selected{% endif %}" id="saved-card-{{ addr.id }}">
+                    <input type="radio" name="address_id" value="{{ addr.id }}" {% if address_id == addr.id|stringformat:"s" or not address_id and forloop.first and not house_number %}checked{% endif %} style="margin-top: 4px;" onchange="selectSavedAddress(this)">
+                    <div style="flex: 1;">
+                      <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">
                         {{ addr.full_name }} <span class="badge badge-secondary">{{ addr.get_address_type_display }}</span>
                       </div>
                       <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">
@@ -83,74 +227,164 @@
                     </div>
                   </label>
                 {% endfor %}
-                <label style="display: flex; align-items: center; gap: 10px; padding: 0.75rem 1rem; border: 1.5px dashed var(--bg-border); border-radius: var(--radius-md); cursor: pointer;">
-                  <input type="radio" name="address_id" value="" id="use-new-addr-radio" {% if address_id == "" and house_number %}checked{% endif %} onchange="toggleNewAddress(true)">
-                  <span style="font-weight: 600; font-size: 0.9rem; color: var(--color-primary-dark);">+ Deliver to a Different / New Address</span>
-                </label>
+
+                <!-- Newly Entered Custom Address Preview Card (Compact) -->
+                <div id="new-address-preview-box" style="display: {% if address_id == '' and house_number %}block{% else %}none{% endif %}; padding: 1rem; border: 1.5px solid var(--color-primary); background: #F0FDF4; border-radius: var(--radius-md);">
+                  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                    <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; flex: 1; margin: 0;">
+                      <input type="radio" name="address_id" value="" id="use-new-addr-radio" {% if address_id == '' and house_number %}checked{% endif %} onchange="selectNewAddressRadio(this)" style="margin-top: 4px;">
+                      <div>
+                        <div style="font-weight: 700; font-size: 0.95rem; color: var(--color-primary-dark);">
+                          <span id="preview-name">{{ full_name|default:customer_name }}</span>
+                          <span class="badge badge-success" id="preview-type" style="margin-left: 6px;">{{ address_type|default:'Home' }}</span>
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-main); margin-top: 3px;" id="preview-address-text">
+                          {% if house_number %}{{ house_number }}, {{ street }}{% if area %}, {{ area }}{% endif %}, {{ city|default:'Central City' }} - {{ pin_code }}{% endif %}
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
+                          Phone: <span id="preview-phone">{{ phone_number|default:customer_phone }}</span>
+                        </div>
+                      </div>
+                    </label>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="openAddressModal()" style="font-size: 0.8rem; padding: 4px 10px; white-space: nowrap;">
+                      <i class="fa-solid fa-pen-to-square"></i> Edit
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Deliver to Different Address Trigger Button -->
+                <button type="button" class="btn-add-new-address" onclick="openAddressModal()" id="btn-open-modal-trigger">
+                  <i class="fa-solid fa-circle-plus" style="font-size: 1.1rem;"></i>
+                  <span>+ Deliver to a Different / New Address</span>
+                </button>
               </div>
+            </div>
+
+          {% else %}
+            <!-- No Saved Addresses (First-time / Guest checkout) -->
+            <input type="hidden" name="address_id" value="" id="use-new-addr-radio">
+            <div style="margin-bottom: 1rem;">
+              <div id="new-address-preview-box" style="display: {% if house_number %}block{% else %}none{% endif %}; padding: 1rem; border: 1.5px solid var(--color-primary); background: #F0FDF4; border-radius: var(--radius-md); margin-bottom: 1rem;">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                  <div>
+                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--color-primary-dark);">
+                      <span id="preview-name">{{ full_name|default:customer_name }}</span>
+                      <span class="badge badge-success" id="preview-type" style="margin-left: 6px;">{{ address_type|default:'Home' }}</span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-main); margin-top: 3px;" id="preview-address-text">
+                      {% if house_number %}{{ house_number }}, {{ street }}{% if area %}, {{ area }}{% endif %}, {{ city|default:'Central City' }} - {{ pin_code }}{% endif %}
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
+                      Phone: <span id="preview-phone">{{ phone_number|default:customer_phone }}</span>
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="openAddressModal()" style="font-size: 0.8rem; padding: 4px 10px;">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                  </button>
+                </div>
+              </div>
+
+              <button type="button" class="btn-add-new-address" onclick="openAddressModal()" id="btn-first-time-address">
+                <i class="fa-solid fa-location-dot" style="font-size: 1.1rem;"></i>
+                <span id="btn-first-time-label">{% if house_number %}Change Delivery Address{% else %}Enter Doorstep Delivery Address{% endif %}</span>
+              </button>
             </div>
           {% endif %}
+        </div>
 
-          <!-- New Address Fields -->
-          <div id="new-address-fields" style="{% if addresses and address_id != '' and not house_number %}display: none;{% endif %} border-top: 1px dashed var(--bg-border); padding-top: 1.25rem;">
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Recipient Name *</label>
-                <input type="text" name="full_name" id="id_full_name" class="form-control" placeholder="Recipient Name" value="{{ full_name|default:customer_name }}">
+        <!-- POPUP MODAL: Add / Edit Delivery Address -->
+        <div id="address-modal-overlay" class="address-modal-backdrop" onclick="handleModalBackdropClick(event)">
+          <div class="address-modal-container" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            
+            <div class="address-modal-header">
+              <div>
+                <h3 id="modal-title" style="font-size: 1.15rem; font-weight: 800; color: #111827; margin: 0; display: flex; align-items: center; gap: 8px;">
+                  <i class="fa-solid fa-location-dot" style="color: var(--color-primary-dark);"></i>
+                  <span>Enter Delivery Address</span>
+                </h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 3px 0 0 0;">
+                  Details for doorstep delivery and recipient verification
+                </p>
               </div>
-              <div class="form-group">
-                <label class="form-label">Phone Number *</label>
-                <input type="tel" name="phone_number" id="id_phone_number" class="form-control" placeholder="10-digit mobile number" value="{{ phone_number|default:customer_phone }}">
+              <button type="button" class="modal-close-btn" onclick="closeAddressModal()" aria-label="Close modal">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div class="address-modal-body">
+              <div id="modal-error-alert" style="display: none; padding: 0.75rem 1rem; margin-bottom: 1.25rem; border-radius: 8px; background: #FEF2F2; border: 1px solid #FCA5A5; color: #B91C1C; font-size: 0.85rem; font-weight: 600;">
+                <i class="fa-solid fa-circle-exclamation"></i> <span id="modal-error-text">Please fill in all required fields.</span>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Recipient Name *</label>
+                  <input type="text" name="full_name" id="id_full_name" class="form-control" placeholder="Recipient Name" value="{{ full_name|default:customer_name }}">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Phone Number *</label>
+                  <input type="tel" name="phone_number" id="id_phone_number" class="form-control" placeholder="10-digit mobile number" value="{{ phone_number|default:customer_phone }}">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">House / Flat / Building No. *</label>
+                  <input type="text" name="house_number" id="id_house_number" class="form-control" placeholder="e.g. Flat 402, Green Heights" value="{{ house_number }}">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Street / Colony *</label>
+                  <input type="text" name="street" id="id_street" class="form-control" placeholder="e.g. MG Road, Sector 4" value="{{ street }}">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Area / Locality</label>
+                  <input type="text" name="area" id="id_area" class="form-control" placeholder="e.g. Downtown Central" value="{{ area }}">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">City *</label>
+                  <input type="text" name="city" id="id_city" class="form-control" placeholder="City" value="{{ city|default:'Central City' }}">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">State *</label>
+                  <input type="text" name="state" id="id_state" class="form-control" placeholder="State" value="{{ state|default:'State' }}">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">PIN Code *</label>
+                  <input type="text" name="pin_code" id="id_pin_code" class="form-control" placeholder="e.g. 110001" value="{{ pin_code }}">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Landmark (Optional)</label>
+                  <input type="text" name="landmark" id="id_landmark" class="form-control" placeholder="Nearby park, school, or store" value="{{ landmark }}">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Address Type</label>
+                  <select name="address_type" id="id_address_type" class="form-select">
+                    <option value="HOME" {% if address_type == 'HOME' %}selected{% endif %}>Home</option>
+                    <option value="WORK" {% if address_type == 'WORK' %}selected{% endif %}>Office / Work</option>
+                    <option value="OTHER" {% if address_type == 'OTHER' %}selected{% endif %}>Other</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">House / Flat / Building No. *</label>
-                <input type="text" name="house_number" id="id_house_number" class="form-control" placeholder="e.g. Flat 402, Green Heights" value="{{ house_number }}">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Street / Colony *</label>
-                <input type="text" name="street" id="id_street" class="form-control" placeholder="e.g. MG Road, Sector 4" value="{{ street }}">
-              </div>
+            <div class="address-modal-footer">
+              <button type="button" class="btn btn-secondary" onclick="closeAddressModal()">
+                Cancel
+              </button>
+              <button type="button" class="btn btn-primary" onclick="confirmModalAddress()" style="font-weight: 700; height: 42px;">
+                <i class="fa-solid fa-check"></i> Deliver to this Address
+              </button>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Area / Locality *</label>
-                <input type="text" name="area" id="id_area" class="form-control" placeholder="e.g. Downtown Central" value="{{ area }}">
-              </div>
-              <div class="form-group">
-                <label class="form-label">City *</label>
-                <input type="text" name="city" id="id_city" class="form-control" placeholder="City" value="{{ city|default:'Central City' }}">
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">State *</label>
-                <input type="text" name="state" id="id_state" class="form-control" placeholder="State" value="{{ state|default:'State' }}">
-              </div>
-              <div class="form-group">
-                <label class="form-label">PIN Code *</label>
-                <input type="text" name="pin_code" id="id_pin_code" class="form-control" placeholder="e.g. 110001" value="{{ pin_code }}">
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Landmark (Optional)</label>
-                <input type="text" name="landmark" id="id_landmark" class="form-control" placeholder="Nearby park, school, or store" value="{{ landmark }}">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Address Type</label>
-                <select name="address_type" id="id_address_type" class="form-select">
-                  <option value="HOME" {% if address_type == 'HOME' %}selected{% endif %}>Home</option>
-                  <option value="WORK" {% if address_type == 'WORK' %}selected{% endif %}>Office / Work</option>
-                  <option value="OTHER" {% if address_type == 'OTHER' %}selected{% endif %}>Other</option>
-                </select>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -379,11 +613,195 @@
 
 {% block extra_js %}
 <script>
-function toggleNewAddress(show) {
-  const box = document.getElementById('new-address-fields');
-  if (box) {
-    box.style.display = show ? 'block' : 'none';
+// =============================================================================
+// MODAL POPUP FOR DELIVERY ADDRESS
+// =============================================================================
+
+function openAddressModal() {
+  const modal = document.getElementById('address-modal-overlay');
+  if (!modal) return;
+
+  // Auto pre-populate Recipient Name and Phone from Section 1 if empty
+  const custName = document.getElementById('id_customer_name');
+  const fullName = document.getElementById('id_full_name');
+  if (custName && fullName && !fullName.value.trim()) {
+    fullName.value = custName.value.trim();
   }
+
+  const custPhone = document.getElementById('id_customer_phone');
+  const phoneNum = document.getElementById('id_phone_number');
+  if (custPhone && phoneNum && !phoneNum.value.trim()) {
+    phoneNum.value = custPhone.value.trim();
+  }
+
+  // Clear modal error alert
+  const alertBox = document.getElementById('modal-error-alert');
+  if (alertBox) alertBox.style.display = 'none';
+
+  // Show modal
+  modal.classList.add('is-visible');
+  document.body.style.overflow = 'hidden';
+
+  // Focus first empty or appropriate field
+  setTimeout(() => {
+    const houseInput = document.getElementById('id_house_number');
+    if (houseInput && !houseInput.value.trim()) {
+      houseInput.focus();
+    } else if (fullName) {
+      fullName.focus();
+    }
+  }, 100);
+}
+
+function closeAddressModal() {
+  const modal = document.getElementById('address-modal-overlay');
+  if (!modal) return;
+
+  modal.classList.remove('is-visible');
+  document.body.style.overflow = '';
+
+  // If no new address has been filled and a saved address exists, keep saved address checked
+  const houseInput = document.getElementById('id_house_number');
+  const previewBox = document.getElementById('new-address-preview-box');
+  const newRadio = document.getElementById('use-new-addr-radio');
+
+  if ((!houseInput || !houseInput.value.trim()) && (!previewBox || previewBox.style.display === 'none')) {
+    const firstSaved = document.querySelector('input[name="address_id"]:not([value=""])');
+    if (firstSaved && newRadio && newRadio.checked) {
+      firstSaved.checked = true;
+      selectSavedAddress(firstSaved);
+    }
+  }
+}
+
+function handleModalBackdropClick(event) {
+  if (event.target && event.target.id === 'address-modal-overlay') {
+    closeAddressModal();
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('address-modal-overlay');
+    if (modal && modal.classList.contains('is-visible')) {
+      closeAddressModal();
+    }
+  }
+});
+
+function confirmModalAddress() {
+  const alertBox = document.getElementById('modal-error-alert');
+  const errorText = document.getElementById('modal-error-text');
+
+  const nameVal = (document.getElementById('id_full_name')?.value || '').trim();
+  const phoneVal = (document.getElementById('id_phone_number')?.value || '').trim();
+  const houseVal = (document.getElementById('id_house_number')?.value || '').trim();
+  const streetVal = (document.getElementById('id_street')?.value || '').trim();
+  const areaVal = (document.getElementById('id_area')?.value || '').trim();
+  const cityVal = (document.getElementById('id_city')?.value || '').trim();
+  const stateVal = (document.getElementById('id_state')?.value || '').trim();
+  const pinVal = (document.getElementById('id_pin_code')?.value || '').trim();
+  const typeSelect = document.getElementById('id_address_type');
+  const typeText = typeSelect ? typeSelect.options[typeSelect.selectedIndex].text : 'Home';
+
+  // Validation
+  if (!nameVal) {
+    showModalError('Please enter recipient name.');
+    document.getElementById('id_full_name')?.focus();
+    return;
+  }
+  if (!phoneVal) {
+    showModalError('Please enter contact mobile number.');
+    document.getElementById('id_phone_number')?.focus();
+    return;
+  }
+  if (!houseVal) {
+    showModalError('Please enter house / flat / building number.');
+    document.getElementById('id_house_number')?.focus();
+    return;
+  }
+  if (!streetVal) {
+    showModalError('Please enter street or colony name.');
+    document.getElementById('id_street')?.focus();
+    return;
+  }
+  if (!pinVal) {
+    showModalError('Please enter a valid postal PIN code.');
+    document.getElementById('id_pin_code')?.focus();
+    return;
+  }
+
+  // Update Preview Box on Checkout Page
+  const previewBox = document.getElementById('new-address-preview-box');
+  const previewName = document.getElementById('preview-name');
+  const previewAddress = document.getElementById('preview-address-text');
+  const previewPhone = document.getElementById('preview-phone');
+  const previewType = document.getElementById('preview-type');
+
+  if (previewName) previewName.textContent = nameVal;
+  if (previewPhone) previewPhone.textContent = phoneVal;
+  if (previewType) previewType.textContent = typeText;
+
+  let formattedText = houseVal + ', ' + streetVal;
+  if (areaVal) formattedText += ', ' + areaVal;
+  if (cityVal) formattedText += ', ' + cityVal;
+  if (pinVal) formattedText += ' - ' + pinVal;
+  if (previewAddress) previewAddress.textContent = formattedText;
+
+  // Show preview box
+  if (previewBox) previewBox.style.display = 'block';
+
+  // Select the new address radio
+  const newRadio = document.getElementById('use-new-addr-radio');
+  if (newRadio) {
+    newRadio.checked = true;
+  }
+
+  // Deselect saved cards highlight
+  document.querySelectorAll('.saved-address-card').forEach(c => c.classList.remove('is-selected'));
+
+  // Update button label for first-time / guest users if present
+  const firstTimeBtnLabel = document.getElementById('btn-first-time-label');
+  if (firstTimeBtnLabel) firstTimeBtnLabel.textContent = 'Change Delivery Address';
+
+  // Close modal smoothly
+  closeAddressModal();
+
+  // Save session draft
+  saveCheckoutDraft();
+
+  if (typeof showToast === 'function') {
+    showToast('Delivery address updated successfully!', 'success');
+  }
+}
+
+function showModalError(msg) {
+  const alertBox = document.getElementById('modal-error-alert');
+  const errorText = document.getElementById('modal-error-text');
+  if (alertBox && errorText) {
+    errorText.textContent = msg;
+    alertBox.style.display = 'block';
+  }
+}
+
+function selectSavedAddress(radio) {
+  // Uncheck new address radio
+  const newRadio = document.getElementById('use-new-addr-radio');
+  if (newRadio) newRadio.checked = false;
+
+  // Highlight selected card
+  document.querySelectorAll('.saved-address-card').forEach(c => c.classList.remove('is-selected'));
+  const card = radio.closest('.saved-address-card');
+  if (card) card.classList.add('is-selected');
+
+  saveCheckoutDraft();
+}
+
+function selectNewAddressRadio(radio) {
+  if (radio.checked) {
+    document.querySelectorAll('.saved-address-card').forEach(c => c.classList.remove('is-selected'));
+  }
+  saveCheckoutDraft();
 }
 
 // 1. Two-Way Field Synchronization (Name & Phone)
@@ -454,6 +872,29 @@ function restoreCheckoutDraft() {
         el.value = draft[id];
       }
     });
+
+    // If house_number was restored, show preview card
+    const houseInput = document.getElementById('id_house_number');
+    if (houseInput && houseInput.value.trim()) {
+      const nameVal = document.getElementById('id_full_name')?.value || '';
+      const phoneVal = document.getElementById('id_phone_number')?.value || '';
+      const streetVal = document.getElementById('id_street')?.value || '';
+      const areaVal = document.getElementById('id_area')?.value || '';
+      const cityVal = document.getElementById('id_city')?.value || '';
+      const pinVal = document.getElementById('id_pin_code')?.value || '';
+
+      const previewBox = document.getElementById('new-address-preview-box');
+      const previewName = document.getElementById('preview-name');
+      const previewAddress = document.getElementById('preview-address-text');
+      const previewPhone = document.getElementById('preview-phone');
+
+      if (previewName) previewName.textContent = nameVal;
+      if (previewPhone) previewPhone.textContent = phoneVal;
+      if (previewAddress) {
+        previewAddress.textContent = `${houseVal}, ${streetVal}${areaVal ? ', ' + areaVal : ''}, ${cityVal} - ${pinVal}`;
+      }
+      if (previewBox) previewBox.style.display = 'block';
+    }
   } catch (e) {}
 }
 
@@ -504,20 +945,14 @@ checkoutForm.addEventListener('submit', function(e) {
       const el = document.getElementById(req.id);
       if (el && !el.value.trim()) {
         e.preventDefault();
+        
+        // If missing, open the modal dialog to let user enter it conveniently!
+        openAddressModal();
         el.style.borderColor = '#EF4444';
         el.style.backgroundColor = '#FEF2F2';
         el.focus();
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         
-        let alertBox = document.getElementById('checkout-client-alert');
-        if (!alertBox) {
-          alertBox = document.createElement('div');
-          alertBox.id = 'checkout-client-alert';
-          alertBox.className = 'alert alert-danger';
-          alertBox.style.marginTop = '1rem';
-          checkoutForm.prepend(alertBox);
-        }
-        alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Please enter your <strong>' + req.name + '</strong> to continue.';
+        showModalError('Please enter your ' + req.name + ' to continue.');
         return;
       }
     }

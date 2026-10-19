@@ -27,7 +27,7 @@
         <select name="product_id" class="form-select" required>
           <option value="">-- Choose Item --</option>
           {% for p in products %}
-            <option value="{{ p.id }}">{{ p.name }} (Current: {{ p.stock_record.current_stock }})</option>
+            <option value="{{ p.id }}">{{ p.name }} (Current: {{ p.stock_record.current_stock }} {{ p.stock_unit_display }})</option>
           {% endfor %}
         </select>
       </div>
@@ -69,7 +69,9 @@
           <tr>
             <th>Product</th>
             <th>Category</th>
-            <th>Current Units</th>
+            <th>Selling Unit</th>
+            <th>Available Stock</th>
+            <th>Max Per Order (Bike)</th>
             <th>Alert Threshold</th>
             <th>Stock Health</th>
             <th>Last Restocked</th>
@@ -84,22 +86,32 @@
               </td>
               <td>{{ p.category.name }}</td>
               <td>
-                <span style="font-size: 1.15rem; font-weight: 800; {% if p.stock_record.current_stock <= 0 %}color: #DC2626;{% elif p.stock_record.current_stock <= p.stock_record.low_stock_threshold %}color: #D97706;{% else %}color: #047857;{% endif %}">
-                  {{ p.stock_record.current_stock }}
+                <span class="badge badge-secondary" style="font-weight: 600; text-transform: uppercase;">
+                  {{ p.get_unit_display }}
                 </span>
               </td>
-              <td>{{ p.stock_record.low_stock_threshold }} units</td>
+              <td>
+                <span style="font-size: 1.15rem; font-weight: 800; {% if p.stock_record.current_stock <= 0 %}color: #DC2626;{% elif p.stock_record.current_stock <= p.stock_record.low_stock_threshold %}color: #D97706;{% else %}color: #047857;{% endif %}">
+                  {{ p.stock_record.current_stock }} {{ p.get_unit_label }}
+                </span>
+              </td>
+              <td>
+                <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                  <i class="fa-solid fa-bicycle"></i> Maximum {{ p.per_order_limit }} {{ p.get_unit_label }} per order
+                </span>
+              </td>
+              <td>{{ p.stock_record.low_stock_threshold }} {{ p.get_unit_label }}</td>
               <td>
                 {% if p.stock_record.current_stock <= 0 %}
-                  <span class="badge badge-danger">Out of Stock</span>
+                  <span class="badge badge-danger"><i class="fa-solid fa-triangle-exclamation"></i> Out of Stock</span>
                 {% elif p.stock_record.current_stock <= p.stock_record.low_stock_threshold %}
-                  <span class="badge badge-warning">Low Stock Warning</span>
+                  <span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Low Stock Warning</span>
                 {% else %}
-                  <span class="badge badge-success">Healthy Stock</span>
+                  <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Healthy Stock</span>
                 {% endif %}
               </td>
               <td style="font-size: 0.8rem; color: var(--text-muted);">
-                {{ p.stock_record.last_restocked_at|date:"d M Y, h:i A" }}
+                {{ p.stock_record.last_restocked_at|date:"d M Y, h:i A"|default:"Recently" }}
               </td>
             </tr>
           {% endfor %}
@@ -147,9 +159,9 @@
                 </span>
               </td>
               <td style="font-weight: 800; {% if m.quantity > 0 %}color: #047857;{% else %}color: #DC2626;{% endif %}">
-                {% if m.quantity > 0 %}+{{ m.quantity }}{% else %}{{ m.quantity }}{% endif %}
+                {% if m.quantity > 0 %}+{{ m.quantity }}{% else %}{{ m.quantity }}{% endif %} {{ m.product.stock_unit_display }}
               </td>
-              <td>{{ m.stock_before }} &rarr; <strong>{{ m.stock_after }}</strong></td>
+              <td>{{ m.stock_before }} &rarr; <strong>{{ m.stock_after }}</strong> {{ m.product.stock_unit_display }}</td>
               <td style="font-size: 0.85rem; color: var(--text-secondary);">{{ m.notes|default:"-" }}</td>
               <td style="font-size: 0.8rem;">{{ m.created_by.username|default:"System" }}</td>
             </tr>

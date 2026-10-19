@@ -63,7 +63,30 @@ class CartItem(models.Model):
 
     @property
     def is_available(self):
-        return self.product.is_active and self.product.current_stock_count >= self.quantity
+        min_qty = getattr(self.product, 'min_purchase_quantity', 1) or 1
+        actual_max = getattr(self.product, 'actual_max_order_quantity', self.product.current_stock_count)
+        return (
+            self.product.is_active and
+            self.product.current_stock_count >= self.quantity and
+            self.quantity <= actual_max and
+            self.quantity >= min_qty
+        )
+
+    @property
+    def available_stock(self):
+        return max(0, self.product.current_stock_count)
+
+    @property
+    def actual_max_quantity(self):
+        return getattr(self.product, 'actual_max_order_quantity', self.product.current_stock_count)
+
+    @property
+    def per_order_limit(self):
+        return getattr(self.product, 'per_order_limit', 5)
+
+    @property
+    def stock_unit_label(self):
+        return self.product.get_unit_label(self.product.current_stock_count)
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"

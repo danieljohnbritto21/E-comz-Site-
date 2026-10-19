@@ -14,29 +14,29 @@
   </div>
 
   <!-- Platform Metric Totals -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
     <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
       <div style="font-size: 0.75rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Products</div>
       <div style="font-size: 1.75rem; font-weight: 800; color: #0F172A; margin-top: 4px;">{{ total_products }}</div>
-      <div style="font-size: 0.725rem; color: #059669; font-weight: 600; margin-top: 2px;">Across all registered stores</div>
+      <div style="font-size: 0.725rem; color: #64748B; margin-top: 2px;">Platform catalog</div>
     </div>
 
     <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 0.75rem; font-weight: 700; color: #059669; text-transform: uppercase;">Active & Live</div>
-      <div style="font-size: 1.75rem; font-weight: 800; color: #059669; margin-top: 4px;">{{ active_products }}</div>
-      <div style="font-size: 0.725rem; color: #64748B; margin-top: 2px;">Purchasable in buyer storefront</div>
+      <div style="font-size: 0.75rem; font-weight: 700; color: #059669; text-transform: uppercase;">In Stock</div>
+      <div style="font-size: 1.75rem; font-weight: 800; color: #059669; margin-top: 4px;">{{ in_stock_products }}</div>
+      <div style="font-size: 0.725rem; color: #059669; font-weight: 600; margin-top: 2px;">Ready for purchase</div>
     </div>
 
     <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="font-size: 0.75rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Deactivated</div>
-      <div style="font-size: 1.75rem; font-weight: 800; color: #64748B; margin-top: 4px;">{{ inactive_products }}</div>
-      <div style="font-size: 0.725rem; color: #94A3B8; margin-top: 2px;">Hidden from buyers</div>
+      <div style="font-size: 0.75rem; font-weight: 700; color: #D97706; text-transform: uppercase;">Low Stock</div>
+      <div style="font-size: 1.75rem; font-weight: 800; color: #D97706; margin-top: 4px;">{{ low_stock_products }}</div>
+      <div style="font-size: 0.725rem; color: #B45309; margin-top: 2px;">At or below threshold</div>
     </div>
 
     <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
       <div style="font-size: 0.75rem; font-weight: 700; color: #DC2626; text-transform: uppercase;">Out of Stock</div>
       <div style="font-size: 1.75rem; font-weight: 800; color: #DC2626; margin-top: 4px;">{{ out_of_stock_products }}</div>
-      <div style="font-size: 0.725rem; color: #EF4444; margin-top: 2px;">Inventory depleted</div>
+      <div style="font-size: 0.725rem; color: #EF4444; margin-top: 2px;">Zero stock available</div>
     </div>
 
     <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
@@ -87,11 +87,13 @@
 
       <!-- Status Filter -->
       <div style="flex: 1; min-width: 130px;">
-        <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Status</label>
+        <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Stock & Status</label>
         <select name="status" class="form-select">
           <option value="">-- Any Status --</option>
           <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active & Live</option>
           <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Deactivated</option>
+          <option value="in_stock" {% if status_filter == 'in_stock' %}selected{% endif %}>In Stock</option>
+          <option value="low_stock" {% if status_filter == 'low_stock' %}selected{% endif %}>Low Stock</option>
           <option value="out_of_stock" {% if status_filter == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
         </select>
       </div>
@@ -126,12 +128,12 @@
           <tr>
             <th>Product</th>
             <th>Store Owner</th>
-            <th>Category</th>
-            <th>MRP</th>
-            <th>Selling Price</th>
-            <th>Current Stock</th>
-            <th>Visibility Status</th>
-            <th style="text-align: right;">Action</th>
+            <th>Selling Unit</th>
+            <th>Available Stock</th>
+            <th>Configured Max / Order</th>
+            <th>Effective Max (Bike)</th>
+            <th>Visibility</th>
+            <th style="text-align: right;">Inventory & Limit Controls</th>
           </tr>
         </thead>
         <tbody>
@@ -143,6 +145,7 @@
                   <div>
                     <div style="font-weight: 700;">{{ p.name }}</div>
                     <div style="font-size: 0.72rem; color: var(--text-muted);">{{ p.unit_value }} &bull; SKU: {{ p.sku }}</div>
+                    <div style="font-size: 0.75rem; color: var(--color-primary-dark); font-weight: 700;">{{ p.selling_price|inr }}</div>
                   </div>
                 </div>
               </td>
@@ -151,33 +154,98 @@
                   <i class="fa-solid fa-store"></i> {{ p.seller.seller_profile.store_name|default:p.seller.username }}
                 </a>
               </td>
-              <td>{{ p.category.name }}</td>
-              <td style="color: var(--text-muted); text-decoration: line-through;">{{ p.mrp|inr }}</td>
-              <td><strong style="color: var(--color-primary-dark);">{{ p.selling_price|inr }}</strong></td>
               <td>
-                <span style="font-weight: 700; {% if p.current_stock_count <= 0 %}color: #DC2626;{% else %}color: #047857;{% endif %}">
-                  {{ p.current_stock_count }} units
+                <span class="badge badge-secondary" style="font-weight: 600; text-transform: uppercase;">
+                  {{ p.get_unit_display }}
                 </span>
               </td>
               <td>
+                <span style="font-weight: 800; font-size: 1rem; {% if p.current_stock_count <= 0 %}color: #DC2626;{% elif p.current_stock_count <= p.stock_record.low_stock_threshold %}color: #D97706;{% else %}color: #047857;{% endif %}">
+                  {{ p.current_stock_count }} {{ p.stock_unit_display }}
+                </span>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                  {% if p.current_stock_count <= 0 %}
+                    <span style="color: #DC2626; font-weight: 700;">Out of Stock</span>
+                  {% elif p.current_stock_count <= p.stock_record.low_stock_threshold %}
+                    <span style="color: #D97706; font-weight: 700;">Low Stock</span>
+                  {% else %}
+                    <span style="color: #047857;">In Stock</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                <div style="font-weight: 700; color: #1E293B;">
+                  {{ p.per_order_limit }} {{ p.get_unit_label }}
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                  {% if p.max_quantity_per_order %}
+                    <span class="badge badge-primary" style="font-size: 0.68rem; background: #EEF2FF; color: #4338CA;">Custom Configured</span>
+                  {% else %}
+                    <span class="badge badge-secondary" style="font-size: 0.68rem;">Unit Default (5)</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                <div style="font-weight: 800; font-size: 0.95rem; {% if p.actual_max_order_quantity <= 0 %}color: #DC2626;{% else %}color: #0284C7;{% endif %}">
+                  {{ p.actual_max_order_quantity }} {{ p.get_unit_label }}
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                  {% if p.current_stock_count <= 0 %}
+                    <span style="color: #DC2626;">Zero stock</span>
+                  {% elif p.current_stock_count < p.per_order_limit %}
+                    <span style="color: #D97706;">Stock limited ({{ p.current_stock_count }})</span>
+                  {% else %}
+                    <span style="color: #059669;"><i class="fa-solid fa-bicycle"></i> Bike limit</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td>
                 {% if p.is_active %}
-                  <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active & Live</span>
+                  <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>
                 {% else %}
-                  <span class="badge badge-secondary">Deactivated</span>
+                  <span class="badge badge-secondary">Hidden</span>
                 {% endif %}
               </td>
               <td style="text-align: right;">
-                <form method="POST" style="display: inline-block; margin: 0;">
-                  {% csrf_token %}
-                  <input type="hidden" name="product_id" value="{{ p.id }}">
-                  <button type="submit" class="btn btn-secondary btn-sm" title="Toggle Live/Inactive">
-                    {% if p.is_active %}
-                      <i class="fa-solid fa-eye-slash" style="color: #DC2626;"></i> Hide
-                    {% else %}
-                      <i class="fa-solid fa-eye" style="color: #047857;"></i> Enable
-                    {% endif %}
-                  </button>
-                </form>
+                <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                  <!-- Stock Adjustment Form -->
+                  <form method="POST" style="display: inline-flex; align-items: center; gap: 4px; margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="adjust_stock">
+                    <input type="hidden" name="product_id" value="{{ p.id }}">
+                    <span style="font-size: 0.72rem; color: #64748B;">Stock:</span>
+                    <input type="number" name="new_stock" min="0" value="{{ p.current_stock_count }}" style="width: 60px; padding: 2px 6px; font-size: 0.78rem; border: 1px solid #CBD5E1; border-radius: 4px; text-align: right;" title="Set available stock quantity" required>
+                    <button type="submit" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 0.75rem;" title="Save Stock">
+                      <i class="fa-solid fa-floppy-disk"></i>
+                    </button>
+                  </form>
+
+                  <!-- Per-Order Limit Form -->
+                  <form method="POST" style="display: inline-flex; align-items: center; gap: 4px; margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="set_order_limit">
+                    <input type="hidden" name="product_id" value="{{ p.id }}">
+                    <span style="font-size: 0.72rem; color: #64748B;"><i class="fa-solid fa-bicycle"></i> Limit:</span>
+                    <input type="number" name="max_quantity_per_order" min="1" value="{{ p.max_quantity_per_order|default:'' }}" placeholder="{{ p.per_order_limit }}" style="width: 60px; padding: 2px 6px; font-size: 0.78rem; border: 1px solid #CBD5E1; border-radius: 4px; text-align: right;" title="Custom per-order limit (blank for unit default)">
+                    <button type="submit" class="btn btn-primary btn-sm" style="padding: 2px 6px; font-size: 0.75rem;" title="Save Per-Order Limit">
+                      <i class="fa-solid fa-check"></i>
+                    </button>
+                  </form>
+
+                  <!-- Toggle Visibility -->
+                  <form method="POST" style="display: inline-block; margin: 0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_status">
+                    <input type="hidden" name="product_id" value="{{ p.id }}">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 0.75rem;" title="Toggle Live/Hidden">
+                      {% if p.is_active %}
+                        <i class="fa-solid fa-eye-slash" style="color: #DC2626;"></i> Hide
+                      {% else %}
+                        <i class="fa-solid fa-eye" style="color: #047857;"></i> Show
+                      {% endif %}
+                    </button>
+                  </form>
+                </div>
               </td>
             </tr>
           {% empty %}

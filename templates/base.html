@@ -380,7 +380,7 @@
             <span id="float-cart-count">{{ nav_cart_count }}</span> <span id="float-cart-unit">Item{{ nav_cart_count|pluralize }}</span> in Basket
           </div>
           <div class="floating-cart-price-text">
-            Total: <strong>₹<span id="float-cart-subtotal">{{ nav_cart_subtotal }}</span></strong>
+            Total: <strong><span id="float-cart-subtotal">{{ nav_cart_subtotal|inr }}</span></strong>
           </div>
         </div>
       </div>

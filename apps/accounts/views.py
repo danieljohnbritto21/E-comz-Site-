@@ -115,12 +115,12 @@ def login_view(request):
 
             # Create authenticated session only after verified credentials and matching role
             old_session_key = request.session.session_key
+            old_cart_id = request.session.get('cart_id')
             login(request, user)
             
             # Merge items from guest shopping cart into user's basket
-            if old_session_key:
-                from apps.cart.views import merge_session_cart
-                merge_session_cart(user, old_session_key)
+            from apps.cart.views import merge_session_cart
+            merge_session_cart(user, session_key=old_session_key, session_cart_id=old_cart_id)
 
             # Process any preserved pending product addition from guest session
             pending_prod_id = request.POST.get('pending_product_id') or request.GET.get('pending_product_id') or request.session.get('pending_product_id')
@@ -233,10 +233,10 @@ def register_buyer_view(request):
                 )
 
                 old_session_key = request.session.session_key
+                old_cart_id = request.session.get('cart_id')
                 login(request, user)
-                if old_session_key:
-                    from apps.cart.views import merge_session_cart
-                    merge_session_cart(user, old_session_key)
+                from apps.cart.views import merge_session_cart
+                merge_session_cart(user, session_key=old_session_key, session_cart_id=old_cart_id)
 
                 # Process any preserved pending product addition from guest session
                 pending_prod_id = request.POST.get('pending_product_id') or request.GET.get('pending_product_id') or request.session.get('pending_product_id')

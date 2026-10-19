@@ -6,13 +6,14 @@ from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F
 from apps.accounts.decorators import role_required
 from apps.accounts.models import User, BuyerProfile, SellerProfile, DeliveryProfile
 from apps.catalog.models import Product, Category
 from apps.orders.models import Order, OrderItem, SellerSubOrder, OrderStatusHistory
 from apps.delivery.models import DeliveryAssignment
 from apps.delivery.services import auto_assign_delivery_partner
+from apps.inventory.models import StockMovement, StockRecord
 from apps.notifications.models import Notification
 
 
@@ -385,6 +386,11 @@ def admin_products_view(request):
     total_products = Product.objects.count()
     active_products = Product.objects.filter(is_active=True).count()
     inactive_products = Product.objects.filter(is_active=False).count()
+    in_stock_products = Product.objects.filter(stock_record__current_stock__gt=0).count()
+    low_stock_products = Product.objects.filter(
+        stock_record__current_stock__gt=0,
+        stock_record__current_stock__lte=F('stock_record__low_stock_threshold')
+    ).count()
     out_of_stock_products = Product.objects.filter(stock_record__current_stock__lte=0).count()
     total_sellers = User.objects.filter(role=User.Role.SELLER).count()
 
@@ -414,17 +420,69 @@ def admin_products_view(request):
         products_qs = products_qs.filter(is_active=True)
     elif status_filter == 'inactive':
         products_qs = products_qs.filter(is_active=False)
+    elif status_filter == 'in_stock':
+        products_qs = products_qs.filter(stock_record__current_stock__gt=0)
+    elif status_filter == 'low_stock':
+        products_qs = products_qs.filter(
+            stock_record__current_stock__gt=0,
+            stock_record__current_stock__lte=F('stock_record__low_stock_threshold')
+        )
     elif status_filter == 'out_of_stock':
         products_qs = products_qs.filter(stock_record__current_stock__lte=0)
 
     if request.method == 'POST':
+        action = request.POST.get('action')
         product_id = request.POST.get('product_id')
         prod = get_object_or_404(Product, id=product_id)
-        prod.is_active = not prod.is_active
-        prod.save(update_fields=['is_active'])
-        status_name = "Activated" if prod.is_active else "Deactivated"
-        messages.info(request, f"{prod.name} has been {status_name}.")
-        return redirect(request.get_full_path())
+
+        if action == 'adjust_stock':
+            try:
+                new_stock_val = request.POST.get('new_stock')
+                if new_stock_val is not None and new_stock_val != '':
+                    new_stk = int(new_stock_val)
+                    if new_stk < 0:
+                        messages.error(request, "Stock quantity cannot be negative.")
+                        return redirect(request.get_full_path())
+                    current_stk = prod.current_stock_count
+                    qty_change = new_stk - current_stk
+                else:
+                    qty_change = int(request.POST.get('quantity_change', 0))
+                reason = request.POST.get('reason', 'Admin Inventory Adjustment').strip() or 'Admin Inventory Adjustment'
+                prod.stock_record.adjust_stock(
+                    quantity_change=qty_change,
+                    change_type=StockMovement.ChangeType.MANUAL,
+                    user=request.user,
+                    notes=f"Admin {request.user.username}: {reason}"
+                )
+                unit_label = prod.get_unit_label(abs(qty_change))
+                messages.success(request, f"Updated stock for '{prod.name}' by {qty_change:+d} {unit_label}.")
+            except Exception as e:
+                messages.error(request, f"Could not adjust stock: {e}")
+            return redirect(request.get_full_path())
+        elif action == 'set_order_limit':
+            limit_val = request.POST.get('max_quantity_per_order', '').strip()
+            if limit_val == '' or limit_val.lower() == 'default':
+                prod.max_quantity_per_order = None
+                prod.save(update_fields=['max_quantity_per_order'])
+                messages.success(request, f"Reset per-order limit for '{prod.name}' to unit default ({prod.per_order_limit} {prod.get_unit_label(prod.per_order_limit)}).")
+            else:
+                try:
+                    new_limit = int(limit_val)
+                    if new_limit <= 0:
+                        messages.error(request, "Maximum quantity per order must be greater than zero.")
+                    else:
+                        prod.max_quantity_per_order = new_limit
+                        prod.save(update_fields=['max_quantity_per_order'])
+                        messages.success(request, f"Updated maximum per order for '{prod.name}' to {new_limit} {prod.get_unit_label(new_limit)}.")
+                except (ValueError, TypeError):
+                    messages.error(request, "Please enter a valid whole number for maximum quantity per order.")
+            return redirect(request.get_full_path())
+        else:
+            prod.is_active = not prod.is_active
+            prod.save(update_fields=['is_active'])
+            status_name = "Activated" if prod.is_active else "Deactivated"
+            messages.info(request, f"{prod.name} has been {status_name}.")
+            return redirect(request.get_full_path())
 
     all_sellers = SellerProfile.objects.select_related('user').all().order_by('store_name')
     all_categories = Category.objects.filter(is_active=True).order_by('name')
@@ -434,6 +492,8 @@ def admin_products_view(request):
         'total_products': total_products,
         'active_products': active_products,
         'inactive_products': inactive_products,
+        'in_stock_products': in_stock_products,
+        'low_stock_products': low_stock_products,
         'out_of_stock_products': out_of_stock_products,
         'total_sellers': total_sellers,
         'all_sellers': all_sellers,

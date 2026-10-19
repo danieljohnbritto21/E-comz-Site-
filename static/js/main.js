@@ -111,11 +111,16 @@ function updateCartUI(data) {
 
   // 1. Update product card in-place stepper
   if (data.product_id) {
+    const wrap = document.getElementById(`cart-wrap-${data.product_id}`);
     const addBtn = document.getElementById(`add-btn-${data.product_id}`);
     const stepper = document.getElementById(`stepper-${data.product_id}`);
     const qtyVal = document.getElementById(`qty-val-${data.product_id}`);
 
-    if (data.item_quantity > 0) {
+    if (data.available_stock !== undefined && data.available_stock <= 0) {
+      if (wrap) {
+        wrap.innerHTML = `<button type="button" class="btn-out-of-stock" id="add-btn-${data.product_id}" disabled aria-disabled="true"><i class="fa-solid fa-circle-xmark"></i> Out of Stock</button>`;
+      }
+    } else if (data.item_quantity > 0) {
       if (addBtn) addBtn.classList.add('is-hidden');
       if (stepper) stepper.classList.remove('is-hidden');
       if (qtyVal) qtyVal.textContent = data.item_quantity;
@@ -154,18 +159,54 @@ function updateCartUI(data) {
     void b.offsetWidth; // trigger reflow
     b.classList.add('anim-pulse');
   });
+  const cartPrices = document.querySelectorAll('.nav-cart-price');
+  cartPrices.forEach(p => {
+    p.textContent = data.subtotal;
+  });
 }
 
 // Handle In-Place Product Card Action (+Add, [+] increment, [-] decrement)
-async function handleCartAction(productId, delta) {
-  // If user is signed out or not a Customer, immediately restrict and navigate to login
-  const isCustomer = window.FRESHMART_USER && window.FRESHMART_USER.isAuthenticated && window.FRESHMART_USER.role === 'BUYER';
-  if (!isCustomer) {
-    const qty = delta > 0 ? delta : 1;
-    const nextUrl = window.location.pathname + window.location.search;
-    const baseLogin = (window.FRESHMART_USER && window.FRESHMART_USER.loginUrl) ? window.FRESHMART_USER.loginUrl : '/auth/login/';
-    window.location.href = `${baseLogin}?role=BUYER&next=${encodeURIComponent(nextUrl)}&pending_product_id=${productId}&pending_qty=${qty}`;
+async function handleCartAction(productId, delta, maxStock = null, unit = 'units', actualStock = null, orderLimit = null) {
+  // If user is logged in with a non-BUYER role (SELLER, DELIVERY, ADMIN), restrict
+  if (window.FRESHMART_USER && window.FRESHMART_USER.isAuthenticated && window.FRESHMART_USER.role !== 'BUYER') {
+    showToast('Only customer accounts can add products to cart and place orders.', 'warning');
     return;
+  }
+
+  // Client-side quick stock & order limit check
+  const wrap = document.getElementById(`cart-wrap-${productId}`);
+  if (wrap) {
+    if (maxStock === null && wrap.dataset.actualMax) {
+      maxStock = parseInt(wrap.dataset.actualMax, 10);
+    } else if (maxStock === null && wrap.dataset.maxStock) {
+      maxStock = parseInt(wrap.dataset.maxStock, 10);
+    }
+    if (actualStock === null && wrap.dataset.maxStock) {
+      actualStock = parseInt(wrap.dataset.maxStock, 10);
+    }
+    if (orderLimit === null && wrap.dataset.orderLimit) {
+      orderLimit = parseInt(wrap.dataset.orderLimit, 10);
+    }
+    unit = wrap.dataset.unit || unit;
+  }
+  const qtyVal = document.getElementById(`qty-val-${productId}`);
+  const currentQty = qtyVal ? parseInt(qtyVal.textContent.trim() || '0', 10) : 0;
+
+  if (delta > 0 && maxStock !== null && !isNaN(maxStock)) {
+    if (maxStock <= 0) {
+      showToast('This product is currently out of stock.', 'danger');
+      return;
+    }
+    if (currentQty + delta > maxStock) {
+      if (actualStock !== null && orderLimit !== null && actualStock < orderLimit) {
+        showToast(`Cannot add more. Only ${actualStock} ${unit} available in stock.`, 'warning');
+      } else if (orderLimit !== null) {
+        showToast(`You can order a maximum of ${orderLimit} ${unit} per order.`, 'warning');
+      } else {
+        showToast(`Cannot add more. Maximum limit is ${maxStock} ${unit}.`, 'warning');
+      }
+      return;
+    }
   }
 
   try {
@@ -190,6 +231,12 @@ async function handleCartAction(productId, delta) {
     } else if (response.status === 401 && data.require_login) {
       window.location.href = data.login_url || '/auth/login/?role=BUYER';
     } else {
+      // If server indicates product is out of stock, reflect in UI immediately
+      if (data.available_stock !== undefined && data.available_stock <= 0) {
+        if (wrap) {
+          wrap.innerHTML = `<button type="button" class="btn-out-of-stock" id="add-btn-${productId}" disabled aria-disabled="true"><i class="fa-solid fa-circle-xmark"></i> Out of Stock</button>`;
+        }
+      }
       showToast(data.error || 'Could not update basket', 'danger');
     }
   } catch (err) {
@@ -199,15 +246,22 @@ async function handleCartAction(productId, delta) {
 }
 
 // Add to Cart (Standard / Detail page)
-async function addToCart(productId, quantity = 1) {
-  // If user is signed out or not a Customer, immediately restrict and navigate to login
-  const isCustomer = window.FRESHMART_USER && window.FRESHMART_USER.isAuthenticated && window.FRESHMART_USER.role === 'BUYER';
-  if (!isCustomer) {
-    const qty = quantity > 0 ? quantity : 1;
-    const nextUrl = window.location.pathname + window.location.search;
-    const baseLogin = (window.FRESHMART_USER && window.FRESHMART_USER.loginUrl) ? window.FRESHMART_USER.loginUrl : '/auth/login/';
-    window.location.href = `${baseLogin}?role=BUYER&next=${encodeURIComponent(nextUrl)}&pending_product_id=${productId}&pending_qty=${qty}`;
+async function addToCart(productId, quantity = 1, maxStock = null, unit = 'units') {
+  // If user is logged in with a non-BUYER role (SELLER, DELIVERY, ADMIN), restrict
+  if (window.FRESHMART_USER && window.FRESHMART_USER.isAuthenticated && window.FRESHMART_USER.role !== 'BUYER') {
+    showToast('Only customer accounts can add products to cart and place orders.', 'warning');
     return;
+  }
+
+  if (maxStock !== null && !isNaN(maxStock)) {
+    if (maxStock <= 0) {
+      showToast('This product is currently out of stock.', 'danger');
+      return;
+    }
+    if (quantity > maxStock) {
+      showToast(`Cannot add more than permitted maximum (${maxStock} ${unit}).`, 'warning');
+      return;
+    }
   }
 
   try {
@@ -228,6 +282,13 @@ async function addToCart(productId, quantity = 1) {
     } else if (response.status === 401 && data.require_login) {
       window.location.href = data.login_url || '/auth/login/?role=BUYER';
     } else {
+      if (data.available_stock !== undefined && data.available_stock <= 0) {
+        const detailBtn = document.getElementById('add-to-cart-btn');
+        if (detailBtn) {
+          detailBtn.disabled = true;
+          detailBtn.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Out of Stock';
+        }
+      }
       showToast(data.error || 'Failed to add item', 'danger');
     }
   } catch (err) {
@@ -238,7 +299,9 @@ async function addToCart(productId, quantity = 1) {
 
 // Update Cart Quantity
 async function updateCartItem(itemId, newQty) {
-  if (newQty < 1) return;
+  if (newQty < 1) {
+    return removeCartItem(itemId);
+  }
   try {
     const response = await fetch(`/cart/update/${itemId}/`, {
       method: 'POST',

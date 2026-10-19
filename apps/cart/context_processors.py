@@ -1,23 +1,21 @@
-from apps.cart.models import Cart
+from apps.cart.views import get_or_create_cart
 
 
 def cart_context(request):
-    """Provides cart total items and subtotal to all templates."""
+    """Provides authoritative cart total items, subtotal, and item map to all templates."""
     total_items = 0
     subtotal = 0
-    cart = None
-    if request.user.is_authenticated:
-        cart = Cart.objects.filter(user=request.user).first()
-    else:
-        session_key = request.session.session_key
-        if session_key:
-            cart = Cart.objects.filter(session_key=session_key).first()
-
     cart_items_map = {}
-    if cart:
-        total_items = cart.total_items
-        subtotal = cart.subtotal
-        cart_items_map = {item.product_id: item.quantity for item in cart.items.all()}
+    cart = None
+
+    try:
+        cart = get_or_create_cart(request, create=False)
+        if cart:
+            total_items = cart.total_items
+            subtotal = cart.subtotal
+            cart_items_map = {item.product_id: item.quantity for item in cart.items.all()}
+    except Exception:
+        pass
 
     return {
         'nav_cart': cart,

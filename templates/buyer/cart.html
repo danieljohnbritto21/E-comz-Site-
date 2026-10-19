@@ -6,9 +6,11 @@
 {% block content %}
 <div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
   
-  <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 1.5rem;">
-    <h1 style="font-size: 1.75rem; font-weight: 800;">My Shopping Basket</h1>
-    <span style="color: var(--text-muted); font-size: 0.95rem;">({{ cart.total_items }} item{{ cart.total_items|pluralize }})</span>
+  <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <h1 style="font-size: 1.75rem; font-weight: 800; margin: 0;">My Shopping Basket</h1>
+    <span style="color: var(--text-muted); font-size: 0.95rem;">
+      ({{ cart.total_items }} item{{ cart.total_items|pluralize }} &bull; {{ cart_items|length }} product line{{ cart_items|length|pluralize }})
+    </span>
   </div>
 
   {% if cart_items %}
@@ -45,21 +47,40 @@
                   <i class="fa-regular fa-trash-can"></i>
                 </button>
               </div>
+              {% if item.product.seller %}
+                <div style="font-size: 0.775rem; color: #059669; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 5px;">
+                  <i class="fa-solid fa-store" style="font-size: 0.72rem;"></i>
+                  <span>{{ item.product.seller.seller_profile.store_name|default:item.product.seller.get_full_name|default:item.product.seller.username }}</span>
+                </div>
+              {% endif %}
               <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
                 {{ item.product.unit_value }} &bull; {{ item.product.selling_price|inr }} each
               </div>
               {% if not item.is_available %}
-                <div style="font-size: 0.75rem; color: #DC2626; font-weight: 700; margin-top: 4px;">
-                  Only {{ item.product.current_stock_count }} available in stock!
+                <div style="font-size: 0.775rem; color: #DC2626; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                  {% if item.product.current_stock_count <= 0 %}
+                    <i class="fa-solid fa-circle-xmark"></i> Out of Stock! Please remove this item to proceed.
+                  {% elif item.product.current_stock_count < item.product.per_order_limit and item.quantity > item.product.current_stock_count %}
+                    <i class="fa-solid fa-triangle-exclamation"></i> Only {{ item.product.current_stock_count }} {{ item.product.get_unit_label }} available in stock (you have {{ item.quantity }} in basket).
+                  {% else %}
+                    <i class="fa-solid fa-bicycle"></i> Maximum {{ item.product.per_order_limit }} {{ item.product.get_unit_label }} per order for bike delivery (you have {{ item.quantity }} in basket).
+                  {% endif %}
+                </div>
+              {% else %}
+                <div style="font-size: 0.725rem; color: #047857; margin-top: 3px; display: flex; align-items: center; gap: 4px;">
+                  <i class="fa-solid fa-bicycle"></i> Bike delivery limit: Max {{ item.product.per_order_limit }} {{ item.product.get_unit_label }}/order
                 </div>
               {% endif %}
             </div>
 
             <div class="cart-item-qty-col" style="text-align: center;">
               <div class="quantity-control">
-                <button type="button" class="qty-btn" onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'-1' }})">-</button>
+                <button type="button" class="qty-btn" onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'-1' }})" aria-label="Decrease quantity">-</button>
                 <input type="text" value="{{ item.quantity }}" readonly class="qty-input">
-                <button type="button" class="qty-btn" onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'1' }})">+</button>
+                <button type="button" class="qty-btn" 
+                        {% if item.quantity >= item.actual_max_quantity %}style="opacity: 0.45; cursor: not-allowed;" title="Maximum permitted order quantity reached"{% endif %}
+                        onclick="if({{ item.quantity }} < {{ item.actual_max_quantity }}) { updateCartItem({{ item.id }}, {{ item.quantity|add:'1' }}); } else { {% if item.product.current_stock_count < item.product.per_order_limit %}showToast('Cannot add more. Only {{ item.product.current_stock_count }} {{ item.product.get_unit_label|escapejs }} available in stock.', 'warning');{% else %}showToast('You can order a maximum of {{ item.product.per_order_limit }} {{ item.product.get_unit_label|escapejs }} of \'{{ item.product.name|escapejs }}\' per order.', 'warning');{% endif %} }"
+                        aria-label="Increase quantity">+</button>
               </div>
             </div>
 

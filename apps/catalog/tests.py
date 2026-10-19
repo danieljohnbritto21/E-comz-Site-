@@ -452,9 +452,15 @@ class FreshMartPlatformRequirementsTests(TestCase):
         )
         StockRecord.objects.create(product=prod, current_stock=5, low_stock_threshold=2)
 
-        # Attempt to add 10 units -> clamped to available stock (5)
-        self.client_customer.post(reverse('cart:add_to_cart', args=[prod.id]), {'quantity': 10})
+        # Attempt to add 10 units -> rejected because it exceeds available stock (5)
+        res_fail = self.client_customer.post(reverse('cart:add_to_cart', args=[prod.id]), {'quantity': 10})
+        self.assertEqual(res_fail.status_code, 302)
         cart = Cart.objects.get(user=self.customer)
+        self.assertFalse(cart.items.filter(product=prod).exists())
+
+        # Adding valid available quantity (5 units) succeeds
+        res_ok = self.client_customer.post(reverse('cart:add_to_cart', args=[prod.id]), {'quantity': 5})
+        self.assertEqual(res_ok.status_code, 302)
         item = cart.items.get(product=prod)
         self.assertEqual(item.quantity, 5)
         # Price calculated from DB (5 * 120 = 600)

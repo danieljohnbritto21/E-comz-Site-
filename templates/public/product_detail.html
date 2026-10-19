@@ -89,11 +89,17 @@
       </div>
 
       <!-- Stock Status -->
-      <div style="margin-bottom: 1.5rem;">
+      <div style="margin-bottom: 1.5rem;" id="detail-stock-badge-box">
         {% if product.is_in_stock %}
-          <div style="display: inline-flex; align-items: center; gap: 6px; color: #047857; background: #ECFDF5; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;">
-            <i class="fa-solid fa-circle-check"></i> In Stock ({{ product.current_stock_count }} available)
-          </div>
+          {% if product.is_low_stock %}
+            <div style="display: inline-flex; align-items: center; gap: 6px; color: #B45309; background: #FEF3C7; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;">
+              <i class="fa-solid fa-triangle-exclamation"></i> Low Stock (Only {{ product.current_stock_count }} {{ product.get_unit_label }} left)
+            </div>
+          {% else %}
+            <div style="display: inline-flex; align-items: center; gap: 6px; color: #047857; background: #ECFDF5; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;">
+              <i class="fa-solid fa-circle-check"></i> In Stock ({{ product.current_stock_count }} {{ product.get_unit_label }} available)
+            </div>
+          {% endif %}
         {% else %}
           <div style="display: inline-flex; align-items: center; gap: 6px; color: #B91C1C; background: #FEF2F2; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;">
             <i class="fa-solid fa-circle-xmark"></i> Currently Out of Stock
@@ -130,19 +136,56 @@
       </div>
 
       <!-- Action Row: Quantity + Add to Cart -->
-      {% if product.is_in_stock %}
-        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-          <div class="quantity-control" style="padding: 2px;">
-            <button type="button" class="qty-btn" onclick="let q=document.getElementById('detail-qty'); if(q.value>1) q.value--;">-</button>
-            <input type="number" id="detail-qty" value="1" min="1" max="{{ product.current_stock_count }}" class="qty-input">
-            <button type="button" class="qty-btn" onclick="let q=document.getElementById('detail-qty'); if(q.value < {{ product.current_stock_count }}) q.value++;">+</button>
-          </div>
+      <div id="detail-action-container" style="margin-top: 1.5rem;">
+        {% if product.is_in_stock %}
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div class="quantity-control" style="padding: 2px;">
+              <button type="button" class="qty-btn" onclick="stepDetailQty(-{{ product.quantity_step|default:1 }})" aria-label="Decrease quantity">-</button>
+              <input type="number" 
+                     id="detail-qty" 
+                     value="{{ product.min_purchase_quantity|default:1 }}" 
+                     min="{{ product.min_purchase_quantity|default:1 }}" 
+                     max="{{ product.actual_max_order_quantity }}" 
+                     step="{{ product.quantity_step|default:1 }}" 
+                     class="qty-input"
+                     data-max="{{ product.actual_max_order_quantity }}"
+                     data-stock="{{ product.current_stock_count }}"
+                     data-limit="{{ product.per_order_limit }}"
+                     data-name="{{ product.name }}"
+                     data-unit="{{ product.get_unit_label }}"
+                     data-min="{{ product.min_purchase_quantity|default:1 }}"
+                     data-step="{{ product.quantity_step|default:1 }}"
+                     onchange="validateDetailQty(this)">
+              <button type="button" class="qty-btn" onclick="stepDetailQty({{ product.quantity_step|default:1 }})" aria-label="Increase quantity">+</button>
+            </div>
 
-          <button type="button" class="btn btn-primary btn-lg" style="flex-grow: 1;" onclick="addToCart({{ product.id }}, parseInt(document.getElementById('detail-qty').value))">
-            <i class="fa-solid fa-cart-plus"></i> Add to Cart
-          </button>
-        </div>
-      {% endif %}
+            <button type="button" class="btn btn-primary btn-lg" id="detail-add-btn" style="flex-grow: 1;" onclick="submitDetailAddToCart({{ product.id }})">
+              <i class="fa-solid fa-cart-plus"></i> Add to Cart
+            </button>
+          </div>
+          <div id="detail-qty-hint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="color: #047857; font-weight: 600;">
+              <i class="fa-solid fa-bicycle"></i> Maximum <strong>{{ product.per_order_limit }} {{ product.get_unit_label }}</strong> per order (Bike delivery limit)
+            </div>
+            <div>
+              Available Stock: <strong>{{ product.current_stock_count }} {{ product.get_unit_label }}</strong>
+              {% if product.current_stock_count < product.per_order_limit %}
+                <span style="color: #D97706; font-weight: 600;">(Limited to {{ product.actual_max_order_quantity }} by available stock)</span>
+              {% endif %}
+              {% if product.quantity_step > 1 %}&bull; Sold in increments of {{ product.quantity_step }} {{ product.get_unit_label }}{% endif %}
+            </div>
+          </div>
+        {% else %}
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-lg btn-out-of-stock" id="detail-add-btn" disabled aria-disabled="true" style="flex-grow: 1; opacity: 0.7; cursor: not-allowed;">
+              <i class="fa-solid fa-circle-xmark"></i> Out of Stock
+            </button>
+          </div>
+          <div style="font-size: 0.825rem; color: #DC2626; font-weight: 600; margin-top: 6px;">
+            <i class="fa-solid fa-circle-info"></i> This item is currently out of stock. Check back soon for fresh arrivals!
+          </div>
+        {% endif %}
+      </div>
 
     </div>
 
@@ -231,4 +274,62 @@
   {% endif %}
 
 </div>
+
+<script>
+function stepDetailQty(delta) {
+  const input = document.getElementById('detail-qty');
+  if (!input) return;
+  const minVal = parseInt(input.getAttribute('data-min') || '1', 10);
+  const maxVal = parseInt(input.getAttribute('data-max') || '1', 10);
+  const stock = parseInt(input.getAttribute('data-stock') || maxVal, 10);
+  const limit = parseInt(input.getAttribute('data-limit') || maxVal, 10);
+  const unit = input.getAttribute('data-unit') || 'units';
+  const name = input.getAttribute('data-name') || 'this product';
+  let curVal = parseInt(input.value || minVal, 10);
+  let nextVal = curVal + delta;
+  if (nextVal < minVal) nextVal = minVal;
+  if (nextVal > maxVal) {
+    if (stock < limit) {
+      showToast(`Cannot add more. Only ${stock} ${unit} of '${name}' available in stock.`, 'warning');
+    } else {
+      showToast(`You can order a maximum of ${limit} ${unit} of '${name}' per order.`, 'warning');
+    }
+    nextVal = maxVal;
+  }
+  input.value = nextVal;
+}
+
+function validateDetailQty(input) {
+  if (!input) return;
+  const minVal = parseInt(input.getAttribute('data-min') || '1', 10);
+  const maxVal = parseInt(input.getAttribute('data-max') || '1', 10);
+  const stock = parseInt(input.getAttribute('data-stock') || maxVal, 10);
+  const limit = parseInt(input.getAttribute('data-limit') || maxVal, 10);
+  const unit = input.getAttribute('data-unit') || 'units';
+  const name = input.getAttribute('data-name') || 'this product';
+  let val = parseInt(input.value, 10);
+  if (isNaN(val) || val < minVal) {
+    showToast(`Minimum order quantity is ${minVal} ${unit}.`, 'warning');
+    input.value = minVal;
+    return;
+  }
+  if (val > maxVal) {
+    if (stock < limit) {
+      showToast(`Cannot add ${val}. Only ${stock} ${unit} of '${name}' available in stock.`, 'warning');
+    } else {
+      showToast(`You can order a maximum of ${limit} ${unit} of '${name}' per order.`, 'warning');
+    }
+    input.value = maxVal;
+    return;
+  }
+}
+
+function submitDetailAddToCart(productId) {
+  const input = document.getElementById('detail-qty');
+  if (!input) return;
+  validateDetailQty(input);
+  const qty = parseInt(input.value, 10);
+  addToCart(productId, qty);
+}
+</script>
 {% endblock %}
