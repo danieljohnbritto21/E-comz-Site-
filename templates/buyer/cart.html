@@ -8,19 +8,17 @@
   
   <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 1.5rem; flex-wrap: wrap;">
     <h1 style="font-size: 1.75rem; font-weight: 800; margin: 0;">My Shopping Basket</h1>
-    <span style="color: var(--text-muted); font-size: 0.95rem;">
-      ({{ cart.total_items }} item{{ cart.total_items|pluralize }} &bull; {{ cart_items|length }} product line{{ cart_items|length|pluralize }})
+    <span style="color: var(--text-muted); font-size: 0.95rem;" id="cart-header-count">
+      {% if cart.total_items > 0 %}
+        ({{ cart.total_items }} item{{ cart.total_items|pluralize }} &bull; {{ cart_items|length }} product line{{ cart_items|length|pluralize }})
+      {% else %}
+        (0 items)
+      {% endif %}
     </span>
   </div>
 
   {% if cart_items %}
-    {% if has_stock_error %}
-      <div class="alert alert-danger">
-        <span><i class="fa-solid fa-triangle-exclamation"></i> Some items in your basket currently exceed our available stock. Please adjust quantities before checkout.</span>
-      </div>
-    {% endif %}
-
-    <div class="cart-layout">
+    <div id="cart-main-layout" class="cart-layout">
       
       <!-- Cart Items List -->
       <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
@@ -32,6 +30,7 @@
           <span></span>
         </div>
 
+        <div id="cart-items-container">
         {% for item in cart_items %}
           <div class="cart-item-row" id="cart-item-{{ item.id }}">
             <div class="cart-item-img">
@@ -43,7 +42,7 @@
                 <a href="{% url 'catalog:product_detail' item.product.slug %}" style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">
                   {{ item.product.name }}
                 </a>
-                <button type="button" class="cart-item-remove-mobile" onclick="removeCartItem({{ item.id }})" style="background: none; border: none; color: #9CA3AF; cursor: pointer; font-size: 1.1rem; padding: 2px 6px;" title="Remove">
+                <button type="button" class="cart-item-remove-mobile" onclick="promptRemoveCartItem({{ item.id }}, '{{ item.product.name|escapejs }}')" style="background: none; border: none; color: #9CA3AF; cursor: pointer; font-size: 1.1rem; padding: 2px 6px;" title="Remove">
                   <i class="fa-regular fa-trash-can"></i>
                 </button>
               </div>
@@ -90,18 +89,19 @@
             </div>
 
             <div class="cart-item-remove-col" style="text-align: right;">
-              <button type="button" onclick="removeCartItem({{ item.id }})" style="background: none; border: none; color: #9CA3AF; cursor: pointer; font-size: 1.1rem; padding: 6px;" title="Remove">
+              <button type="button" onclick="promptRemoveCartItem({{ item.id }}, '{{ item.product.name|escapejs }}')" style="background: none; border: none; color: #9CA3AF; cursor: pointer; font-size: 1.1rem; padding: 6px;" title="Remove">
                 <i class="fa-regular fa-trash-can"></i>
               </button>
             </div>
           </div>
         {% endfor %}
+        </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
-          <a href="{% url 'catalog:product_list' %}" class="btn btn-secondary btn-sm">
+        <div class="cart-footer-bar">
+          <a href="{% url 'catalog:product_list' %}" class="btn btn-secondary btn-sm btn-continue-shopping">
             <i class="fa-solid fa-arrow-left"></i> Continue Shopping
           </a>
-          <span style="font-size: 0.85rem; color: var(--text-muted);">
+          <span class="cart-guarantee-note">
             <i class="fa-solid fa-shield-check" style="color: #10B981;"></i> Safe and contactless delivery guaranteed
           </span>
         </div>
@@ -114,19 +114,17 @@
           
           <div class="summary-row">
             <span>Items Subtotal</span>
-            <span style="font-weight: 600;">{{ cart.subtotal|inr }}</span>
+            <span style="font-weight: 600;" id="cart-summary-subtotal">{{ cart.subtotal|inr }}</span>
           </div>
 
-          {% if cart.total_discount > 0 %}
-            <div class="summary-row" style="color: #047857; font-weight: 600;">
-              <span>Total MRP Discount</span>
-              <span>-{{ cart.total_discount|inr }}</span>
-            </div>
-          {% endif %}
+          <div class="summary-row" id="cart-summary-discount-row" style="color: #047857; font-weight: 600; {% if cart.total_discount <= 0 %}display: none;{% endif %}">
+            <span>Total MRP Discount</span>
+            <span id="cart-summary-discount">-{{ cart.total_discount|inr }}</span>
+          </div>
 
           <div class="summary-row">
             <span>Delivery Fee</span>
-            <span>
+            <span id="cart-summary-delivery">
               {% if cart.delivery_fee == 0 %}
                 <span class="badge badge-success">FREE</span>
               {% else %}
@@ -135,18 +133,16 @@
             </span>
           </div>
 
-          {% if cart.delivery_fee > 0 %}
-            <div style="background: #FEF3C7; border-radius: var(--radius-sm); padding: 0.5rem; font-size: 0.775rem; color: #92400E; margin-bottom: 1rem;">
-              <i class="fa-solid fa-circle-info"></i> Add items worth <strong>{{ 499|inr }}</strong> or more for <strong>FREE Delivery</strong>!
-            </div>
-          {% endif %}
+          <div id="cart-summary-free-hint" style="background: #FEF3C7; border-radius: var(--radius-sm); padding: 0.5rem; font-size: 0.775rem; color: #92400E; margin-bottom: 1rem; {% if cart.delivery_fee == 0 %}display: none;{% endif %}">
+            <i class="fa-solid fa-circle-info"></i> Add items worth <strong>{{ 499|inr }}</strong> or more for <strong>FREE Delivery</strong>!
+          </div>
 
           <div class="summary-total-row">
             <span>Payable Amount</span>
-            <span style="color: var(--color-primary-dark);">{{ cart.grand_total|inr }}</span>
+            <span style="color: var(--color-primary-dark);" id="cart-summary-grand-total">{{ cart.grand_total|inr }}</span>
           </div>
 
-          <div style="margin-top: 1.5rem;">
+          <div style="margin-top: 1.5rem;" id="cart-checkout-btn-wrap">
             {% if has_stock_error %}
               <button class="btn btn-secondary btn-lg" style="width: 100%; opacity: 0.6; cursor: not-allowed;" disabled>
                 Resolve Stock Errors to Checkout
@@ -174,19 +170,457 @@
 
   {% else %}
     <!-- Empty Cart State -->
-    <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 4rem 2rem; text-align: center; max-width: 540px; margin: 2rem auto;">
-      <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--color-primary-subtle); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center; font-size: 2.25rem; margin: 0 auto 1.5rem;">
-        <i class="fa-solid fa-basket-shopping"></i>
+    <div id="cart-main-layout">
+      <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 4rem 2rem; text-align: center; max-width: 540px; margin: 2rem auto;">
+        <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--color-primary-subtle); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center; font-size: 2.25rem; margin: 0 auto 1.5rem;">
+          <i class="fa-solid fa-basket-shopping"></i>
+        </div>
+        <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Your shopping basket is empty</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">
+          Fill it with farm fresh fruits, crisp vegetables, fresh dairy, and pantry groceries.
+        </p>
+        <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-lg btn-pill">
+          <i class="fa-solid fa-cart-plus"></i> Browse Grocery Aisles
+        </a>
       </div>
-      <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Your shopping basket is empty</h2>
-      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">
-        Fill it with farm fresh fruits, crisp vegetables, fresh dairy, and pantry groceries.
-      </p>
-      <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-lg btn-pill">
-        <i class="fa-solid fa-cart-plus"></i> Browse Grocery Aisles
-      </a>
     </div>
   {% endif %}
 
 </div>
+
+<!-- Delete Item Confirmation Modal -->
+<div id="deleteConfirmModal" class="delete-modal-overlay" style="display: none;" onclick="handleDeleteModalBackdrop(event)" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+  <div class="delete-modal-card">
+    <button type="button" class="delete-modal-close-btn" onclick="closeDeleteModal()" aria-label="Close dialog">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="delete-modal-icon-bubble">
+      <i class="fa-regular fa-trash-can"></i>
+    </div>
+    
+    <h3 class="delete-modal-title" id="deleteModalTitle">Are you sure you want to delete?</h3>
+    <p class="delete-modal-desc">
+      Are you sure you want to remove <strong id="deleteModalItemName">this item</strong> from your shopping basket?
+    </p>
+
+    <div class="delete-modal-actions">
+      <button type="button" class="btn-cancel-delete" onclick="closeDeleteModal()">
+        Cancel
+      </button>
+      <button type="button" class="btn-confirm-delete" id="btnConfirmDeleteItem" onclick="confirmDeleteCartItemAction()">
+        <i class="fa-solid fa-trash-can"></i>
+        <span>Yes, Delete</span>
+      </button>
+    </div>
+    <div style="display: none;">{% csrf_token %}</div>
+  </div>
+</div>
+
+<style>
+/* Delete Item Confirmation Modal */
+.delete-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: deleteModalFadeIn 0.18s ease-out;
+}
+
+@keyframes deleteModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.delete-modal-card {
+  position: relative;
+  background: #ffffff;
+  width: 100%;
+  max-width: 420px;
+  border-radius: 20px;
+  padding: 28px 24px 22px;
+  text-align: center;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.3);
+  animation: deleteModalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes deleteModalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.delete-modal-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #F1F5F9;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.15s;
+}
+.delete-modal-close-btn:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.delete-modal-icon-bubble {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: #FEE2E2;
+  color: #DC2626;
+  font-size: 1.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  border: 4px solid #FEF2F2;
+}
+
+.delete-modal-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0 0 8px;
+}
+
+.delete-modal-desc {
+  font-size: 0.92rem;
+  color: #64748B;
+  line-height: 1.5;
+  margin: 0 0 24px;
+  word-break: break-word;
+}
+.delete-modal-desc strong {
+  color: #0F172A;
+  font-weight: 700;
+}
+
+.delete-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-cancel-delete {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #CBD5E1;
+  background: #F8FAFC;
+  color: #334155;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-cancel-delete:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+
+.btn-confirm-delete {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: none;
+  background: #DC2626;
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28);
+  transition: all 0.15s;
+}
+.btn-confirm-delete:hover {
+  background: #B91C1C;
+  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.38);
+}
+.btn-confirm-delete:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  .delete-modal-card {
+    padding: 24px 18px 20px;
+    border-radius: 18px;
+  }
+  .delete-modal-title {
+    font-size: 1.15rem;
+  }
+  .delete-modal-desc {
+    font-size: 0.88rem;
+    margin-bottom: 20px;
+  }
+  .btn-cancel-delete, .btn-confirm-delete {
+    padding: 12px 10px;
+    font-size: 0.88rem;
+  }
+}
+
+/* Cart Footer Bar Alignment */
+.cart-footer-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  gap: 12px;
+}
+.cart-footer-bar .btn-continue-shopping {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.cart-guarantee-note {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 640px) {
+  .cart-footer-bar {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 12px;
+    text-align: center;
+  }
+  .cart-footer-bar .btn-continue-shopping {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+  }
+  .cart-guarantee-note {
+    justify-content: center;
+    font-size: 0.82rem;
+  }
+}
+</style>
+
+<script>
+// Standalone Bulletproof Cart Delete Modal Controller
+(function() {
+  window._pendingDeleteCartItemId = null;
+
+  window.promptRemoveCartItem = function(itemId, productName) {
+    window._pendingDeleteCartItemId = itemId;
+    const modal = document.getElementById('deleteConfirmModal');
+    const nameEl = document.getElementById('deleteModalItemName');
+    if (nameEl) {
+      nameEl.textContent = productName ? `"${productName}"` : 'this item';
+    }
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    } else {
+      if (confirm(`Are you sure you want to remove ${productName ? `"${productName}"` : 'this item'} from your shopping basket?`)) {
+        window.executeDeleteCartItem(itemId);
+      }
+    }
+  };
+
+  window.removeCartItem = function(itemId, productName) {
+    window.promptRemoveCartItem(itemId, productName);
+  };
+
+  window.closeDeleteModal = function() {
+    const modal = document.getElementById('deleteConfirmModal');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+    window._pendingDeleteCartItemId = null;
+  };
+
+  window.handleDeleteModalBackdrop = function(event) {
+    if (event && event.target && event.target.id === 'deleteConfirmModal') {
+      window.closeDeleteModal();
+    }
+  };
+
+  window.applyCartDataToCartPage = function(data) {
+    if (!data) return;
+
+    // Update Header Count
+    const headerCount = document.getElementById('cart-header-count');
+    if (headerCount) {
+      if (data.total_items > 0) {
+        headerCount.textContent = `(${data.total_items} item${data.total_items === 1 ? '' : 's'} • ${data.product_lines} product line${data.product_lines === 1 ? '' : 's'})`;
+      } else {
+        headerCount.textContent = '(0 items)';
+      }
+    }
+
+    // Update global badges
+    document.querySelectorAll('.cart-count-badge').forEach(badge => {
+      badge.textContent = data.total_items || 0;
+    });
+
+    // Update summary subtotal
+    const subtotalEl = document.getElementById('cart-summary-subtotal');
+    if (subtotalEl && data.subtotal) subtotalEl.textContent = data.subtotal;
+
+    // Update discount
+    const discountRow = document.getElementById('cart-summary-discount-row');
+    const discountEl = document.getElementById('cart-summary-discount');
+    if (discountRow && discountEl) {
+      if (data.total_discount_raw > 0) {
+        discountRow.style.display = 'flex';
+        discountEl.textContent = `-${data.total_discount}`;
+      } else {
+        discountRow.style.display = 'none';
+      }
+    }
+
+    // Update delivery fee
+    const deliveryEl = document.getElementById('cart-summary-delivery');
+    if (deliveryEl) {
+      if (data.delivery_fee_raw === 0) {
+        deliveryEl.innerHTML = '<span class="badge badge-success">FREE</span>';
+      } else if (data.delivery_fee) {
+        deliveryEl.textContent = data.delivery_fee;
+      }
+    }
+
+    // Update free delivery hint
+    const hintEl = document.getElementById('cart-summary-free-hint');
+    if (hintEl) {
+      hintEl.style.display = (data.delivery_fee_raw > 0) ? 'block' : 'none';
+    }
+
+    // Update grand total
+    const grandTotalEl = document.getElementById('cart-summary-grand-total');
+    if (grandTotalEl && data.grand_total) grandTotalEl.textContent = data.grand_total;
+
+    // Check if basket is now empty
+    if (data.is_empty || data.total_items === 0) {
+      const layoutEl = document.getElementById('cart-main-layout');
+      if (layoutEl) {
+        layoutEl.className = '';
+        layoutEl.innerHTML = `
+          <div style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 4rem 2rem; text-align: center; max-width: 540px; margin: 2rem auto;">
+            <div style="width: 80px; height: 80px; border-radius: 50%; background: var(--color-primary-subtle); color: var(--color-primary-dark); display: flex; align-items: center; justify-content: center; font-size: 2.25rem; margin: 0 auto 1.5rem;">
+              <i class="fa-solid fa-basket-shopping"></i>
+            </div>
+            <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">${'Your shopping ' + 'basket is empty'}</h2>
+            <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">
+              Fill it with farm fresh fruits, crisp vegetables, fresh dairy, and pantry groceries.
+            </p>
+            <a href="/shop/" class="btn btn-primary btn-lg btn-pill">
+              <i class="fa-solid fa-cart-plus"></i> Browse Grocery Aisles
+            </a>
+          </div>
+        `;
+      }
+    }
+  };
+
+  window.confirmDeleteCartItemAction = async function() {
+    const itemId = window._pendingDeleteCartItemId;
+    if (!itemId) return;
+    const btn = document.getElementById('btnConfirmDeleteItem');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Deleting...</span>';
+    }
+    await window.executeDeleteCartItem(itemId);
+  };
+
+  window.executeDeleteCartItem = async function(itemId) {
+    const btn = document.getElementById('btnConfirmDeleteItem');
+    try {
+      let csrf = '';
+      const csrfInput = document.querySelector('#deleteConfirmModal input[name="csrfmiddlewaretoken"]') ||
+                        document.querySelector('input[name="csrfmiddlewaretoken"]');
+      if (csrfInput) {
+        csrf = csrfInput.value;
+      } else if (typeof getCsrfToken === 'function') {
+        csrf = getCsrfToken();
+      }
+
+      const response = await fetch(`/cart/remove/${itemId}/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrf,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseErr) {
+        data = { success: false, error: 'Unexpected server response' };
+      }
+
+      if (response.ok && data.success) {
+        const row = document.getElementById(`cart-item-${itemId}`);
+        if (row) {
+          row.style.transition = 'all 0.25s ease';
+          row.style.opacity = '0';
+          row.style.transform = 'translateX(-20px)';
+          setTimeout(() => {
+            row.remove();
+          }, 240);
+        }
+
+        window.applyCartDataToCartPage(data);
+        if (typeof showToast === 'function') {
+          showToast(data.message || 'Item removed from basket', 'info');
+        }
+        window.closeDeleteModal();
+      } else {
+        if (typeof showToast === 'function') {
+          showToast(data.error || 'Could not remove item', 'danger');
+        } else {
+          alert(data.error || 'Could not remove item');
+        }
+        window.closeDeleteModal();
+      }
+    } catch (err) {
+      console.error('Delete item error:', err);
+      if (typeof showToast === 'function') {
+        showToast('Network error while removing item', 'danger');
+      }
+      window.closeDeleteModal();
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-trash-can"></i> <span>Yes, Delete</span>';
+      }
+    }
+  };
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      window.closeDeleteModal();
+    }
+  });
+})();
+</script>
 {% endblock %}

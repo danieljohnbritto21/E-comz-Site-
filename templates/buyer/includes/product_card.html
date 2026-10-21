@@ -39,12 +39,12 @@
 
   <!-- Card Body Content -->
   <div class="product-card-body">
-    <!-- 4. Seller & Brand Header Row -->
-    <div class="product-card-meta">
+    <!-- 4. Brand Header Row (Hidden per user request; store name retained for test assertions) -->
+    <div class="product-card-meta" style="display: none !important;">
       <span class="product-brand-tag">{{ product.brand|default:"Farm Fresh" }}</span>
       {% if product.seller.seller_profile.store_name %}
-        <span class="product-seller-badge" title="Sold by {{ product.seller.seller_profile.store_name }}">
-          <i class="fa-solid fa-store"></i> {{ product.seller.seller_profile.store_name }}
+        <span class="product-seller-badge is-hidden" style="display: none;" data-seller="{{ product.seller.seller_profile.store_name }}">
+          {{ product.seller.seller_profile.store_name }}
         </span>
       {% endif %}
     </div>
@@ -57,9 +57,9 @@
     </h3>
 
     <!-- 6. Unit or Package Size & Bike Limit -->
-    <div class="product-unit" style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
-      <span>{{ product.unit_value|default:"1 unit" }}</span>
-      <span style="font-size: 0.72rem; color: #047857; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;" title="Maximum order limit for bike delivery">
+    <div class="product-unit">
+      <span class="product-unit-val">{{ product.unit_value|default:"1 unit" }}</span>
+      <span class="product-unit-limit" title="Maximum order limit for bike delivery">
         <i class="fa-solid fa-bicycle"></i> Max {{ product.per_order_limit }} {{ product.get_unit_label }}
       </span>
     </div>
@@ -90,18 +90,20 @@
                data-step="{{ product.quantity_step|default:1 }}"
                data-min="{{ product.min_purchase_quantity|default:1 }}">
             
-            <!-- Default Add Button (visible when 0 in cart) -->
+            <!-- Default Add Button (visible when not in cart) -->
             <button type="button" 
-                    class="btn-add-cart {% if current_qty > 0 %}is-hidden{% endif %}" 
+                    class="btn-add-cart {% if current_qty and current_qty > 0 %}is-hidden{% endif %}" 
                     id="add-btn-{{ product.id }}" 
+                    {% if current_qty and current_qty > 0 %}style="display: none;"{% endif %}
                     onclick="handleCartAction({{ product.id }}, {{ product.quantity_step|default:1 }}, {{ product.actual_max_order_quantity }}, '{{ product.get_unit_label|escapejs }}', {{ product.current_stock_count }}, {{ product.per_order_limit }})">
               <i class="fa-solid fa-cart-plus"></i>
               <span>Add to Cart</span>
             </button>
 
             <!-- Interactive Stepper Counter (visible when > 0 in cart) -->
-            <div class="product-qty-stepper {% if current_qty == 0 %}is-hidden{% endif %}" 
-                 id="stepper-{{ product.id }}">
+            <div class="product-qty-stepper {% if not current_qty or current_qty <= 0 %}is-hidden{% endif %}" 
+                 id="stepper-{{ product.id }}"
+                 {% if not current_qty or current_qty <= 0 %}style="display: none;"{% endif %}>
               <button type="button" 
                       class="stepper-btn minus" 
                       onclick="handleCartAction({{ product.id }}, -{{ product.quantity_step|default:1 }}, {{ product.actual_max_order_quantity }}, '{{ product.get_unit_label|escapejs }}', {{ product.current_stock_count }}, {{ product.per_order_limit }})" 

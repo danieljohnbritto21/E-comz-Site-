@@ -4,40 +4,41 @@
 {% block title %}{{ product.name }} - FreshMart{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 1.5rem; padding-bottom: 3rem;">
+<div class="container product-detail-container">
   
   <!-- Breadcrumb -->
-  <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
-    <a href="{% url 'catalog:home' %}">Home</a> &rsaquo;
-    <a href="{% url 'catalog:product_list' %}">Shop</a> &rsaquo;
-    <a href="{% url 'catalog:product_list' %}?category={{ product.category.slug }}">{{ product.category.name }}</a> &rsaquo;
-    <span style="color: var(--text-main); font-weight: 600;">{{ product.name }}</span>
-  </div>
+  <nav class="product-detail-breadcrumb" aria-label="Breadcrumb">
+    <a href="{% url 'catalog:home' %}"><i class="fa-solid fa-house"></i> Home</a>
+    <span class="breadcrumb-sep">&rsaquo;</span>
+    <a href="{% url 'catalog:product_list' %}">Shop</a>
+    <span class="breadcrumb-sep">&rsaquo;</span>
+    <a href="{% url 'catalog:product_list' %}?category={{ product.category.slug }}">{{ product.category.name }}</a>
+    <span class="breadcrumb-sep">&rsaquo;</span>
+    <span class="breadcrumb-current">{{ product.name }}</span>
+  </nav>
 
   <div class="product-detail-layout">
     
     <!-- Left Column: Gallery -->
-    <div>
+    <div class="product-gallery-wrap">
       <div class="product-detail-img-box">
         {% if product.discount_percentage > 0 %}
-          <span class="product-badge-discount" style="top: 1rem; left: 1rem; font-size: 0.85rem; padding: 0.35rem 0.75rem;">
+          <span class="product-badge-discount">
             {{ product.discount_percentage }}% OFF
           </span>
         {% endif %}
-        <img id="main-product-img" src="{{ product.primary_image_url }}" alt="{{ product.name }}" style="max-height: 90%; max-width: 90%; object-fit: contain;">
+        <img id="main-product-img" src="{{ product.primary_image_url }}" alt="{{ product.name }}">
       </div>
 
       <!-- Thumbnails -->
-      <div style="display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem;">
-        <div onclick="document.getElementById('main-product-img').src='{{ product.primary_image_url }}'" 
-             style="width: 70px; height: 70px; border: 2px solid var(--color-primary); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; cursor: pointer; background: #FAFAFA;">
-          <img src="{{ product.primary_image_url }}" style="max-height: 80%; max-width: 80%; object-fit: contain;">
+      <div class="product-thumbnails-strip">
+        <div class="product-thumb-item active" onclick="document.getElementById('main-product-img').src='{{ product.primary_image_url }}'">
+          <img src="{{ product.primary_image_url }}" alt="{{ product.name }} thumbnail">
         </div>
         {% for img in product.images.all %}
           {% if not img.is_primary %}
-            <div onclick="document.getElementById('main-product-img').src='{{ img.image.url }}'" 
-                 style="width: 70px; height: 70px; border: 1px solid var(--bg-border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; cursor: pointer; background: #FAFAFA;">
-              <img src="{{ img.image.url }}" style="max-height: 80%; max-width: 80%; object-fit: contain;">
+            <div class="product-thumb-item" onclick="document.getElementById('main-product-img').src='{{ img.image.url }}'">
+              <img src="{{ img.image.url }}" alt="{{ product.name }} gallery image">
             </div>
           {% endif %}
         {% endfor %}
@@ -45,101 +46,101 @@
     </div>
 
     <!-- Right Column: Product Information & Action -->
-    <div>
-      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 0.85rem; font-weight: 700; color: var(--color-primary-dark); text-transform: uppercase; letter-spacing: 0.5px;">
-              {{ product.brand|default:"Farm Fresh Produce" }}
+    <div class="product-info-wrap">
+      <div class="product-detail-header-row">
+        <div class="product-brand-seller-wrap">
+          <span class="product-brand-tag">
+            {{ product.brand|default:"Farm Fresh Produce" }}
+          </span>
+          {% if product.seller.seller_profile.store_name %}
+            <span class="product-seller-chip">
+              <i class="fa-solid fa-store"></i> Sold by: {{ product.seller.seller_profile.store_name }}
             </span>
-            {% if product.seller.seller_profile.store_name %}
-              <span style="font-size: 0.75rem; color: #047857; font-weight: 700; background: #ECFDF5; padding: 2px 8px; border-radius: 6px; border: 1px solid #A7F3D0;">
-                <i class="fa-solid fa-store"></i> Sold by: {{ product.seller.seller_profile.store_name }}
-              </span>
-            {% endif %}
-          </div>
-          <h1 style="font-size: 1.85rem; font-weight: 800; margin: 0.35rem 0 0.5rem;">{{ product.name }}</h1>
-          <div style="font-size: 0.95rem; color: var(--text-muted); font-weight: 500;">
-            Unit / Pack Size: <strong style="color: var(--text-main);">{{ product.unit_value }}</strong>
-          </div>
+          {% endif %}
         </div>
         
         <button type="button" 
-                class="product-wishlist-btn {% if in_wishlist %}active{% endif %}" 
+                class="product-detail-wishlist-btn {% if in_wishlist %}active{% endif %}" 
                 onclick="toggleWishlist({{ product.id }}, this)" 
-                style="position: static; width: 42px; height: 42px; font-size: 1.25rem;">
+                aria-label="Save to Wishlist"
+                title="Save to Wishlist">
           <i class="fa-solid fa-heart"></i>
         </button>
       </div>
 
+      <h1 class="product-detail-title">{{ product.name }}</h1>
+      <div class="product-detail-unit">
+        Unit / Pack Size: <strong>{{ product.unit_value }}</strong>
+      </div>
+
       <!-- Price Box -->
-      <div style="background: var(--bg-page); border: 1px solid var(--bg-border); border-radius: var(--radius-md); padding: 1.25rem; margin: 1.25rem 0;">
-        <div style="display: flex; align-items: baseline; gap: 1rem;">
-          <span style="font-size: 2.25rem; font-weight: 800; color: var(--text-main);">{{ product.selling_price|inr }}</span>
+      <div class="product-detail-price-box">
+        <div class="product-price-main-row">
+          <span class="product-price-current">{{ product.selling_price|inr }}</span>
           {% if product.mrp > product.selling_price %}
-            <span style="font-size: 1.25rem; color: var(--text-muted); text-decoration: line-through;">MRP: {{ product.mrp|inr }}</span>
-            <span style="background: #DC2626; color: white; font-size: 0.75rem; font-weight: 800; padding: 2px 8px; border-radius: 4px;">
+            <span class="product-price-mrp">MRP: {{ product.mrp|inr }}</span>
+            <span class="product-price-save">
               SAVE {{ product.savings_amount|inr }}
             </span>
           {% endif %}
         </div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+        <div class="product-price-tax-note">
           (Inclusive of all applicable taxes)
         </div>
       </div>
 
       <!-- Stock Status -->
-      <div style="margin-bottom: 1.5rem;" id="detail-stock-badge-box">
+      <div class="product-stock-status-wrap" id="detail-stock-badge-box">
         {% if product.is_in_stock %}
           {% if product.is_low_stock %}
-            <div style="display: inline-flex; align-items: center; gap: 6px; color: #B45309; background: #FEF3C7; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;">
+            <span class="stock-badge stock-low">
               <i class="fa-solid fa-triangle-exclamation"></i> Low Stock (Only {{ product.current_stock_count }} {{ product.get_unit_label }} left)
-            </div>
+            </span>
           {% else %}
-            <div style="display: inline-flex; align-items: center; gap: 6px; color: #047857; background: #ECFDF5; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;">
+            <span class="stock-badge stock-in">
               <i class="fa-solid fa-circle-check"></i> In Stock ({{ product.current_stock_count }} {{ product.get_unit_label }} available)
-            </div>
+            </span>
           {% endif %}
         {% else %}
-          <div style="display: inline-flex; align-items: center; gap: 6px; color: #B91C1C; background: #FEF2F2; padding: 4px 12px; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 700;">
+          <span class="stock-badge stock-out">
             <i class="fa-solid fa-circle-xmark"></i> Currently Out of Stock
-          </div>
+          </span>
         {% endif %}
       </div>
 
       <!-- Description -->
-      <div style="margin-bottom: 1.75rem;">
-        <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem;">Description</h4>
-        <p style="font-size: 0.925rem; color: var(--text-secondary); line-height: 1.6;">
+      <div class="product-detail-description">
+        <h4 class="product-section-label">Description</h4>
+        <p class="product-desc-text">
           {{ product.description|default:"Sourced fresh from certified organic farmers and local growers. Carefully inspected for peak freshness, quality, and natural flavor." }}
         </p>
       </div>
 
       <!-- Key Specifications Table -->
       <div class="product-specs-grid">
-        <div style="padding: 0.75rem; background: #FAFAFA; border-radius: var(--radius-sm);">
-          <strong style="color: var(--text-muted); display: block;">Source & Origin</strong>
-          <span>{{ product.origin }}</span>
+        <div class="product-spec-card">
+          <span class="spec-label">Source & Origin</span>
+          <span class="spec-value" title="{{ product.origin }}">{{ product.origin|default:"Locally Sourced Farm" }}</span>
         </div>
-        <div style="padding: 0.75rem; background: #FAFAFA; border-radius: var(--radius-sm);">
-          <strong style="color: var(--text-muted); display: block;">Freshness Standard</strong>
-          <span>{{ product.freshness_info }}</span>
+        <div class="product-spec-card">
+          <span class="spec-label">Freshness Standard</span>
+          <span class="spec-value" title="{{ product.freshness_info }}">{{ product.freshness_info|default:"Harvested Daily" }}</span>
         </div>
-        <div style="padding: 0.75rem; background: #FAFAFA; border-radius: var(--radius-sm);">
-          <strong style="color: var(--text-muted); display: block;">Storage Recommendation</strong>
-          <span>{{ product.storage_instructions }}</span>
+        <div class="product-spec-card">
+          <span class="spec-label">Storage Recommendation</span>
+          <span class="spec-value" title="{{ product.storage_instructions }}">{{ product.storage_instructions|default:"Store in cool, dry place" }}</span>
         </div>
-        <div style="padding: 0.75rem; background: #FAFAFA; border-radius: var(--radius-sm);">
-          <strong style="color: var(--text-muted); display: block;">Fulfillment Store</strong>
-          <span>{{ product.seller.seller_profile.store_name|default:product.seller.username }}</span>
+        <div class="product-spec-card">
+          <span class="spec-label">Fulfillment Store</span>
+          <span class="spec-value" title="{{ product.seller.seller_profile.store_name|default:product.seller.username }}">{{ product.seller.seller_profile.store_name|default:product.seller.username }}</span>
         </div>
       </div>
 
       <!-- Action Row: Quantity + Add to Cart -->
-      <div id="detail-action-container" style="margin-top: 1.5rem;">
+      <div id="detail-action-container" class="product-detail-actions">
         {% if product.is_in_stock %}
-          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <div class="quantity-control" style="padding: 2px;">
+          <div class="product-action-controls">
+            <div class="quantity-control detail-qty-stepper">
               <button type="button" class="qty-btn" onclick="stepDetailQty(-{{ product.quantity_step|default:1 }})" aria-label="Decrease quantity">-</button>
               <input type="number" 
                      id="detail-qty" 
@@ -159,29 +160,29 @@
               <button type="button" class="qty-btn" onclick="stepDetailQty({{ product.quantity_step|default:1 }})" aria-label="Increase quantity">+</button>
             </div>
 
-            <button type="button" class="btn btn-primary btn-lg" id="detail-add-btn" style="flex-grow: 1;" onclick="submitDetailAddToCart({{ product.id }})">
+            <button type="button" class="btn btn-primary btn-detail-add" id="detail-add-btn" onclick="submitDetailAddToCart({{ product.id }})">
               <i class="fa-solid fa-cart-plus"></i> Add to Cart
             </button>
           </div>
-          <div id="detail-qty-hint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
-            <div style="color: #047857; font-weight: 600;">
+          <div id="detail-qty-hint" class="product-detail-hint">
+            <div class="hint-item hint-limit">
               <i class="fa-solid fa-bicycle"></i> Maximum <strong>{{ product.per_order_limit }} {{ product.get_unit_label }}</strong> per order (Bike delivery limit)
             </div>
-            <div>
+            <div class="hint-item hint-stock">
               Available Stock: <strong>{{ product.current_stock_count }} {{ product.get_unit_label }}</strong>
               {% if product.current_stock_count < product.per_order_limit %}
-                <span style="color: #D97706; font-weight: 600;">(Limited to {{ product.actual_max_order_quantity }} by available stock)</span>
+                <span class="stock-cap">(Limited to {{ product.actual_max_order_quantity }} by available stock)</span>
               {% endif %}
               {% if product.quantity_step > 1 %}&bull; Sold in increments of {{ product.quantity_step }} {{ product.get_unit_label }}{% endif %}
             </div>
           </div>
         {% else %}
-          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <button type="button" class="btn btn-secondary btn-lg btn-out-of-stock" id="detail-add-btn" disabled aria-disabled="true" style="flex-grow: 1; opacity: 0.7; cursor: not-allowed;">
+          <div class="product-action-controls">
+            <button type="button" class="btn btn-secondary btn-detail-add btn-out-of-stock" id="detail-add-btn" disabled aria-disabled="true">
               <i class="fa-solid fa-circle-xmark"></i> Out of Stock
             </button>
           </div>
-          <div style="font-size: 0.825rem; color: #DC2626; font-weight: 600; margin-top: 6px;">
+          <div class="stock-out-notice">
             <i class="fa-solid fa-circle-info"></i> This item is currently out of stock. Check back soon for fresh arrivals!
           </div>
         {% endif %}
@@ -192,11 +193,11 @@
   </div>
 
   <!-- Customer Reviews Section -->
-  <section style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 3rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <section style="background: #ffffff; border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
       <div>
-        <h3 style="font-size: 1.25rem; font-weight: 800;">Customer Ratings & Reviews</h3>
-        <p class="text-muted" style="font-size: 0.85rem;">Verified buyer testimonials</p>
+        <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">Customer Ratings & Reviews</h3>
+        <p class="text-muted" style="font-size: 0.8rem; margin: 0;">Verified buyer testimonials</p>
       </div>
       {% if user.is_authenticated %}
         <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('review-form-box').scrollIntoView({behavior: 'smooth'})">
@@ -206,7 +207,7 @@
     </div>
 
     <!-- Reviews List -->
-    <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+    <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem;">
       {% for review in product.reviews.all %}
         <div style="border-bottom: 1px solid var(--bg-border); padding-bottom: 1rem;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
@@ -236,15 +237,79 @@
         <h4 style="font-size: 1rem; margin-bottom: 1rem;">Share Your Experience</h4>
         <form method="POST">
           {% csrf_token %}
-          <div class="form-group">
-            <label class="form-label">Rating</label>
-            <select name="rating" class="form-select" style="max-width: 200px;">
-              <option value="5">★★★★★ 5 - Excellent</option>
-              <option value="4">★★★★☆ 4 - Good</option>
-              <option value="3">★★★☆☆ 3 - Average</option>
-              <option value="2">★★☆☆☆ 2 - Below Expectations</option>
-              <option value="1">★☆☆☆☆ 1 - Poor</option>
-            </select>
+          <div class="rating-enhancer-wrap">
+            <label class="form-label" style="font-weight: 700; color: #1E293B; margin-bottom: 8px; display: block;">
+              Overall Rating <span style="color: #DC2626;">*</span>
+            </label>
+            
+            <div class="rating-interactive-box">
+              <!-- Interactive Star Selector -->
+              <div class="rating-stars-group" id="rating-stars" role="radiogroup" aria-label="Select Rating">
+                <button type="button" class="star-btn" data-value="1" aria-label="1 Star - Poor"><i class="fa-solid fa-star"></i></button>
+                <button type="button" class="star-btn" data-value="2" aria-label="2 Stars - Below Expectations"><i class="fa-solid fa-star"></i></button>
+                <button type="button" class="star-btn" data-value="3" aria-label="3 Stars - Average"><i class="fa-solid fa-star"></i></button>
+                <button type="button" class="star-btn" data-value="4" aria-label="4 Stars - Good"><i class="fa-solid fa-star"></i></button>
+                <button type="button" class="star-btn is-active" data-value="5" aria-label="5 Stars - Excellent"><i class="fa-solid fa-star"></i></button>
+              </div>
+
+              <!-- Rating Dynamic Text Badge -->
+              <div class="rating-badge-preview" id="rating-preview-badge">
+                <span class="rating-number">5.0</span>
+                <span class="rating-text">Excellent</span>
+              </div>
+
+              <!-- Custom Enhanced Dropdown -->
+              <div class="custom-rating-dropdown" id="custom-rating-dropdown">
+                <button type="button" class="custom-rating-trigger" id="custom-rating-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Rating Dropdown Menu">
+                  <span class="rating-trigger-stars" id="rating-trigger-stars">
+                    <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                  </span>
+                  <span class="rating-trigger-text" id="rating-trigger-text">5 - Excellent</span>
+                  <i class="fa-solid fa-chevron-down rating-trigger-chevron"></i>
+                </button>
+
+                <ul class="custom-rating-menu" id="custom-rating-menu" role="listbox">
+                  <li class="custom-rating-option selected" data-value="5" role="option" aria-selected="true">
+                    <div class="opt-stars">
+                      <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                    </div>
+                    <span class="opt-label">5 - Excellent</span>
+                    <span class="opt-sub">Highly Recommended</span>
+                  </li>
+                  <li class="custom-rating-option" data-value="4" role="option" aria-selected="false">
+                    <div class="opt-stars">
+                      <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i>
+                    </div>
+                    <span class="opt-label">4 - Good</span>
+                    <span class="opt-sub">Satisfied</span>
+                  </li>
+                  <li class="custom-rating-option" data-value="3" role="option" aria-selected="false">
+                    <div class="opt-stars">
+                      <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i>
+                    </div>
+                    <span class="opt-label">3 - Average</span>
+                    <span class="opt-sub">Acceptable</span>
+                  </li>
+                  <li class="custom-rating-option" data-value="2" role="option" aria-selected="false">
+                    <div class="opt-stars">
+                      <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i>
+                    </div>
+                    <span class="opt-label">2 - Below Expectations</span>
+                    <span class="opt-sub">Needs Work</span>
+                  </li>
+                  <li class="custom-rating-option" data-value="1" role="option" aria-selected="false">
+                    <div class="opt-stars">
+                      <i class="fa-solid fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i><i class="fa-regular fa-star"></i>
+                    </div>
+                    <span class="opt-label">1 - Poor</span>
+                    <span class="opt-sub">Disappointed</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Hidden Input for Form Submission -->
+            <input type="hidden" name="rating" id="review-rating-input" value="5">
           </div>
           <div class="form-group">
             <label class="form-label">Your Review</label>
@@ -330,6 +395,164 @@ function submitDetailAddToCart(productId) {
   validateDetailQty(input);
   const qty = parseInt(input.value, 10);
   addToCart(productId, qty);
+}
+
+// ==========================================
+// Enhanced Review Rating Selector Logic
+// ==========================================
+const reviewRatingMeta = {
+  5: { label: '5 - Excellent', badge: 'Excellent', score: '5.0', bg: '#ECFDF5', color: '#047857', border: '#A7F3D0' },
+  4: { label: '4 - Good', badge: 'Good', score: '4.0', bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' },
+  3: { label: '3 - Average', badge: 'Average', score: '3.0', bg: '#FEF3C7', color: '#B45309', border: '#FDE68A' },
+  2: { label: '2 - Below Expectations', badge: 'Below Expectations', score: '2.0', bg: '#FFEDD5', color: '#C2410C', border: '#FED7AA' },
+  1: { label: '1 - Poor', badge: 'Poor', score: '1.0', bg: '#FEF2F2', color: '#B91C1C', border: '#FECACA' }
+};
+
+function setReviewRating(val) {
+  val = parseInt(val, 10);
+  if (isNaN(val) || val < 1 || val > 5) val = 5;
+  const input = document.getElementById('review-rating-input');
+  if (input) input.value = val;
+
+  // 1. Update interactive stars
+  const starBtns = document.querySelectorAll('#rating-stars .star-btn');
+  starBtns.forEach(btn => {
+    const btnVal = parseInt(btn.getAttribute('data-value'), 10);
+    const icon = btn.querySelector('i');
+    if (btnVal <= val) {
+      btn.classList.add('is-active');
+      if (icon) { icon.className = 'fa-solid fa-star'; }
+    } else {
+      btn.classList.remove('is-active');
+      if (icon) { icon.className = 'fa-regular fa-star'; }
+    }
+  });
+
+  // 2. Update dynamic preview badge
+  const badge = document.getElementById('rating-preview-badge');
+  const d = reviewRatingMeta[val] || reviewRatingMeta[5];
+  if (badge) {
+    const numEl = badge.querySelector('.rating-number');
+    const textEl = badge.querySelector('.rating-text');
+    if (numEl) numEl.textContent = d.score;
+    if (textEl) textEl.textContent = d.badge;
+    badge.style.background = d.bg;
+    badge.style.color = d.color;
+    badge.style.borderColor = d.border;
+  }
+
+  // 3. Update custom dropdown trigger
+  const triggerText = document.getElementById('rating-trigger-text');
+  if (triggerText) triggerText.textContent = d.label;
+  const triggerStars = document.getElementById('rating-trigger-stars');
+  if (triggerStars) {
+    let starsHtml = '';
+    for (let i = 1; i <= 5; i++) {
+      starsHtml += i <= val ? '<i class="fa-solid fa-star"></i>' : '<i class="fa-regular fa-star"></i>';
+    }
+    triggerStars.innerHTML = starsHtml;
+  }
+
+  // 4. Update dropdown list option selected state
+  document.querySelectorAll('.custom-rating-option').forEach(opt => {
+    const optVal = parseInt(opt.getAttribute('data-value'), 10);
+    if (optVal === val) {
+      opt.classList.add('selected');
+      opt.setAttribute('aria-selected', 'true');
+    } else {
+      opt.classList.remove('selected');
+      opt.setAttribute('aria-selected', 'false');
+    }
+  });
+}
+
+function initRatingSelector() {
+  const starsGroup = document.getElementById('rating-stars');
+  if (!starsGroup) return;
+
+  const starBtns = starsGroup.querySelectorAll('.star-btn');
+  starBtns.forEach(btn => {
+    // Hover preview
+    btn.addEventListener('mouseenter', () => {
+      const hoverVal = parseInt(btn.getAttribute('data-value'), 10);
+      starBtns.forEach(b => {
+        const bVal = parseInt(b.getAttribute('data-value'), 10);
+        const icon = b.querySelector('i');
+        if (bVal <= hoverVal) {
+          b.classList.add('is-hovered');
+          if (icon) icon.className = 'fa-solid fa-star';
+        } else {
+          b.classList.remove('is-hovered');
+          if (!b.classList.contains('is-active')) {
+            if (icon) icon.className = 'fa-regular fa-star';
+          }
+        }
+      });
+    });
+
+    // One-click rating
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const val = parseInt(btn.getAttribute('data-value'), 10);
+      setReviewRating(val);
+    });
+  });
+
+  // Reset hover state when mouse leaves
+  starsGroup.addEventListener('mouseleave', () => {
+    const input = document.getElementById('review-rating-input');
+    const currentVal = input ? parseInt(input.value, 10) : 5;
+    starBtns.forEach(b => {
+      b.classList.remove('is-hovered');
+      const bVal = parseInt(b.getAttribute('data-value'), 10);
+      const icon = b.querySelector('i');
+      if (bVal <= currentVal) {
+        b.classList.add('is-active');
+        if (icon) icon.className = 'fa-solid fa-star';
+      } else {
+        b.classList.remove('is-active');
+        if (icon) icon.className = 'fa-regular fa-star';
+      }
+    });
+  });
+
+  // Custom Dropdown Open/Close
+  const dropdown = document.getElementById('custom-rating-dropdown');
+  const trigger = document.getElementById('custom-rating-trigger');
+  if (trigger && dropdown) {
+    trigger.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropdown.classList.toggle('is-open');
+      trigger.setAttribute('aria-expanded', dropdown.classList.contains('is-open'));
+    });
+
+    document.querySelectorAll('.custom-rating-option').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const val = parseInt(opt.getAttribute('data-value'), 10);
+        setReviewRating(val);
+        dropdown.classList.remove('is-open');
+        trigger.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target)) {
+        dropdown.classList.remove('is-open');
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  // Set default to 5
+  setReviewRating(5);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initRatingSelector);
+} else {
+  initRatingSelector();
 }
 </script>
 {% endblock %}

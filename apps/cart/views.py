@@ -50,31 +50,14 @@ def get_or_create_cart(request, create=True):
     Ensures the exact same cart is loaded on the shop page, floating counter,
     and View Basket page, seamlessly synchronizing guest & authenticated buyer sessions.
     When create=False, does not create an empty Cart row in DB on read-only requests.
+    Guarantees authenticated user sessions are preserved and never invalidated.
     """
-    session_key = request.session.session_key
-    session_cart_id = request.session.get('cart_id')
-
     if request.user.is_authenticated and request.user.role == 'BUYER':
         if create:
-            if not session_key:
-                request.session.save()
-                session_key = request.session.session_key
             user_cart, _ = Cart.objects.get_or_create(user=request.user)
-            # Merge any unauthenticated items created during this session
-            merge_session_cart(request.user, session_key=session_key, session_cart_id=session_cart_id)
-            if session_key and user_cart.session_key != session_key:
-                user_cart.session_key = session_key
-                user_cart.save(update_fields=['session_key', 'updated_at'])
-            request.session['cart_id'] = user_cart.id
             return user_cart
         else:
-            user_cart = Cart.objects.filter(user=request.user).first()
-            if user_cart:
-                if session_key and user_cart.session_key != session_key:
-                    user_cart.session_key = session_key
-                    user_cart.save(update_fields=['session_key', 'updated_at'])
-                request.session['cart_id'] = user_cart.id
-            return user_cart
+            return Cart.objects.filter(user=request.user).first()
 
     elif request.user.is_authenticated:
         # Non-buyer role (SELLER, DELIVERY, ADMIN)
@@ -85,6 +68,8 @@ def get_or_create_cart(request, create=True):
 
     else:
         # Guest customer session
+        session_key = request.session.session_key
+        session_cart_id = request.session.get('cart_id')
         cart = None
         if session_cart_id:
             cart = Cart.objects.filter(id=session_cart_id, user__isnull=True).first()
@@ -285,9 +270,12 @@ def add_to_cart_api(request, product_id=None):
 
 @require_POST
 def update_cart_api(request, item_id):
-    """AJAX endpoint to update item quantity in cart."""
+    """AJAX endpoint to update item quantity in cart with strict auth and stock checks."""
     try:
-        data = json.loads(request.body)
+        if request.user.is_authenticated and request.user.role != 'BUYER':
+            return JsonResponse({'success': False, 'error': 'Only customer accounts can modify the shopping basket.'}, status=403)
+
+        data = json.loads(request.body.decode('utf-8') or '{}')
         try:
             qty_raw = data.get('quantity', 1)
             dec_qty = Decimal(str(qty_raw))
@@ -296,7 +284,12 @@ def update_cart_api(request, item_id):
             return JsonResponse({'success': False, 'error': 'Invalid quantity format.'}, status=400)
 
         cart = get_or_create_cart(request)
-        item = get_object_or_404(CartItem, id=item_id, cart=cart)
+        if not cart:
+            return JsonResponse({'success': False, 'error': 'Cart not found.'}, status=404)
+
+        item = cart.items.filter(id=item_id).first()
+        if not item:
+            return JsonResponse({'success': False, 'error': 'Cart item not found.'}, status=404)
 
         # Merge duplicate cart lines for the same product if any exist
         existing_items = list(CartItem.objects.filter(cart=cart, product=item.product))
@@ -306,13 +299,29 @@ def update_cart_api(request, item_id):
                     extra.delete()
 
         if quantity <= 0:
+            removed_product_name = item.product.name
             item.delete()
+            cart.refresh_from_db()
+            total_items = cart.total_items
+            subtotal = cart.subtotal
+            grand_total = cart.grand_total
+            delivery_fee = cart.delivery_fee
+            total_discount = cart.total_discount
             return JsonResponse({
                 'success': True,
-                'message': 'Item removed',
-                'total_items': cart.total_items,
-                'subtotal': format_inr(cart.subtotal),
-                'grand_total': format_inr(cart.grand_total)
+                'message': f"Removed {removed_product_name} from basket.",
+                'item_id': item_id,
+                'total_items': total_items,
+                'product_lines': cart.items.count(),
+                'subtotal': format_inr(subtotal),
+                'subtotal_raw': float(subtotal),
+                'delivery_fee': format_inr(delivery_fee) if delivery_fee > 0 else 'FREE',
+                'delivery_fee_raw': float(delivery_fee),
+                'grand_total': format_inr(grand_total),
+                'grand_total_raw': float(grand_total),
+                'total_discount': format_inr(total_discount),
+                'total_discount_raw': float(total_discount),
+                'is_empty': total_items == 0
             })
 
         # Strict validation against inventory and bike delivery per-order limit
@@ -332,34 +341,84 @@ def update_cart_api(request, item_id):
 
         item.quantity = int(quantity)
         item.save(update_fields=['quantity', 'updated_at'])
+        cart.refresh_from_db()
+        total_items = cart.total_items
+        subtotal = cart.subtotal
+        grand_total = cart.grand_total
+        delivery_fee = cart.delivery_fee
+        total_discount = cart.total_discount
 
         return JsonResponse({
             'success': True,
             'item_id': item.id,
             'quantity': item.quantity,
             'line_total': format_inr(item.line_total),
-            'total_items': cart.total_items,
-            'subtotal': format_inr(cart.subtotal),
-            'grand_total': format_inr(cart.grand_total)
+            'total_items': total_items,
+            'product_lines': cart.items.count(),
+            'subtotal': format_inr(subtotal),
+            'subtotal_raw': float(subtotal),
+            'delivery_fee': format_inr(delivery_fee) if delivery_fee > 0 else 'FREE',
+            'delivery_fee_raw': float(delivery_fee),
+            'grand_total': format_inr(grand_total),
+            'grand_total_raw': float(grand_total),
+            'total_discount': format_inr(total_discount),
+            'total_discount_raw': float(total_discount),
+            'is_empty': total_items == 0
         })
-    except Http404:
-        return JsonResponse({'success': False, 'error': 'Cart item not found.'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @require_POST
 def remove_cart_api(request, item_id):
-    """AJAX endpoint to remove item from cart."""
-    cart = get_or_create_cart(request)
-    item = get_object_or_404(CartItem, id=item_id, cart=cart)
-    item.delete()
-    return JsonResponse({
-        'success': True,
-        'total_items': cart.total_items,
-        'subtotal': format_inr(cart.subtotal),
-        'grand_total': format_inr(cart.grand_total)
-    })
+    """
+    AJAX endpoint to safely remove an item from the customer's cart.
+    Preserves all authentication, session state, and remaining cart items.
+    Returns complete recalculated totals and line counts for smooth in-place DOM updates.
+    """
+    try:
+        if request.user.is_authenticated and request.user.role != 'BUYER':
+            return JsonResponse({'success': False, 'error': 'Only customer accounts can modify the shopping basket.'}, status=403)
+
+        cart = get_or_create_cart(request, create=False)
+        if not cart:
+            return JsonResponse({'success': False, 'error': 'Cart not found.'}, status=404)
+
+        try:
+            item = cart.items.get(id=item_id)
+        except CartItem.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Cart item not found.'}, status=404)
+
+        removed_product_name = item.product.name
+        item.delete()
+
+        # Recalculate authoritative values
+        cart.refresh_from_db()
+        total_items = cart.total_items
+        subtotal = cart.subtotal
+        grand_total = cart.grand_total
+        delivery_fee = cart.delivery_fee
+        total_discount = cart.total_discount
+        product_lines = cart.items.count()
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Removed {removed_product_name} from basket.",
+            'item_id': item_id,
+            'total_items': total_items,
+            'product_lines': product_lines,
+            'subtotal': format_inr(subtotal),
+            'subtotal_raw': float(subtotal),
+            'delivery_fee': format_inr(delivery_fee) if delivery_fee > 0 else 'FREE',
+            'delivery_fee_raw': float(delivery_fee),
+            'grand_total': format_inr(grand_total),
+            'grand_total_raw': float(grand_total),
+            'total_discount': format_inr(total_discount),
+            'total_discount_raw': float(total_discount),
+            'is_empty': total_items == 0
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 def view_cart(request):

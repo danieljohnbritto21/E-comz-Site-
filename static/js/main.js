@@ -40,69 +40,198 @@ function getCsrfToken() {
   return getCookie('csrftoken') || '';
 }
 
-// Toast Notification System with Optional Link
-function showToast(message, type = 'success', actionUrl = null, actionText = 'View Basket') {
-  let container = document.getElementById('toast-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'toast-container';
-    container.style.cssText = `
-      position: fixed;
-      bottom: 90px;
-      right: 24px;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+// =============================================================================
+// Modern Fresh Mart Toast Notification Manager
+// Prevents stacking, deduplicates rapid identical calls, replaces active toasts
+// =============================================================================
+const ToastManager = {
+  container: null,
+  activeToast: null,
+  dismissTimeout: null,
+  lastMessage: null,
+  lastType: null,
+  lastShownTime: 0,
+  minDedupeIntervalMs: 1600, // deduplicate repeated identical messages within 1.6s
+
+  initContainer() {
+    if (this.container && document.body.contains(this.container)) {
+      return this.container;
+    }
+    let el = document.getElementById('toast-container');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast-container';
+      el.className = 'toast-container';
+      el.setAttribute('role', 'region');
+      el.setAttribute('aria-label', 'Notifications');
+      document.body.appendChild(el);
+    } else {
+      el.className = 'toast-container';
+    }
+    this.container = el;
+    return el;
+  },
+
+  dismiss(toastElement = null, immediate = false) {
+    const target = toastElement || this.activeToast;
+    if (!target) return;
+
+    if (this.dismissTimeout) {
+      clearTimeout(this.dismissTimeout);
+      this.dismissTimeout = null;
+    }
+
+    if (target === this.activeToast) {
+      this.activeToast = null;
+    }
+
+    if (immediate) {
+      if (target.parentNode) target.parentNode.removeChild(target);
+      return;
+    }
+
+    target.classList.remove('toast-visible');
+    target.classList.add('toast-hiding');
+    setTimeout(() => {
+      if (target.parentNode) {
+        target.parentNode.removeChild(target);
+      }
+    }, 240);
+  },
+
+  show(message, type = 'success', actionUrl = null, actionText = 'View Basket') {
+    if (!message) return;
+
+    // Sanitize message: never display raw Django errors, HTML traces or overly long messages
+    if (typeof message === 'string') {
+      if (message.includes('<!DOCTYPE') || message.includes('Traceback') || message.includes('<html') || message.length > 250) {
+        message = 'Unable to complete request. Please try again.';
+      }
+    } else if (typeof message === 'object') {
+      message = message.error || message.message || 'An error occurred. Please try again.';
+    }
+
+    const normalizedType = ['success', 'warning', 'danger', 'info'].includes(type) ? type : (type === 'error' ? 'danger' : 'info');
+    const now = Date.now();
+
+    // 1. Deduplication: Same message & type within window -> nudge & refresh timer without re-creating DOM
+    if (this.activeToast && 
+        this.lastMessage === message && 
+        this.lastType === normalizedType && 
+        (now - this.lastShownTime < this.minDedupeIntervalMs)) {
+      this.lastShownTime = now;
+      this.activeToast.classList.remove('toast-nudge');
+      void this.activeToast.offsetWidth; // trigger reflow for css animation
+      this.activeToast.classList.add('toast-nudge');
+      this.scheduleDismiss(normalizedType);
+      return;
+    }
+
+    this.lastMessage = message;
+    this.lastType = normalizedType;
+    this.lastShownTime = now;
+
+    const container = this.initContainer();
+
+    // 2. Single toast policy: If an active toast exists, dismiss it immediately to avoid vertical stacking
+    if (this.activeToast) {
+      this.dismiss(this.activeToast, true);
+    }
+    // Clean up any stray child elements
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    // 3. Create fresh toast
+    const toast = document.createElement('div');
+    toast.className = `freshmart-toast toast-${normalizedType}`;
+    
+    // Accessibility attributes
+    if (normalizedType === 'warning' || normalizedType === 'danger') {
+      toast.setAttribute('role', 'alert');
+      toast.setAttribute('aria-live', 'assertive');
+    } else {
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+    }
+
+    // Icon mapping
+    const icons = {
+      success: 'fa-circle-check',
+      warning: 'fa-triangle-exclamation',
+      danger: 'fa-circle-xmark',
+      info: 'fa-circle-info'
+    };
+    const iconClass = icons[normalizedType] || 'fa-circle-info';
+
+    // Action button HTML (e.g. View basket)
+    let actionHtml = '';
+    if (actionUrl) {
+      actionHtml = `
+        <a href="${actionUrl}" class="toast-action-btn" aria-label="${actionText}">
+          <span>${actionText}</span>
+          <i class="fa-solid fa-arrow-right" style="font-size: 0.7rem;"></i>
+        </a>
+      `;
+    }
+
+    toast.innerHTML = `
+      <div class="toast-body">
+        <div class="toast-icon" aria-hidden="true">
+          <i class="fa-solid ${iconClass}"></i>
+        </div>
+        <div class="toast-message">${message}</div>
+      </div>
+      <div class="toast-actions">
+        ${actionHtml}
+        <button type="button" class="toast-close-btn" aria-label="Dismiss notification">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
     `;
-    document.body.appendChild(container);
+
+    // Hook up dismiss button
+    const closeBtn = toast.querySelector('.toast-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.dismiss(toast);
+      });
+    }
+
+    container.appendChild(toast);
+    this.activeToast = toast;
+
+    // Trigger enter animation
+    requestAnimationFrame(() => {
+      toast.classList.add('toast-visible');
+    });
+
+    // Auto-dismiss schedule
+    this.scheduleDismiss(normalizedType);
+  },
+
+  scheduleDismiss(type) {
+    if (this.dismissTimeout) {
+      clearTimeout(this.dismissTimeout);
+    }
+    // Durations: success 2800ms, warning 3400ms, danger/error 4000ms, info 3000ms
+    const durations = {
+      success: 2800,
+      warning: 3400,
+      danger: 4000,
+      info: 3000
+    };
+    const timeoutMs = durations[type] || 3000;
+    this.dismissTimeout = setTimeout(() => {
+      this.dismiss();
+    }, timeoutMs);
   }
+};
 
-  const toast = document.createElement('div');
-  const bgColors = {
-    success: '#059669',
-    danger: '#DC2626',
-    warning: '#D97706',
-    info: '#2563EB'
-  };
-
-  toast.style.cssText = `
-    background: ${bgColors[type] || '#111827'};
-    color: #ffffff;
-    padding: 12px 18px;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 600;
-    box-shadow: 0 10px 25px -3px rgba(0,0,0,0.25);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    opacity: 0;
-    transform: translateY(10px);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  `;
-
-  let actionHtml = '';
-  if (actionUrl) {
-    actionHtml = `<a href="${actionUrl}" style="color: #FEF08A; font-weight: 800; text-decoration: underline; white-space: nowrap; font-size: 13px;">${actionText} &rarr;</a>`;
-  }
-
-  toast.innerHTML = `<div style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-circle-check"></i><span>${message}</span></div>${actionHtml}`;
-  container.appendChild(toast);
-
-  // Trigger animation
-  setTimeout(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateY(0)';
-  }, 10);
-
-  // Auto remove after 3.5s
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(10px)';
-    setTimeout(() => toast.remove(), 300);
-  }, 3500);
+// Global showToast adapter for backward compatibility with entire codebase
+function showToast(message, type = 'success', actionUrl = null, actionText = 'View Basket') {
+  ToastManager.show(message, type, actionUrl, actionText);
 }
 
 // Master UI Synchronizer for Cart
@@ -121,12 +250,24 @@ function updateCartUI(data) {
         wrap.innerHTML = `<button type="button" class="btn-out-of-stock" id="add-btn-${data.product_id}" disabled aria-disabled="true"><i class="fa-solid fa-circle-xmark"></i> Out of Stock</button>`;
       }
     } else if (data.item_quantity > 0) {
-      if (addBtn) addBtn.classList.add('is-hidden');
-      if (stepper) stepper.classList.remove('is-hidden');
+      if (addBtn) {
+        addBtn.classList.add('is-hidden');
+        addBtn.style.display = 'none';
+      }
+      if (stepper) {
+        stepper.classList.remove('is-hidden');
+        stepper.style.display = 'flex';
+      }
       if (qtyVal) qtyVal.textContent = data.item_quantity;
     } else {
-      if (addBtn) addBtn.classList.remove('is-hidden');
-      if (stepper) stepper.classList.add('is-hidden');
+      if (addBtn) {
+        addBtn.classList.remove('is-hidden');
+        addBtn.style.display = 'flex';
+      }
+      if (stepper) {
+        stepper.classList.add('is-hidden');
+        stepper.style.display = 'none';
+      }
       if (qtyVal) qtyVal.textContent = '0';
     }
   }
@@ -165,11 +306,19 @@ function updateCartUI(data) {
   });
 }
 
+// In-flight request protection to prevent race conditions & duplicate notifications from rapid clicks
+const _cartRequestsInFlight = new Set();
+
 // Handle In-Place Product Card Action (+Add, [+] increment, [-] decrement)
 async function handleCartAction(productId, delta, maxStock = null, unit = 'units', actualStock = null, orderLimit = null) {
   // If user is logged in with a non-BUYER role (SELLER, DELIVERY, ADMIN), restrict
   if (window.FRESHMART_USER && window.FRESHMART_USER.isAuthenticated && window.FRESHMART_USER.role !== 'BUYER') {
-    showToast('Only customer accounts can add products to cart and place orders.', 'warning');
+    showToast('Only customer accounts can add products to basket and place orders.', 'warning');
+    return;
+  }
+
+  // Prevent duplicate concurrent requests while an operation is already in-flight
+  if (_cartRequestsInFlight.has(productId)) {
     return;
   }
 
@@ -194,20 +343,22 @@ async function handleCartAction(productId, delta, maxStock = null, unit = 'units
 
   if (delta > 0 && maxStock !== null && !isNaN(maxStock)) {
     if (maxStock <= 0) {
-      showToast('This product is currently out of stock.', 'danger');
+      showToast('Sorry, this product is currently out of stock.', 'danger');
       return;
     }
     if (currentQty + delta > maxStock) {
       if (actualStock !== null && orderLimit !== null && actualStock < orderLimit) {
         showToast(`Cannot add more. Only ${actualStock} ${unit} available in stock.`, 'warning');
       } else if (orderLimit !== null) {
-        showToast(`You can order a maximum of ${orderLimit} ${unit} per order.`, 'warning');
+        showToast(`Maximum ${orderLimit} ${unit} per order for bike delivery.`, 'warning');
       } else {
         showToast(`Cannot add more. Maximum limit is ${maxStock} ${unit}.`, 'warning');
       }
       return;
     }
   }
+
+  _cartRequestsInFlight.add(productId);
 
   try {
     const response = await fetch('/cart/add/', {
@@ -224,7 +375,7 @@ async function handleCartAction(productId, delta, maxStock = null, unit = 'units
     if (response.ok && data.success) {
       updateCartUI(data);
       if (delta > 0) {
-        showToast(data.message || 'Item added to basket!', 'success', '/cart/', 'View Basket');
+        showToast(data.message || 'Added to basket!', 'success', '/cart/', 'View basket');
       } else if (data.item_quantity === 0) {
         showToast('Item removed from basket', 'info');
       }
@@ -241,7 +392,9 @@ async function handleCartAction(productId, delta, maxStock = null, unit = 'units
     }
   } catch (err) {
     console.error('Cart action error:', err);
-    showToast('Network error while updating cart', 'danger');
+    showToast('Network error while updating basket. Please try again.', 'danger');
+  } finally {
+    _cartRequestsInFlight.delete(productId);
   }
 }
 
@@ -249,13 +402,17 @@ async function handleCartAction(productId, delta, maxStock = null, unit = 'units
 async function addToCart(productId, quantity = 1, maxStock = null, unit = 'units') {
   // If user is logged in with a non-BUYER role (SELLER, DELIVERY, ADMIN), restrict
   if (window.FRESHMART_USER && window.FRESHMART_USER.isAuthenticated && window.FRESHMART_USER.role !== 'BUYER') {
-    showToast('Only customer accounts can add products to cart and place orders.', 'warning');
+    showToast('Only customer accounts can add products to basket and place orders.', 'warning');
+    return;
+  }
+
+  if (_cartRequestsInFlight.has(productId)) {
     return;
   }
 
   if (maxStock !== null && !isNaN(maxStock)) {
     if (maxStock <= 0) {
-      showToast('This product is currently out of stock.', 'danger');
+      showToast('Sorry, this product is currently out of stock.', 'danger');
       return;
     }
     if (quantity > maxStock) {
@@ -263,6 +420,8 @@ async function addToCart(productId, quantity = 1, maxStock = null, unit = 'units
       return;
     }
   }
+
+  _cartRequestsInFlight.add(productId);
 
   try {
     const response = await fetch('/cart/add/', {
@@ -278,7 +437,7 @@ async function addToCart(productId, quantity = 1, maxStock = null, unit = 'units
     const data = await response.json();
     if (response.ok && data.success) {
       updateCartUI(data);
-      showToast(data.message || 'Added to cart!', 'success', '/cart/', 'View Basket');
+      showToast(data.message || 'Added to basket!', 'success', '/cart/', 'View basket');
     } else if (response.status === 401 && data.require_login) {
       window.location.href = data.login_url || '/auth/login/?role=BUYER';
     } else {
@@ -289,18 +448,146 @@ async function addToCart(productId, quantity = 1, maxStock = null, unit = 'units
           detailBtn.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Out of Stock';
         }
       }
-      showToast(data.error || 'Failed to add item', 'danger');
+      showToast(data.error || 'Failed to add item to basket', 'danger');
     }
   } catch (err) {
     console.error('Add to cart error:', err);
-    showToast('Network error while adding to cart', 'danger');
+    showToast('Network error while adding to basket. Please try again.', 'danger');
+  } finally {
+    _cartRequestsInFlight.delete(productId);
+  }
+}
+
+// -------------------------------------------------------------
+// Cart Item Deletion & Confirmation Modal
+// -------------------------------------------------------------
+let _pendingDeleteCartItemId = null;
+
+function promptRemoveCartItem(itemId, productName = '') {
+  if (!productName) {
+    const row = document.getElementById(`cart-item-${itemId}`);
+    if (row) {
+      const link = row.querySelector('.cart-item-info a');
+      if (link) productName = link.textContent.trim();
+    }
+  }
+
+  const modal = document.getElementById('deleteConfirmModal');
+  if (!modal) {
+    const confirmMsg = productName
+      ? `Are you sure you want to remove "${productName}" from your basket?`
+      : 'Are you sure you want to remove this item from your basket?';
+    if (confirm(confirmMsg)) {
+      executeRemoveCartItem(itemId);
+    }
+    return;
+  }
+
+  _pendingDeleteCartItemId = itemId;
+  const nameEl = document.getElementById('deleteModalItemName');
+  if (nameEl) {
+    nameEl.textContent = productName ? `"${productName}"` : 'this item';
+  }
+
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteModal() {
+  const modal = document.getElementById('deleteConfirmModal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+  _pendingDeleteCartItemId = null;
+}
+
+function handleDeleteModalBackdrop(event) {
+  if (event.target && event.target.id === 'deleteConfirmModal') {
+    closeDeleteModal();
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('deleteConfirmModal');
+    if (modal && modal.style.display !== 'none') {
+      closeDeleteModal();
+    }
+  }
+});
+
+async function confirmDeleteCartItemAction() {
+  if (!_pendingDeleteCartItemId) return;
+  const itemId = _pendingDeleteCartItemId;
+  const btn = document.getElementById('btnConfirmDeleteItem');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Removing...</span>';
+  }
+
+  await executeRemoveCartItem(itemId, () => {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+    closeDeleteModal();
+  });
+}
+
+// Remove from Cart
+async function removeCartItem(itemId, productName = '') {
+  promptRemoveCartItem(itemId, productName);
+}
+
+async function executeRemoveCartItem(itemId, onComplete) {
+  try {
+    const response = await fetch(`/cart/remove/${itemId}/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken(),
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseErr) {
+      data = { success: false, error: 'Unexpected server response' };
+    }
+
+    if (response.ok && data.success) {
+      const row = document.getElementById(`cart-item-${itemId}`);
+      if (row) {
+        row.style.transition = 'all 0.25s ease';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(-20px)';
+        setTimeout(() => row.remove(), 240);
+      }
+      if (typeof window.applyCartDataToCartPage === 'function') {
+        window.applyCartDataToCartPage(data);
+      } else {
+        updateCartUI(data);
+      }
+      if (typeof onComplete === 'function') onComplete();
+      showToast(data.message || 'Item removed from basket', 'info');
+    } else {
+      if (typeof onComplete === 'function') onComplete();
+      showToast(data.error || 'Could not remove item', 'danger');
+    }
+  } catch (err) {
+    console.error('Remove cart error:', err);
+    if (typeof onComplete === 'function') onComplete();
+    showToast('Network error while removing item', 'danger');
   }
 }
 
 // Update Cart Quantity
 async function updateCartItem(itemId, newQty) {
   if (newQty < 1) {
-    return removeCartItem(itemId);
+    return promptRemoveCartItem(itemId);
   }
   try {
     const response = await fetch(`/cart/update/${itemId}/`, {
@@ -313,37 +600,34 @@ async function updateCartItem(itemId, newQty) {
       body: JSON.stringify({ quantity: newQty })
     });
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseErr) {
+      data = { success: false, error: 'Unexpected server response' };
+    }
+
     if (response.ok && data.success) {
-      window.location.reload();
+      const row = document.getElementById(`cart-item-${itemId}`);
+      if (row) {
+        const qtyInput = row.querySelector('.qty-input');
+        if (qtyInput) qtyInput.value = data.quantity;
+        const totalCol = row.querySelector('.cart-item-total-col');
+        if (totalCol && data.line_total) {
+          totalCol.innerHTML = `<span class="cart-item-total-label" style="display: none; font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Subtotal: </span> ${data.line_total}`;
+        }
+      }
+      if (typeof window.applyCartDataToCartPage === 'function') {
+        window.applyCartDataToCartPage(data);
+      } else {
+        updateCartUI(data);
+      }
     } else {
       showToast(data.error || 'Could not update quantity', 'danger');
     }
   } catch (err) {
     console.error('Update cart error:', err);
-  }
-}
-
-// Remove from Cart
-async function removeCartItem(itemId) {
-  if (!confirm('Remove this item from your cart?')) return;
-  try {
-    const response = await fetch(`/cart/remove/${itemId}/`, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': getCsrfToken(),
-        'X-Requested-With': 'XMLHttpRequest'
-      }
-    });
-
-    const data = await response.json();
-    if (response.ok && data.success) {
-      window.location.reload();
-    } else {
-      showToast(data.error || 'Could not remove item', 'danger');
-    }
-  } catch (err) {
-    console.error('Remove cart error:', err);
+    showToast('Failed to update basket quantity', 'danger');
   }
 }
 

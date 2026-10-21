@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <!-- Design System CSS -->
-  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=1.2">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=4.4">
   {% block extra_css %}{% endblock %}
 
   <!-- Global Currency Formatter -->
@@ -41,7 +41,7 @@
   <!-- Top Announcement Bar -->
   <div class="top-bar">
     <div class="container top-bar-inner">
-      <div style="display: flex; align-items: center; gap: 15px;">
+      <div class="top-bar-left">
         {% if request.resolver_match.namespace == 'seller' or user.role == 'SELLER' %}
           <span class="top-bar-notice"><i class="fa-solid fa-store" style="color: #10B981;"></i> FreshMart Merchant Partner Portal</span>
         {% elif request.resolver_match.namespace == 'admin_dashboard' or user.role == 'ADMIN' %}
@@ -87,7 +87,7 @@
         <div class="navbar-grid">
           
           <!-- Logo & Mobile Menu Toggle -->
-          <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="header-brand-wrap">
             <button type="button" class="mobile-menu-toggle-btn" id="mobile-menu-toggle" onclick="openMobileDrawer()" aria-label="Open Navigation Menu">
               <i class="fa-solid fa-bars"></i>
             </button>
@@ -238,13 +238,13 @@
 
             <!-- Shopping Cart Button (Customer only) -->
             {% if request.resolver_match.namespace != 'seller' and user.role != 'SELLER' and request.resolver_match.namespace != 'admin_dashboard' and request.resolver_match.namespace != 'delivery' %}
-            <a href="{% url 'cart:view_cart' %}" class="btn btn-primary btn-pill btn-nav-cart" style="gap: 0.6rem;">
+            <a href="{% url 'cart:view_cart' %}" class="btn-nav-cart" aria-label="Shopping Cart">
               <i class="fa-solid fa-cart-shopping"></i>
-              <span class="cart-count-badge" style="background: #ffffff; color: var(--color-primary-dark); border-radius: 999px; padding: 2px 7px; font-size: 0.75rem; font-weight: 800;">
+              <span class="cart-count-badge">
                 {{ nav_cart_count|default:0 }}
               </span>
               {% if nav_cart_subtotal > 0 %}
-                <span class="nav-cart-price" style="font-size: 0.85rem; font-weight: 700;">{{ nav_cart_subtotal|inr }}</span>
+                <span class="nav-cart-price">{{ nav_cart_subtotal|inr }}</span>
               {% endif %}
             </a>
             {% endif %}
@@ -351,8 +351,7 @@
       <div class="footer-bottom">
         <div>&copy; 2026 FreshMart Grocery E-Commerce Platform. All rights reserved.</div>
         <div style="display: flex; gap: 20px;">
-          <span><i class="fa-solid fa-lock"></i> 256-Bit SSL Encrypted</span>
-          <span><i class="fa-solid fa-shield-heart"></i> 100% Quality Assurance</span>
+          <span><i class="fa-solid fa-shield-heart" style="color: #10B981;"></i> 100% Freshness & Quality Assurance</span>
         </div>
       </div>
     </div>
@@ -368,26 +367,27 @@
   {% endif %}
 
   <!-- Floating Bottom Cart Dock (Instant Visibility for Buyer) -->
+  {% if request.resolver_match.url_name != 'view_cart' and request.resolver_match.url_name != 'checkout' and request.resolver_match.namespace != 'seller' and request.resolver_match.namespace != 'admin_dashboard' and request.resolver_match.namespace != 'delivery' %}
   <div id="floating-cart-bar" class="floating-cart-bar {% if nav_cart_count > 0 %}is-visible{% endif %}">
-    <div class="container floating-cart-inner">
+    <div class="floating-cart-inner">
       <div class="floating-cart-left">
         <div class="floating-cart-icon-bubble">
           <i class="fa-solid fa-basket-shopping"></i>
           <span class="floating-cart-badge" id="float-badge">{{ nav_cart_count }}</span>
         </div>
-        <div>
+        <div class="floating-cart-text-wrap">
           <div class="floating-cart-items-text">
-            <span id="float-cart-count">{{ nav_cart_count }}</span> <span id="float-cart-unit">Item{{ nav_cart_count|pluralize }}</span> in Basket
+            <span id="float-cart-count">{{ nav_cart_count }}</span> <span id="float-cart-unit">Item{{ nav_cart_count|pluralize }}</span><span class="floating-cart-extra-text"> in Basket</span>
           </div>
           <div class="floating-cart-price-text">
-            Total: <strong><span id="float-cart-subtotal">{{ nav_cart_subtotal|inr }}</span></strong>
+            <span class="floating-cart-total-label">Total: </span><strong><span id="float-cart-subtotal">{{ nav_cart_subtotal|inr }}</span></strong>
           </div>
         </div>
       </div>
       
       <div class="floating-cart-right">
         <a href="{% url 'cart:view_cart' %}" class="btn-floating-view-cart">
-          <span>View Basket</span>
+          <span><span class="btn-view-word">View </span>Basket</span>
           <i class="fa-solid fa-bag-shopping"></i>
         </a>
         <a href="{% url 'orders:checkout' %}" class="btn-floating-checkout">
@@ -397,6 +397,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <!-- Mobile Slide-Out Navigation Drawer -->
   <aside id="mobile-nav-drawer" class="mobile-drawer" aria-label="Mobile Navigation Drawer">
@@ -551,8 +552,11 @@
     };
   </script>
 
+  <!-- Modern Fresh Mart Toast Container -->
+  <div id="toast-container" class="toast-container" role="region" aria-label="Notifications"></div>
+
   <!-- Core JavaScript -->
-  <script src="{% static 'js/main.js' %}"></script>
+  <script src="{% static 'js/main.js' %}?v=3.1"></script>
 
   {% if user.is_authenticated %}
     {% include 'auth/account_modal.html' %}

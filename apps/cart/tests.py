@@ -436,3 +436,403 @@ class FreshMartCartSynchronizationTests(TestCase):
         # Cart is now empty after checkout
         cart_after = Cart.objects.get(user=self.buyer_a)
         self.assertEqual(cart_after.total_items, 0)
+
+
+class CustomerCartAuthenticationRegressionTests(TestCase):
+    """
+    Automated regression tests specifically validating:
+    1. A logged-in customer can add three products to the cart.
+    2. Removing one product does not log out the customer.
+    3. The customer remains authenticated after removing a product.
+    4. The other two products remain in the cart with their correct quantities.
+    5. The basket counter and total update correctly.
+    6. The customer can continue browsing after removal.
+    7. The customer can add another product without logging in again.
+    8. The customer can proceed to checkout while still authenticated.
+    9. Another customer's cart remains inaccessible.
+    10. Invalid removal requests and CSRF failures do not accidentally log out the customer.
+    11. Existing login, logout, cart, checkout, seller, and admin functionality continues to work.
+    """
+
+    def setUp(self):
+        # 1. Primary Customer
+        self.customer = User.objects.create_user(
+            username='reg_buyer',
+            email='reg_buyer@freshmart.test',
+            password='BuyerPassword123!',
+            role=User.Role.BUYER
+        )
+        self.customer_profile = BuyerProfile.objects.create(user=self.customer)
+
+        # 2. Second Customer for isolation tests
+        self.other_customer = User.objects.create_user(
+            username='reg_other_buyer',
+            email='other_reg@freshmart.test',
+            password='BuyerPassword123!',
+            role=User.Role.BUYER
+        )
+        self.other_profile = BuyerProfile.objects.create(user=self.other_customer)
+
+        # 3. Seller
+        self.seller = User.objects.create_user(
+            username='reg_seller',
+            email='seller_reg@freshmart.test',
+            password='SellerPassword123!',
+            role=User.Role.SELLER
+        )
+        self.seller_profile = SellerProfile.objects.create(
+            user=self.seller,
+            store_name='Fresh Valley Organics',
+            store_slug='fresh-valley-organics',
+            is_approved=True
+        )
+
+        # 4. Admin
+        self.admin = User.objects.create_superuser(
+            username='reg_admin',
+            email='admin_reg@freshmart.test',
+            password='AdminPassword123!',
+            role=User.Role.ADMIN
+        )
+
+        # 5. Category
+        self.category = Category.objects.create(name='Pantry & Dairy', slug='pantry-dairy')
+
+        # 6. Products (4 total products for tests)
+        self.prod1 = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name='Organic Cow Milk',
+            slug='organic-cow-milk',
+            sku='FM-MILK-001',
+            selling_price=Decimal('60.00'),
+            mrp=Decimal('65.00'),
+            unit='litre',
+            max_quantity_per_order=10,
+            is_active=True,
+            is_approved=True
+        )
+        StockRecord.objects.create(product=self.prod1, current_stock=50, low_stock_threshold=5)
+
+        self.prod2 = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name='Fresh White Bread',
+            slug='fresh-white-bread',
+            sku='FM-BREAD-001',
+            selling_price=Decimal('45.00'),
+            mrp=Decimal('50.00'),
+            unit='packet',
+            max_quantity_per_order=8,
+            is_active=True,
+            is_approved=True
+        )
+        StockRecord.objects.create(product=self.prod2, current_stock=40, low_stock_threshold=5)
+
+        self.prod3 = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name='Creamy Peanut Butter',
+            slug='creamy-peanut-butter',
+            sku='FM-PB-001',
+            selling_price=Decimal('180.00'),
+            mrp=Decimal('210.00'),
+            unit='jar',
+            max_quantity_per_order=5,
+            is_active=True,
+            is_approved=True
+        )
+        StockRecord.objects.create(product=self.prod3, current_stock=30, low_stock_threshold=5)
+
+        self.prod4 = Product.objects.create(
+            seller=self.seller,
+            category=self.category,
+            name='Alphonso Mango Jam',
+            slug='alphonso-mango-jam',
+            sku='FM-JAM-001',
+            selling_price=Decimal('120.00'),
+            mrp=Decimal('140.00'),
+            unit='jar',
+            max_quantity_per_order=6,
+            is_active=True,
+            is_approved=True
+        )
+        StockRecord.objects.create(product=self.prod4, current_stock=25, low_stock_threshold=5)
+
+        self.client = Client()
+
+    def test_01_logged_in_customer_can_add_three_products(self):
+        """1. A logged-in customer can add three products to the cart."""
+        self.client.force_login(self.customer)
+
+        # Add Product 1 (qty 2)
+        r1 = self.client.post(
+            reverse('cart:add_to_cart'),
+            data=json.dumps({'product_id': self.prod1.id, 'quantity': 2}),
+            content_type='application/json'
+        )
+        self.assertEqual(r1.status_code, 200)
+        self.assertTrue(r1.json()['success'])
+
+        # Add Product 2 (qty 1)
+        r2 = self.client.post(
+            reverse('cart:add_to_cart'),
+            data=json.dumps({'product_id': self.prod2.id, 'quantity': 1}),
+            content_type='application/json'
+        )
+        self.assertEqual(r2.status_code, 200)
+        self.assertTrue(r2.json()['success'])
+
+        # Add Product 3 (qty 3)
+        r3 = self.client.post(
+            reverse('cart:add_to_cart'),
+            data=json.dumps({'product_id': self.prod3.id, 'quantity': 3}),
+            content_type='application/json'
+        )
+        self.assertEqual(r3.status_code, 200)
+        self.assertTrue(r3.json()['success'])
+
+        cart = Cart.objects.get(user=self.customer)
+        self.assertEqual(cart.items.count(), 3)
+        self.assertEqual(cart.total_items, 6)
+
+    def test_02_removing_one_product_does_not_log_out_customer(self):
+        """2. Removing one product does not log out the customer."""
+        self.client.force_login(self.customer)
+        cart, _ = Cart.objects.get_or_create(user=self.customer)
+        i1 = CartItem.objects.create(cart=cart, product=self.prod1, quantity=2)
+        i2 = CartItem.objects.create(cart=cart, product=self.prod2, quantity=1)
+        i3 = CartItem.objects.create(cart=cart, product=self.prod3, quantity=3)
+
+        # Remove Product 2
+        res = self.client.post(
+            reverse('cart:remove_cart', kwargs={'item_id': i2.id}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['success'])
+
+        # Session must still hold the authenticated user ID
+        self.assertIn('_auth_user_id', self.client.session)
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.customer.id)
+
+    def test_03_customer_remains_authenticated_after_removing_product(self):
+        """3. The customer remains authenticated after removing a product."""
+        self.client.force_login(self.customer)
+        cart, _ = Cart.objects.get_or_create(user=self.customer)
+        i1 = CartItem.objects.create(cart=cart, product=self.prod1, quantity=2)
+        i2 = CartItem.objects.create(cart=cart, product=self.prod2, quantity=1)
+        i3 = CartItem.objects.create(cart=cart, product=self.prod3, quantity=1)
+
+        # Remove item
+        self.client.post(
+            reverse('cart:remove_cart', kwargs={'item_id': i1.id}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+
+        # Navigate to cart page
+        cart_page = self.client.get(reverse('cart:view_cart'))
+        self.assertEqual(cart_page.status_code, 200)
+        self.assertTrue(cart_page.wsgi_request.user.is_authenticated)
+        self.assertEqual(cart_page.wsgi_request.user.id, self.customer.id)
+
+    def test_04_other_two_products_remain_in_cart_with_correct_quantities(self):
+        """4. The other two products remain in the cart with their correct quantities."""
+        self.client.force_login(self.customer)
+        cart, _ = Cart.objects.get_or_create(user=self.customer)
+        i1 = CartItem.objects.create(cart=cart, product=self.prod1, quantity=2)
+        i2 = CartItem.objects.create(cart=cart, product=self.prod2, quantity=4)
+        i3 = CartItem.objects.create(cart=cart, product=self.prod3, quantity=1)
+
+        # Remove item 2
+        self.client.post(
+            reverse('cart:remove_cart', kwargs={'item_id': i2.id}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+
+        cart.refresh_from_db()
+        remaining_items = cart.items.all()
+        self.assertEqual(remaining_items.count(), 2)
+
+        item1 = remaining_items.filter(product=self.prod1).first()
+        self.assertIsNotNone(item1)
+        self.assertEqual(item1.quantity, 2)
+
+        item3 = remaining_items.filter(product=self.prod3).first()
+        self.assertIsNotNone(item3)
+        self.assertEqual(item3.quantity, 1)
+
+    def test_05_basket_counter_and_total_update_correctly(self):
+        """5. The basket counter and total update correctly."""
+        self.client.force_login(self.customer)
+        cart, _ = Cart.objects.get_or_create(user=self.customer)
+        # prod1: 2 * 60 = 120. prod2: 1 * 45 = 45. prod3: 1 * 180 = 180.
+        # Subtotal: 345.00. Delivery (< 499): 40.00. Grand total: 385.00.
+        i1 = CartItem.objects.create(cart=cart, product=self.prod1, quantity=2)
+        i2 = CartItem.objects.create(cart=cart, product=self.prod2, quantity=1)
+        i3 = CartItem.objects.create(cart=cart, product=self.prod3, quantity=1)
+
+        # Remove prod2 (45.00). New subtotal = 120 + 180 = 300.00. New total_items = 3.
+        # New delivery (< 499) = 40.00. New grand total = 340.00.
+        res = self.client.post(
+            reverse('cart:remove_cart', kwargs={'item_id': i2.id}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+
+        self.assertEqual(data['total_items'], 3)
+        self.assertEqual(data['product_lines'], 2)
+        self.assertIn('300.00', data['subtotal'])
+        self.assertIn('340.00', data['grand_total'])
+
+        # Context processor also reflects 3 items
+        page_res = self.client.get(reverse('catalog:home'))
+        self.assertEqual(page_res.context['nav_cart_count'], 3)
+
+    def test_06_customer_can_continue_browsing_after_removal(self):
+        """6. The customer can continue browsing after removal."""
+        self.client.force_login(self.customer)
+        cart, _ = Cart.objects.get_or_create(user=self.customer)
+        i1 = CartItem.objects.create(cart=cart, product=self.prod1, quantity=1)
+
+        self.client.post(
+            reverse('cart:remove_cart', kwargs={'item_id': i1.id}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+
+        # Browse home and product list
+        home_res = self.client.get(reverse('catalog:home'))
+        self.assertEqual(home_res.status_code, 200)
+        self.assertTrue(home_res.wsgi_request.user.is_authenticated)
+
+        shop_res = self.client.get(reverse('catalog:product_list'))
+        self.assertEqual(shop_res.status_code, 200)
+        self.assertTrue(shop_res.wsgi_request.user.is_authenticated)
+
+    def test_07_customer_can_add_another_product_without_logging_in_again(self):
+        """7. The customer can add another product without logging in again."""
+        self.client.force_login(self.customer)
+        cart, _ = Cart.objects.get_or_create(user=self.customer)
+        i1 = CartItem.objects.create(cart=cart, product=self.prod1, quantity=1)
+        i2 = CartItem.objects.create(cart=cart, product=self.prod2, quantity=1)
+        i3 = CartItem.objects.create(cart=cart, product=self.prod3, quantity=1)
+
+        # Remove i1
+        self.client.post(
+            reverse('cart:remove_cart', kwargs={'item_id': i1.id}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+
+        # Add 4th product without logging in again
+        add_res = self.client.post(
+            reverse('cart:add_to_cart'),
+            data=json.dumps({'product_id': self.prod4.id, 'quantity': 2}),
+            content_type='application/json'
+        )
+        self.assertEqual(add_res.status_code, 200)
+        self.assertTrue(add_res.json()['success'])
+        self.assertNotIn('require_login', add_res.json())
+
+        # Cart now has prod2, prod3, and prod4
+        cart.refresh_from_db()
+        self.assertEqual(cart.items.count(), 3)
+        self.assertEqual(cart.total_items, 4)  # 1 + 1 + 2
+
+    def test_08_customer_can_proceed_to_checkout_while_still_authenticated(self):
+        """8. The customer can proceed to checkout while still authenticated."""
+        self.client.force_login(self.customer)
+        cart, _ = Cart.objects.get_or_create(user=self.customer)
+        i1 = CartItem.objects.create(cart=cart, product=self.prod1, quantity=1)
+        i2 = CartItem.objects.create(cart=cart, product=self.prod2, quantity=1)
+
+        # Remove i1
+        self.client.post(
+            reverse('cart:remove_cart', kwargs={'item_id': i1.id}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+
+        # Proceed to checkout
+        checkout_page = self.client.get(reverse('orders:checkout'))
+        self.assertEqual(checkout_page.status_code, 200)
+        self.assertTrue(checkout_page.wsgi_request.user.is_authenticated)
+        self.assertContains(checkout_page, 'Order Summary')
+
+    def test_09_another_customers_cart_remains_inaccessible(self):
+        """9. Another customer's cart remains inaccessible."""
+        self.client.force_login(self.customer)
+        cart_a, _ = Cart.objects.get_or_create(user=self.customer)
+        item_a = CartItem.objects.create(cart=cart_a, product=self.prod1, quantity=2)
+
+        client_b = Client()
+        client_b.force_login(self.other_customer)
+
+        # Client B tries to remove Client A's item
+        res_del = client_b.post(
+            reverse('cart:remove_cart', kwargs={'item_id': item_a.id}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res_del.status_code, 404)
+        self.assertFalse(res_del.json()['success'])
+
+        # Item still exists in customer A's cart
+        cart_a.refresh_from_db()
+        self.assertEqual(cart_a.items.count(), 1)
+        # Both customers still authenticated
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.customer.id)
+        self.assertEqual(int(client_b.session['_auth_user_id']), self.other_customer.id)
+
+    def test_10_invalid_removal_requests_and_csrf_failures_do_not_log_out_customer(self):
+        """10. Invalid removal requests and CSRF failures do not accidentally log out the customer."""
+        self.client.force_login(self.customer)
+        cart, _ = Cart.objects.get_or_create(user=self.customer)
+        CartItem.objects.create(cart=cart, product=self.prod1, quantity=2)
+
+        # 1. Non-existent item ID returns clean 404 without touching session
+        res_404 = self.client.post(
+            reverse('cart:remove_cart', kwargs={'item_id': 999999}),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest'
+        )
+        self.assertEqual(res_404.status_code, 404)
+        self.assertFalse(res_404.json()['success'])
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.customer.id)
+
+        # 2. CSRF rejection does not log out the customer
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.customer)
+        res_csrf = csrf_client.post(reverse('cart:remove_cart', kwargs={'item_id': 999999}))
+        self.assertEqual(res_csrf.status_code, 403)
+        self.assertEqual(int(csrf_client.session['_auth_user_id']), self.customer.id)
+
+    def test_11_existing_login_logout_cart_checkout_seller_and_admin_continue_working(self):
+        """11. Existing login, logout, cart, checkout, seller, and admin functionality continues to work."""
+        # A. Normal login
+        login_res = self.client.post(
+            reverse('accounts:login'),
+            {
+                'username': 'reg_buyer',
+                'password': 'BuyerPassword123!',
+                'role': 'BUYER'
+            }
+        )
+        self.assertEqual(login_res.status_code, 302)
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.customer.id)
+
+        # B. Normal logout
+        logout_res = self.client.post(reverse('accounts:logout'))
+        self.assertEqual(logout_res.status_code, 302)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+        # C. Seller dashboard works for seller
+        seller_client = Client()
+        seller_client.force_login(self.seller)
+        seller_dash = seller_client.get(reverse('seller:dashboard'))
+        self.assertEqual(seller_dash.status_code, 200)
+
+        # D. Admin dashboard works for admin
+        admin_client = Client()
+        admin_client.force_login(self.admin)
+        admin_dash = admin_client.get(reverse('admin_dashboard:dashboard'))
+        self.assertEqual(admin_dash.status_code, 200)
+

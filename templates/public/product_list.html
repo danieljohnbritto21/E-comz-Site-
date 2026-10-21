@@ -261,26 +261,70 @@
 
 @media (max-width: 640px) {
   .shop-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+    padding: 12px 14px !important;
+    margin-bottom: 1.25rem !important;
+    border-radius: 14px !important;
+  }
+  .toolbar-title-wrap {
+    display: flex !important;
+    align-items: baseline !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+  .shop-page-title {
+    font-size: 1.2rem !important;
+    font-weight: 800 !important;
+    margin: 0 !important;
+    color: #111827 !important;
+    letter-spacing: -0.3px !important;
+  }
+  .toolbar-item-count {
+    font-size: 0.82rem !important;
+    color: #6B7280 !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
   }
   .toolbar-sort-form,
   .custom-sort-dropdown,
   .custom-sort-trigger {
-    width: 100%;
+    width: 100% !important;
   }
   .custom-sort-trigger {
-    justify-content: space-between;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 7px 12px !important;
+    border-radius: 12px !important;
+    gap: 8px !important;
   }
   .sort-trigger-content {
-    flex: 1;
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  .sort-trigger-label {
+    font-size: 0.65rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    color: #94A3B8 !important;
+  }
+  .sort-trigger-value {
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    color: #0F172A !important;
   }
   .custom-sort-menu {
-    left: 0;
-    right: 0;
-    width: 100%;
-    min-width: auto;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    min-width: auto !important;
   }
 }
 </style>
