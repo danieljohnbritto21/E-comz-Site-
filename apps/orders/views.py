@@ -61,10 +61,10 @@ def checkout_view(request):
         if not item.is_available:
             if stock <= 0:
                 messages.error(request, f"Cannot proceed to checkout. '{prod.name}' is currently out of stock. Please remove it from your basket.")
-            elif stock < limit and item.quantity > stock:
+            elif item.quantity > stock:
                 messages.error(request, f"Cannot proceed to checkout. '{prod.name}' only has {stock} {stock_unit} available in stock (you have {item.quantity} in basket). Please adjust your basket.")
             else:
-                messages.error(request, f"Cannot proceed to checkout. You can order a maximum of {limit} {limit_unit} of '{prod.name}' per order for bike delivery (you have {item.quantity} in basket). Please adjust your basket.")
+                messages.error(request, f"Cannot proceed to checkout. You can order a maximum of {limit} {limit_unit} of '{prod.name}' per order (you have {item.quantity} in basket). Please adjust your basket.")
             return redirect('cart:view_cart')
 
     addresses = Address.objects.filter(user=request.user) if request.user.is_authenticated else Address.objects.none()
@@ -105,6 +105,13 @@ def checkout_view(request):
             addr_type = default_addr.address_type
 
     def build_checkout_context():
+        from apps.reports.models import MarketplaceConfig
+        from apps.reports.services import get_buyer_cashback_balance
+        config = MarketplaceConfig.get_config()
+        total_items_count = sum(item.quantity for item in cart_items)
+        expected_cashback = (config.cashback_per_unit * Decimal(total_items_count)).quantize(Decimal('0.01'))
+        available_cashback = get_buyer_cashback_balance(request.user) if request.user.is_authenticated else Decimal('0.00')
+
         return {
             'cart': cart,
             'cart_items': cart_items,
@@ -128,6 +135,9 @@ def checkout_view(request):
             'payment_method': payment_method,
             'address_id': address_id,
             'checkout_token': uuid.uuid4().hex[:16],
+            'expected_cashback': expected_cashback,
+            'available_cashback': available_cashback,
+            'cashback_per_unit': config.cashback_per_unit,
         }
 
     if request.method == 'POST':
@@ -268,7 +278,15 @@ def checkout_view(request):
         
         selling_subtotal = cart.subtotal
         delivery_fee = cart.delivery_fee
-        final_payable = cart.grand_total
+
+        redeem_cashback_requested = request.POST.get('redeem_cashback') in ['1', 'true', 'on', 'yes']
+        cashback_to_redeem = Decimal('0.00')
+        if redeem_cashback_requested and buyer_user.is_authenticated:
+            from apps.reports.services import get_buyer_cashback_balance
+            user_balance = get_buyer_cashback_balance(buyer_user)
+            cashback_to_redeem = min(user_balance, cart.subtotal)
+
+        final_payable = max(Decimal('0.00'), cart.grand_total - cashback_to_redeem)
 
         checkout_token = request.POST.get('checkout_token', '').strip()
         if checkout_token:
@@ -345,6 +363,7 @@ def checkout_view(request):
                     delivery_fee=delivery_fee,
                     tax_amount=Decimal('0.00'),
                     total_amount=final_payable,
+                    cashback_redeemed=cashback_to_redeem,
                     stock_deducted=True,
                     stock_restored=False,
                     checkout_token=checkout_token
@@ -392,10 +411,23 @@ def checkout_view(request):
                             unit_value=item.product.unit_value,
                             unit_price=item.product.selling_price,
                             mrp=item.product.mrp,
+                            product_cost_snapshot=item.product.product_cost,
                             quantity=item.quantity,
                             total_price=item.line_total,
                             image_url=item.product.primary_image_url
                         )
+
+                # Initialize financial snapshots & pending earnings
+                from apps.reports.services import (
+                    redeem_buyer_cashback,
+                    create_order_financial_snapshots,
+                    add_pending_seller_earnings,
+                )
+                if cashback_to_redeem > Decimal('0.00'):
+                    redeem_buyer_cashback(order, cashback_to_redeem)
+
+                create_order_financial_snapshots(order)
+                add_pending_seller_earnings(order)
 
                 # Clear cart now that items are reserved into the Order
                 cart.items.all().delete()
@@ -521,6 +553,10 @@ def payment_verify_view(request, order_id):
                     reason=f"Restored from failed payment order #{locked_order.order_id}"
                 )
 
+                from apps.reports.services import restore_redeemed_cashback, reverse_seller_profit
+                restore_redeemed_cashback(locked_order, reason=f"Restored from failed payment order #{locked_order.order_id}")
+                reverse_seller_profit(locked_order, reason="Online payment authorization failed.")
+
                 locked_order.sub_orders.update(status=SellerSubOrder.Status.CANCELLED, stock_restored=True)
 
         messages.error(request, f"Payment authorization failed for Order #{order.order_id}.")
@@ -589,8 +625,13 @@ def order_track_view(request, order_id):
 @login_required
 def order_history_view(request):
     """Buyer order history page."""
+    from apps.reports.services import get_buyer_cashback_balance
     orders = Order.objects.filter(buyer=request.user).prefetch_related('items').order_by('-created_at')
-    return render(request, 'buyer/order_history.html', {'orders': orders})
+    cashback_balance = get_buyer_cashback_balance(request.user)
+    return render(request, 'buyer/order_history.html', {
+        'orders': orders,
+        'cashback_balance': cashback_balance,
+    })
 
 
 @login_required
@@ -615,6 +656,17 @@ def cancel_order_view(request, order_id):
             actor=request.user,
             reason=f"Restored from customer cancelled order #{locked_order.order_id}"
         )
+
+        from apps.reports.services import (
+            restore_redeemed_cashback,
+            reverse_seller_profit,
+            reverse_buyer_cashback,
+            reverse_delivery_earning,
+        )
+        restore_redeemed_cashback(locked_order, reason=f"Restored from customer cancelled order #{locked_order.order_id}")
+        reverse_seller_profit(locked_order, reason="Order cancelled by customer.")
+        reverse_buyer_cashback(locked_order, reason="Order cancelled by customer.")
+        reverse_delivery_earning(locked_order)
 
         locked_order.add_status_history(Order.Status.CANCELLED, request.user, "Order cancelled by customer.")
         locked_order.sub_orders.update(status=SellerSubOrder.Status.CANCELLED, stock_restored=True)

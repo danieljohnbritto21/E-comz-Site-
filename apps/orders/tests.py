@@ -63,6 +63,7 @@ class GrocerySynchronizationAndCheckoutTests(TestCase):
             'brand': 'Organic Valley',
             'mrp': '80.00',
             'selling_price': '65.00',
+            'product_cost': '50.00',
             'unit': 'kg',
             'unit_value': '1 kg',
             'initial_stock': '30',

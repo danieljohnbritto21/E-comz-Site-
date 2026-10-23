@@ -66,17 +66,33 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">MRP (₹) *</label>
-            <input type="number" step="0.01" name="mrp" id="mrp-input" class="form-control" placeholder="Maximum Retail Price" value="{{ product.mrp|default:'' }}" required oninput="calculateDiscount()">
+            <input type="number" step="0.01" min="0.01" name="mrp" id="mrp-input" class="form-control" placeholder="Maximum Retail Price" value="{{ product.mrp|default:'' }}" required oninput="validatePricingAndCalculate()">
+            <div id="mrp-error" style="display: none; color: #DC2626; font-size: 0.78rem; font-weight: 600; margin-top: 4px;"></div>
           </div>
           <div class="form-group">
             <label class="form-label">Selling Price (₹) *</label>
-            <input type="number" step="0.01" name="selling_price" id="selling-price-input" class="form-control" placeholder="Customer Selling Price" value="{{ product.selling_price|default:'' }}" required oninput="calculateDiscount()">
+            <input type="number" step="0.01" min="0.01" name="selling_price" id="selling-price-input" class="form-control" placeholder="Customer Selling Price" value="{{ product.selling_price|default:'' }}" required oninput="validatePricingAndCalculate()">
+            <div id="selling-price-error" style="display: none; color: #DC2626; font-size: 0.78rem; font-weight: 600; margin-top: 4px;"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product Cost / Buy Price (₹) *</label>
+            <input type="number" step="0.01" min="0.01" name="product_cost" id="product-cost-input" class="form-control" placeholder="e.g. 35.00" value="{{ product.product_cost|default:'' }}" required oninput="validatePricingAndCalculate()">
+            <div id="product-cost-error" style="display: none; color: #DC2626; font-size: 0.78rem; font-weight: 600; margin-top: 4px;"></div>
           </div>
         </div>
 
-        <!-- Live Discount Indicator -->
-        <div id="discount-badge-box" style="display: none; background: #ECFDF5; border: 1px solid #A7F3D0; color: #047857; padding: 8px 12px; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.85rem; margin-bottom: 1rem;">
-          <i class="fa-solid fa-tags"></i> Customer Discount: <span id="discount-percent-text">0% OFF</span> (Saves <span id="discount-save-amount">₹0.00</span>)
+        <!-- Live Pricing Error Alert Box -->
+        <div id="pricing-error-alert" style="display: none; background: #FEF2F2; border: 1.5px solid #FCA5A5; color: #DC2626; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 700; margin-bottom: 1rem;">
+          <i class="fa-solid fa-triangle-exclamation"></i> <span id="pricing-error-text"></span>
+        </div>
+
+        <!-- Live Discount & Profit Indicator (ONLY visible when pricing conditions pass) -->
+        <div id="discount-badge-box" style="display: none; background: #ECFDF5; border: 1px solid #A7F3D0; color: #047857; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.85rem; margin-bottom: 1rem;">
+          <div style="font-weight: 700;">
+            <i class="fa-solid fa-tags"></i> Customer Discount: <span id="discount-percent-text">0% OFF</span> (Saves <span id="discount-save-amount">₹0.00</span>)
+          </div>
+          <div id="profit-preview-line" style="margin-top: 6px; font-size: 0.82rem; color: #065F46; border-top: 1px dashed #A7F3D0; padding-top: 6px;">
+          </div>
         </div>
 
         <div class="form-row">
@@ -101,31 +117,7 @@
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Minimum Purchase Quantity</label>
-            <input type="number" name="min_purchase_quantity" class="form-control" placeholder="1" value="{{ product.min_purchase_quantity|default:'1' }}" min="1" required>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
-              Minimum order quantity a customer can add to cart.
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Selling Increment Step</label>
-            <input type="number" name="quantity_step" class="form-control" placeholder="1" value="{{ product.quantity_step|default:'1' }}" min="1" required>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
-              Quantity multiples allowed (e.g. 1 packet, 1 kg).
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">
-              <i class="fa-solid fa-bicycle" style="color: var(--primary);"></i> Max Quantity Per Order (Bike Limit)
-            </label>
-            <input type="number" name="max_quantity_per_order" class="form-control" placeholder="Default: 5" value="{{ product.max_quantity_per_order|default:'' }}" min="1">
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
-              Leave blank for default (5 {{ product.get_unit_label|default:'units' }} max per bike delivery).
-            </div>
-          </div>
-        </div>
+
       </div>
 
       <!-- Section 3: Inventory Stock & Health Threshold -->
@@ -347,22 +339,153 @@
 {% block extra_js %}
 {{ block.super }}
 <script>
-function calculateDiscount() {
-  const mrp = parseFloat(document.getElementById('mrp-input').value) || 0;
-  const selling = parseFloat(document.getElementById('selling-price-input').value) || 0;
-  const box = document.getElementById('discount-badge-box');
-  
-  if (mrp > 0 && selling > 0 && selling < mrp) {
+// ==========================================
+// LIVE PRICING VALIDATION & PROFIT CALCULATOR
+// Enforces: MRP > Selling Price > Product Cost
+// ==========================================
+let pricingIsValid = false;
+
+function validatePricingAndCalculate() {
+  const mrpInput = document.getElementById('mrp-input');
+  const sellingInput = document.getElementById('selling-price-input');
+  const costInput = document.getElementById('product-cost-input');
+  const submitBtn = document.getElementById('submit-btn');
+
+  const mrpError = document.getElementById('mrp-error');
+  const sellingError = document.getElementById('selling-price-error');
+  const costError = document.getElementById('product-cost-error');
+  const alertBox = document.getElementById('pricing-error-alert');
+  const alertText = document.getElementById('pricing-error-text');
+  const discountBox = document.getElementById('discount-badge-box');
+  const profitLine = document.getElementById('profit-preview-line');
+  const commissionRate = parseFloat("{{ user.seller_profile.commission_rate|default:5.00 }}") || 5.0;
+
+  // Clear all previous errors
+  [mrpError, sellingError, costError].forEach(el => {
+    if (el) { el.style.display = 'none'; el.innerText = ''; }
+  });
+  [mrpInput, sellingInput, costInput].forEach(el => {
+    if (el) el.style.borderColor = '';
+  });
+  if (alertBox) { alertBox.style.display = 'none'; }
+  if (discountBox) { discountBox.style.display = 'none'; }
+  if (profitLine) { profitLine.style.display = 'none'; }
+
+  const mrpVal = mrpInput ? mrpInput.value.trim() : '';
+  const sellingVal = sellingInput ? sellingInput.value.trim() : '';
+  const costVal = costInput ? costInput.value.trim() : '';
+
+  // If all fields are empty, just reset and return
+  if (!mrpVal && !sellingVal && !costVal) {
+    pricingIsValid = false;
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; }
+    return;
+  }
+
+  const mrp = parseFloat(mrpVal);
+  const selling = parseFloat(sellingVal);
+  const cost = parseFloat(costVal);
+
+  let errors = [];
+
+  // --- Individual field validation ---
+  // MRP
+  if (mrpVal !== '' && (isNaN(mrp) || mrp <= 0)) {
+    showFieldError(mrpInput, mrpError, 'MRP must be a positive amount.');
+    errors.push('MRP must be a positive amount.');
+  }
+
+  // Selling Price
+  if (sellingVal !== '' && (isNaN(selling) || selling <= 0)) {
+    showFieldError(sellingInput, sellingError, 'Selling Price must be a positive amount.');
+    errors.push('Selling Price must be a positive amount.');
+  }
+
+  // Product Cost
+  if (costVal === '') {
+    showFieldError(costInput, costError, 'Product Cost is mandatory.');
+    errors.push('Product Cost is mandatory.');
+  } else if (isNaN(cost) || cost <= 0) {
+    showFieldError(costInput, costError, 'Product Cost must be a positive amount.');
+    errors.push('Product Cost must be a positive amount.');
+  }
+
+  // --- Cross-field strict inequality checks ---
+  if (errors.length === 0) {
+    // All three must have values for cross-checks
+    const hasMrp = mrpVal !== '' && !isNaN(mrp) && mrp > 0;
+    const hasSelling = sellingVal !== '' && !isNaN(selling) && selling > 0;
+    const hasCost = costVal !== '' && !isNaN(cost) && cost > 0;
+
+    if (hasMrp && hasSelling && mrp <= selling) {
+      showFieldError(mrpInput, mrpError, 'MRP must be greater than Selling Price.');
+      showFieldError(sellingInput, sellingError, 'Selling Price must be less than MRP.');
+      errors.push('MRP must be greater than Selling Price.');
+    }
+
+    if (hasSelling && hasCost && selling <= cost) {
+      showFieldError(sellingInput, sellingError, 'Selling Price must be greater than Product Cost.');
+      showFieldError(costInput, costError, 'Product Cost must be less than Selling Price.');
+      errors.push('Selling Price must be greater than Product Cost.');
+    }
+  }
+
+  // --- Show/hide alert and toggle submit button ---
+  if (errors.length > 0) {
+    pricingIsValid = false;
+    if (alertBox && alertText) {
+      alertText.innerText = errors[0];
+      alertBox.style.display = 'block';
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.5';
+    }
+    return;
+  }
+
+  // All pricing checks passed
+  pricingIsValid = true;
+  if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; }
+
+  // --- Show discount & profit preview ---
+  const hasMrp = mrpVal !== '' && !isNaN(mrp) && mrp > 0;
+  const hasSelling = sellingVal !== '' && !isNaN(selling) && selling > 0;
+  const hasCost = costVal !== '' && !isNaN(cost) && cost > 0;
+  let showBox = false;
+
+  if (hasMrp && hasSelling && selling < mrp) {
     const diff = mrp - selling;
     const pct = Math.round((diff / mrp) * 100);
     document.getElementById('discount-percent-text').innerText = pct + '% OFF';
-    document.getElementById('discount-save-amount').innerText = window.formatINR(diff);
-    box.style.display = 'block';
-  } else {
-    box.style.display = 'none';
+    document.getElementById('discount-save-amount').innerText = (window.formatINR ? window.formatINR(diff) : '₹' + diff.toFixed(2));
+    showBox = true;
+  }
+
+  if (profitLine && hasSelling && hasCost) {
+    const commission = (selling * commissionRate / 100.0);
+    const payable = selling - commission;
+    const profit = payable - cost;
+    const profitText = (profit >= 0 ? '+' : '') + '₹' + profit.toFixed(2);
+    const marginPct = ((profit / selling) * 100).toFixed(1);
+    profitLine.innerHTML = `<i class="fa-solid fa-chart-line"></i> Estimated Net Profit: <strong style="color: ${profit >= 0 ? '#059669' : '#DC2626'}">${profitText}</strong> per unit (${marginPct}% margin after ${commissionRate}% commission &amp; ₹${cost.toFixed(2)} cost).`;
+    profitLine.style.display = 'block';
+    showBox = true;
+  }
+
+  if (discountBox) { discountBox.style.display = showBox ? 'block' : 'none'; }
+}
+
+function showFieldError(inputEl, errorEl, message) {
+  if (inputEl) { inputEl.style.borderColor = '#DC2626'; }
+  if (errorEl) {
+    errorEl.innerText = message;
+    errorEl.style.display = 'block';
   }
 }
-calculateDiscount();
+
+// Run on page load (for edit forms with pre-filled values)
+validatePricingAndCalculate();
 
 // Inventory Stock Calculations
 const baseInitialStock = parseInt("{{ product.stock_record.current_stock|default:0 }}") || 0;
@@ -546,7 +669,16 @@ function removeExistingImage(imageId) {
   }
 }
 
-document.getElementById('product-form').addEventListener('submit', function() {
+document.getElementById('product-form').addEventListener('submit', function(e) {
+  // Final pricing validation check before submitting
+  validatePricingAndCalculate();
+  if (!pricingIsValid) {
+    e.preventDefault();
+    // Scroll to the pricing error alert
+    const alertBox = document.getElementById('pricing-error-alert');
+    if (alertBox) { alertBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    return false;
+  }
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving Product to Database...';

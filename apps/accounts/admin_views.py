@@ -386,6 +386,7 @@ def admin_products_view(request):
     total_products = Product.objects.count()
     active_products = Product.objects.filter(is_active=True).count()
     inactive_products = Product.objects.filter(is_active=False).count()
+    pending_approval_products = Product.objects.filter(approval_status=Product.ApprovalStatus.PENDING).count()
     in_stock_products = Product.objects.filter(stock_record__current_stock__gt=0).count()
     low_stock_products = Product.objects.filter(
         stock_record__current_stock__gt=0,
@@ -429,6 +430,12 @@ def admin_products_view(request):
         )
     elif status_filter == 'out_of_stock':
         products_qs = products_qs.filter(stock_record__current_stock__lte=0)
+    elif status_filter == 'pending_approval':
+        products_qs = products_qs.filter(approval_status=Product.ApprovalStatus.PENDING)
+    elif status_filter == 'rejected':
+        products_qs = products_qs.filter(approval_status=Product.ApprovalStatus.REJECTED)
+    elif status_filter == 'suspended':
+        products_qs = products_qs.filter(approval_status=Product.ApprovalStatus.SUSPENDED)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -477,6 +484,60 @@ def admin_products_view(request):
                 except (ValueError, TypeError):
                     messages.error(request, "Please enter a valid whole number for maximum quantity per order.")
             return redirect(request.get_full_path())
+        elif action == 'approve_product':
+            from apps.reports.models import ProductApprovalHistory
+            prev = prod.approval_status
+            prod.approval_status = Product.ApprovalStatus.APPROVED
+            prod.is_approved = True
+            prod.rejection_reason = ''
+            prod.save(update_fields=['approval_status', 'is_approved', 'rejection_reason', 'updated_at'])
+            ProductApprovalHistory.objects.create(
+                product=prod, action='APPROVED', admin_user=request.user,
+                reason='Approved by admin.', previous_status=prev, new_status='APPROVED'
+            )
+            Notification.send(
+                user=prod.seller, title=f"Product Approved: {prod.name}",
+                message=f"Your product '{prod.name}' has been approved and is now visible to customers.",
+                category=Notification.Category.ACCOUNT, link=f"/seller/products/edit/{prod.id}/"
+            )
+            messages.success(request, f"Product '{prod.name}' approved.")
+            return redirect(request.get_full_path())
+
+        elif action == 'reject_product':
+            from apps.reports.models import ProductApprovalHistory
+            reason = request.POST.get('rejection_reason', 'Rejected by admin.').strip() or 'Rejected by admin.'
+            prev = prod.approval_status
+            prod.approval_status = Product.ApprovalStatus.REJECTED
+            prod.is_approved = False
+            prod.rejection_reason = reason
+            prod.save(update_fields=['approval_status', 'is_approved', 'rejection_reason', 'updated_at'])
+            ProductApprovalHistory.objects.create(
+                product=prod, action='REJECTED', admin_user=request.user,
+                reason=reason, previous_status=prev, new_status='REJECTED'
+            )
+            Notification.send(
+                user=prod.seller, title=f"Product Rejected: {prod.name}",
+                message=f"Your product '{prod.name}' was rejected. Reason: {reason}",
+                category=Notification.Category.ACCOUNT, link=f"/seller/products/edit/{prod.id}/"
+            )
+            messages.warning(request, f"Product '{prod.name}' rejected.")
+            return redirect(request.get_full_path())
+
+        elif action == 'suspend_product':
+            from apps.reports.models import ProductApprovalHistory
+            reason = request.POST.get('rejection_reason', 'Suspended by admin.').strip() or 'Suspended by admin.'
+            prev = prod.approval_status
+            prod.approval_status = Product.ApprovalStatus.SUSPENDED
+            prod.is_approved = False
+            prod.rejection_reason = reason
+            prod.save(update_fields=['approval_status', 'is_approved', 'rejection_reason', 'updated_at'])
+            ProductApprovalHistory.objects.create(
+                product=prod, action='SUSPENDED', admin_user=request.user,
+                reason=reason, previous_status=prev, new_status='SUSPENDED'
+            )
+            messages.warning(request, f"Product '{prod.name}' suspended.")
+            return redirect(request.get_full_path())
+
         else:
             prod.is_active = not prod.is_active
             prod.save(update_fields=['is_active'])
@@ -492,6 +553,7 @@ def admin_products_view(request):
         'total_products': total_products,
         'active_products': active_products,
         'inactive_products': inactive_products,
+        'pending_approval_products': pending_approval_products,
         'in_stock_products': in_stock_products,
         'low_stock_products': low_stock_products,
         'out_of_stock_products': out_of_stock_products,
@@ -620,3 +682,289 @@ def export_sales_csv(request):
         ])
 
     return response
+
+
+@role_required(['ADMIN'])
+def admin_marketplace_config_view(request):
+    """View and edit marketplace configuration (singleton)."""
+    from apps.reports.models import MarketplaceConfig, MarketplaceConfigHistory
+
+    config = MarketplaceConfig.get_config()
+
+    if request.method == 'POST':
+        field_map = {
+            'commission_percentage': 'commission_percentage',
+            'commission_fixed_per_unit': 'commission_fixed_per_unit',
+            'commission_base': 'commission_base',
+            'cashback_per_unit': 'cashback_per_unit',
+            'cashback_funding': 'cashback_funding',
+            'delivery_fee_default': 'delivery_fee_default',
+            'delivery_fee_free_above': 'delivery_fee_free_above',
+            'delivery_person_earning_per_order': 'delivery_person_earning_per_order',
+            'return_period_days': 'return_period_days',
+        }
+        boolean_fields = ['seller_settlement_require_delivery', 'seller_settlement_require_payment']
+        changes = []
+
+        with transaction.atomic():
+            for post_key, model_field in field_map.items():
+                new_val = request.POST.get(post_key, '').strip()
+                if not new_val:
+                    continue
+                old_val = str(getattr(config, model_field))
+                if model_field in ['commission_base', 'cashback_funding']:
+                    if new_val != old_val:
+                        MarketplaceConfigHistory.objects.create(
+                            changed_by=request.user, field_name=model_field,
+                            old_value=old_val, new_value=new_val
+                        )
+                        setattr(config, model_field, new_val)
+                        changes.append(model_field)
+                elif model_field == 'return_period_days':
+                    try:
+                        new_int = int(new_val)
+                        if str(getattr(config, model_field)) != str(new_int):
+                            MarketplaceConfigHistory.objects.create(
+                                changed_by=request.user, field_name=model_field,
+                                old_value=old_val, new_value=str(new_int)
+                            )
+                            setattr(config, model_field, new_int)
+                            changes.append(model_field)
+                    except (ValueError, TypeError):
+                        pass
+                else:
+                    try:
+                        new_dec = Decimal(new_val)
+                        if str(getattr(config, model_field)) != str(new_dec):
+                            MarketplaceConfigHistory.objects.create(
+                                changed_by=request.user, field_name=model_field,
+                                old_value=old_val, new_value=str(new_dec)
+                            )
+                            setattr(config, model_field, new_dec)
+                            changes.append(model_field)
+                    except Exception:
+                        pass
+
+            for bf in boolean_fields:
+                new_bool = bf in request.POST
+                old_bool = getattr(config, bf)
+                if new_bool != old_bool:
+                    MarketplaceConfigHistory.objects.create(
+                        changed_by=request.user, field_name=bf,
+                        old_value=str(old_bool), new_value=str(new_bool)
+                    )
+                    setattr(config, bf, new_bool)
+                    changes.append(bf)
+
+            if changes:
+                config.updated_by = request.user
+                config.save()
+                messages.success(request, f"Marketplace settings updated: {', '.join(changes)}")
+            else:
+                messages.info(request, "No settings were changed.")
+
+        return redirect('admin_dashboard:marketplace_config')
+
+    history = MarketplaceConfigHistory.objects.all()[:20]
+    return render(request, 'admin_dashboard/marketplace_config.html', {
+        'config': config,
+        'history': history,
+    })
+
+
+@role_required(['ADMIN'])
+def admin_seller_wallets_view(request):
+    """Overview of all seller wallets and their balances."""
+    from apps.reports.models import SellerWallet, SellerWalletTransaction, SellerPayout
+
+    wallets = SellerWallet.objects.select_related('seller', 'seller__seller_profile').order_by('-available_balance')
+
+    total_available = wallets.aggregate(t=Sum('available_balance'))['t'] or Decimal('0.00')
+    total_pending = wallets.aggregate(t=Sum('pending_earnings'))['t'] or Decimal('0.00')
+    total_lifetime = wallets.aggregate(t=Sum('lifetime_credited'))['t'] or Decimal('0.00')
+    total_withdrawn = wallets.aggregate(t=Sum('total_withdrawn'))['t'] or Decimal('0.00')
+
+    # Payout requests
+    payouts = SellerPayout.objects.select_related('seller', 'seller__seller_profile').order_by('-requested_at')[:20]
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'approve_payout':
+            payout_id = request.POST.get('payout_id')
+            payout = get_object_or_404(SellerPayout, id=payout_id, status='REQUESTED')
+            with transaction.atomic():
+                wallet = payout.wallet
+                wallet = type(wallet).objects.select_for_update().get(pk=wallet.pk)
+                if wallet.available_balance < payout.amount:
+                    messages.error(request, f"Insufficient wallet balance for payout (Available: ₹{wallet.available_balance}).")
+                    return redirect('admin_dashboard:seller_wallets')
+
+                balance_before = wallet.available_balance
+                balance_after = balance_before - payout.amount
+                SellerWalletTransaction.objects.create(
+                    wallet=wallet, seller=payout.seller, order=None,
+                    transaction_type='WITHDRAWAL_CONFIRMED',
+                    amount=-payout.amount,
+                    balance_before=balance_before, balance_after=balance_after,
+                    status='COMPLETED',
+                    description=f"Withdrawal payout approved by admin {request.user.username}",
+                    idempotency_key=f"PAYOUT-{payout.id}-APPROVED",
+                    settled_at=timezone.now(),
+                )
+                wallet.available_balance = balance_after
+                wallet.total_withdrawn += payout.amount
+                wallet.save()
+                payout.status = 'PAID'
+                payout.approved_by = request.user
+                payout.processed_at = timezone.now()
+                payout.save()
+                messages.success(request, f"Payout of ₹{payout.amount} approved for {payout.seller.username}.")
+            return redirect('admin_dashboard:seller_wallets')
+
+        elif action == 'reject_payout':
+            payout_id = request.POST.get('payout_id')
+            payout = get_object_or_404(SellerPayout, id=payout_id, status='REQUESTED')
+            payout.status = 'REJECTED'
+            payout.approved_by = request.user
+            payout.processed_at = timezone.now()
+            payout.description = request.POST.get('reason', 'Rejected by admin.')
+            payout.save()
+            messages.warning(request, f"Payout rejected for {payout.seller.username}.")
+            return redirect('admin_dashboard:seller_wallets')
+
+    return render(request, 'admin_dashboard/seller_wallets.html', {
+        'wallets': wallets,
+        'total_available': total_available,
+        'total_pending': total_pending,
+        'total_lifetime': total_lifetime,
+        'total_withdrawn': total_withdrawn,
+        'payouts': payouts,
+    })
+
+
+@role_required(['ADMIN'])
+def admin_delivery_earnings_view(request):
+    """Overview of all delivery earnings and payouts."""
+    from apps.reports.models import DeliveryEarning, DeliveryPayout
+
+    earnings = DeliveryEarning.objects.select_related('delivery_person', 'order').order_by('-created_at')[:50]
+
+    total_earnings = DeliveryEarning.objects.filter(status='SETTLED').aggregate(
+        t=Sum('earning_amount'))['t'] or Decimal('0.00')
+    total_pending_earnings = DeliveryEarning.objects.filter(status='PENDING').aggregate(
+        t=Sum('earning_amount'))['t'] or Decimal('0.00')
+
+    payouts = DeliveryPayout.objects.select_related('delivery_person').order_by('-requested_at')[:20]
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'approve_delivery_payout':
+            payout_id = request.POST.get('payout_id')
+            payout = get_object_or_404(DeliveryPayout, id=payout_id, status='REQUESTED')
+            payout.status = 'PAID'
+            payout.approved_by = request.user
+            payout.processed_at = timezone.now()
+            payout.save()
+            messages.success(request, f"Delivery payout of ₹{payout.amount} approved for {payout.delivery_person.username}.")
+            return redirect('admin_dashboard:delivery_earnings')
+
+    return render(request, 'admin_dashboard/delivery_earnings.html', {
+        'earnings': earnings,
+        'total_earnings': total_earnings,
+        'total_pending_earnings': total_pending_earnings,
+        'payouts': payouts,
+    })
+
+
+@role_required(['ADMIN'])
+def admin_company_pnl_view(request):
+    """
+    Company Profit & Loss dashboard.
+    Revenue = commission + delivery fee charged to customers.
+    Expenses = delivery person earnings + company-funded cashback.
+    Seller wallet balances and delivery liabilities are NOT company profit.
+    """
+    from apps.reports.models import (
+        OrderItemFinancialSnapshot, DeliveryEarning, CashbackLedger,
+        SellerWallet, MarketplaceConfig
+    )
+
+    config = MarketplaceConfig.get_config()
+
+    # Date filtering
+    period = request.GET.get('period', 'all')
+    today = timezone.now().date()
+    date_filter = {}
+    if period == 'today':
+        date_filter = {'created_at__date': today}
+    elif period == 'month':
+        date_filter = {'created_at__date__gte': today.replace(day=1)}
+    elif period == 'year':
+        date_filter = {'created_at__date__year': today.year}
+
+    # ---- REVENUE ----
+    # 1. Commission earned
+    settled_snapshots = OrderItemFinancialSnapshot.objects.filter(
+        settlement_status='SETTLED', **date_filter
+    )
+    total_commission = settled_snapshots.aggregate(
+        t=Sum('commission_amount'))['t'] or Decimal('0.00')
+
+    # 2. Delivery fees collected from customers (order level)
+    delivered_orders = Order.objects.filter(status='DELIVERED', **date_filter)
+    total_delivery_fees = delivered_orders.aggregate(
+        t=Sum('delivery_fee'))['t'] or Decimal('0.00')
+
+    total_revenue = total_commission + total_delivery_fees
+
+    # ---- EXPENSES ----
+    # 1. Delivery person earnings (what we pay delivery partners)
+    delivery_earnings_filter = {'status': 'SETTLED'}
+    if date_filter:
+        delivery_earnings_filter.update(date_filter)
+    total_delivery_expenses = DeliveryEarning.objects.filter(
+        **delivery_earnings_filter
+    ).aggregate(t=Sum('earning_amount'))['t'] or Decimal('0.00')
+
+    # 2. Company-funded cashback
+    cashback_filter = {'entry_type': 'EARNED', 'status': 'CONFIRMED', 'funding_source': 'COMPANY'}
+    if date_filter:
+        cashback_filter.update(date_filter)
+    total_cashback_expense = CashbackLedger.objects.filter(
+        **cashback_filter
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    total_expenses = total_delivery_expenses + total_cashback_expense
+
+    # ---- PROFIT ----
+    company_profit = total_revenue - total_expenses
+
+    # ---- LIABILITIES (NOT profit) ----
+    total_seller_wallet_balance = SellerWallet.objects.aggregate(
+        t=Sum('available_balance'))['t'] or Decimal('0.00')
+    total_seller_pending = SellerWallet.objects.aggregate(
+        t=Sum('pending_earnings'))['t'] or Decimal('0.00')
+    total_delivery_unsettled = DeliveryEarning.objects.filter(
+        status='PENDING'
+    ).aggregate(t=Sum('earning_amount'))['t'] or Decimal('0.00')
+
+    # Order metrics
+    total_orders = delivered_orders.count()
+    total_gmv = delivered_orders.aggregate(t=Sum('total_amount'))['t'] or Decimal('0.00')
+
+    return render(request, 'admin_dashboard/company_pnl.html', {
+        'config': config,
+        'period': period,
+        'total_commission': total_commission,
+        'total_delivery_fees': total_delivery_fees,
+        'total_revenue': total_revenue,
+        'total_delivery_expenses': total_delivery_expenses,
+        'total_cashback_expense': total_cashback_expense,
+        'total_expenses': total_expenses,
+        'company_profit': company_profit,
+        'total_seller_wallet_balance': total_seller_wallet_balance,
+        'total_seller_pending': total_seller_pending,
+        'total_delivery_unsettled': total_delivery_unsettled,
+        'total_orders': total_orders,
+        'total_gmv': total_gmv,
+    })

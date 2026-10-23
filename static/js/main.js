@@ -347,13 +347,7 @@ async function handleCartAction(productId, delta, maxStock = null, unit = 'units
       return;
     }
     if (currentQty + delta > maxStock) {
-      if (actualStock !== null && orderLimit !== null && actualStock < orderLimit) {
-        showToast(`Cannot add more. Only ${actualStock} ${unit} available in stock.`, 'warning');
-      } else if (orderLimit !== null) {
-        showToast(`Maximum ${orderLimit} ${unit} per order for bike delivery.`, 'warning');
-      } else {
-        showToast(`Cannot add more. Maximum limit is ${maxStock} ${unit}.`, 'warning');
-      }
+      showToast(`Cannot add more. Only ${maxStock} ${unit} available in stock.`, 'warning');
       return;
     }
   }

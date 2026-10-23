@@ -96,12 +96,17 @@ def product_detail_view(request, slug):
     """Comprehensive product detail page with image gallery, nutrition, reviews, and similar items."""
     product = get_object_or_404(
         Product.objects.select_related('category', 'seller', 'seller__seller_profile', 'stock_record').prefetch_related('images', 'reviews', 'reviews__user'),
-        slug=slug
+        slug=slug,
+        is_active=True,
+        is_approved=True,
+        approval_status=Product.ApprovalStatus.APPROVED,
     )
 
     similar_products = Product.objects.filter(
         category=product.category,
-        is_active=True
+        is_active=True,
+        is_approved=True,
+        approval_status=Product.ApprovalStatus.APPROVED,
     ).exclude(id=product.id)[:4]
 
     in_wishlist = False
@@ -140,7 +145,9 @@ def search_suggestions_api(request):
     if len(query) >= 2:
         matches = Product.objects.filter(
             Q(name__icontains=query) | Q(brand__icontains=query),
-            is_active=True
+            is_active=True,
+            is_approved=True,
+            approval_status=Product.ApprovalStatus.APPROVED,
         ).select_related('stock_record')[:6]
 
         for p in matches:

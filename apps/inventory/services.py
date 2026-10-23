@@ -80,15 +80,13 @@ def validate_purchase_quantity(product, requested_quantity, current_cart_quantit
     requested_qty = int(dec_requested)
     total_requested = current_cart_quantity + requested_qty
 
-    min_qty = getattr(product, 'min_purchase_quantity', 1) or 1
+    min_qty = 1
     if total_requested < min_qty:
-        min_unit = product.get_unit_label(min_qty)
-        return False, f"Minimum purchase quantity for '{product.name}' is {min_qty} {min_unit}.", actual_max
+        return False, f"Minimum purchase quantity for '{product.name}' is 1.", actual_max
 
-    step = getattr(product, 'quantity_step', 1) or 1
+    step = 1
     if (total_requested - min_qty) % step != 0:
-        step_unit = product.get_unit_label(step)
-        return False, f"Quantity for '{product.name}' must be purchased in increments of {step} {step_unit}.", actual_max
+        return False, f"Quantity for '{product.name}' must be purchased in increments of 1.", actual_max
 
     return True, "", actual_max
 

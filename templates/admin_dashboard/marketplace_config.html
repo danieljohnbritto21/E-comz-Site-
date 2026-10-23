@@ -1,0 +1,152 @@
+{% extends 'admin_dashboard/base_admin.html' %}
+{% load static %}
+
+{% block title %}Marketplace Configuration - Admin Portal{% endblock %}
+
+{% block admin_content %}
+<div style="max-width: 1000px;">
+  
+  <div class="dashboard-header" style="margin-bottom: 1.5rem;">
+    <div>
+      <h1 class="dashboard-title">Marketplace Configuration</h1>
+      <p class="dashboard-subtitle">Configure commission rules, buyer cashback defaults, customer delivery fees, delivery partner earnings, and profit settlement terms</p>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+    
+    <!-- Config Form Card -->
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <form method="POST">
+        {% csrf_token %}
+
+        <!-- Section 1: Marketplace Commission -->
+        <div style="margin-bottom: 1.75rem;">
+          <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-percent" style="color: #7C3AED;"></i> 1. Marketplace Commission Defaults
+          </h3>
+          <p style="font-size: 0.8rem; color: #64748B; margin-bottom: 1rem;">
+            Default platform commission deducted from sellers on sold items. (Individual sellers can have custom rates via Seller Profile).
+          </p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Default Percentage (%)</label>
+              <input type="number" step="0.01" min="0" max="100" name="commission_percentage" value="{{ config.commission_percentage }}" class="form-control" required>
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Fixed Per Unit (₹)</label>
+              <input type="number" step="0.01" min="0" name="commission_fixed_per_unit" value="{{ config.commission_fixed_per_unit }}" class="form-control" required>
+            </div>
+          </div>
+          <div style="margin-top: 0.75rem;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Commission Calculation Base</label>
+            <select name="commission_base" class="form-select">
+              <option value="SELLING_PRICE" {% if config.commission_base == 'SELLING_PRICE' %}selected{% endif %}>Actual Selling Price (Standard)</option>
+              <option value="MRP" {% if config.commission_base == 'MRP' %}selected{% endif %}>Maximum Retail Price (MRP)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Section 2: Buyer Cashback -->
+        <div style="margin-bottom: 1.75rem; border-top: 1px solid #F1F5F9; padding-top: 1.25rem;">
+          <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-coins" style="color: #D97706;"></i> 2. Buyer Cashback Policy
+          </h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Cashback Per Eligible Unit (₹)</label>
+              <input type="number" step="0.01" min="0" name="cashback_per_unit" value="{{ config.cashback_per_unit }}" class="form-control" required>
+              <small style="font-size: 0.72rem; color: #64748B;">Default: ₹1.00 per unit purchased.</small>
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Funding Source</label>
+              <select name="cashback_funding" class="form-select">
+                <option value="COMPANY" {% if config.cashback_funding == 'COMPANY' %}selected{% endif %}>Company Funded (Platform expense)</option>
+                <option value="SELLER" {% if config.cashback_funding == 'SELLER' %}selected{% endif %}>Seller Funded (Deducted from payable)</option>
+                <option value="PROMOTIONAL" {% if config.cashback_funding == 'PROMOTIONAL' %}selected{% endif %}>Promotional Campaign Budget</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Delivery Fees & Rider Earnings -->
+        <div style="margin-bottom: 1.75rem; border-top: 1px solid #F1F5F9; padding-top: 1.25rem;">
+          <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-motorcycle" style="color: #059669;"></i> 3. Delivery Fees & Partner Earnings
+          </h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Default Delivery Fee to Buyer (₹)</label>
+              <input type="number" step="0.01" min="0" name="delivery_fee_default" value="{{ config.delivery_fee_default }}" class="form-control" required>
+              <small style="font-size: 0.72rem; color: #64748B;">Standard: ₹30.00 charged to customer.</small>
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Free Delivery Threshold (₹)</label>
+              <input type="number" step="0.01" min="0" name="delivery_fee_free_above" value="{{ config.delivery_fee_free_above }}" class="form-control" required>
+              <small style="font-size: 0.72rem; color: #64748B;">0 = Always charge standard fee.</small>
+            </div>
+          </div>
+          <div style="margin-top: 1rem;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Delivery Partner Earning Per Delivered Order (₹)</label>
+            <input type="number" step="0.01" min="0" name="delivery_person_earning_per_order" value="{{ config.delivery_person_earning_per_order }}" class="form-control" required>
+            <small style="font-size: 0.72rem; color: #64748B;">Amount credited to delivery agent wallet upon OTP-verified delivery.</small>
+          </div>
+        </div>
+
+        <!-- Section 4: Seller Settlement Terms -->
+        <div style="margin-bottom: 1.75rem; border-top: 1px solid #F1F5F9; padding-top: 1.25rem;">
+          <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-wallet" style="color: #2563EB;"></i> 4. Seller Settlement Rules
+          </h3>
+          <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #1E293B; cursor: pointer;">
+              <input type="checkbox" name="seller_settlement_require_delivery" {% if config.seller_settlement_require_delivery %}checked{% endif %}>
+              <span>Require successful customer OTP delivery verification before profit credit</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #1E293B; cursor: pointer;">
+              <input type="checkbox" name="seller_settlement_require_payment" {% if config.seller_settlement_require_payment %}checked{% endif %}>
+              <span>Require verified payment (PAID status) before profit credit</span>
+            </label>
+          </div>
+          <div>
+            <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Return Window / Settlement Delay (Days)</label>
+            <input type="number" min="0" name="return_period_days" value="{{ config.return_period_days }}" class="form-control" required style="max-width: 150px;">
+            <small style="font-size: 0.72rem; color: #64748B;">0 = Instant settlement upon successful doorstep delivery.</small>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 700; font-size: 0.95rem; border-radius: 8px;">
+          <i class="fa-solid fa-floppy-disk"></i> Save Marketplace Settings
+        </button>
+      </form>
+    </div>
+
+    <!-- Audit History Sidebar Card -->
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-clock-rotate-left" style="color: #64748B;"></i> Configuration Audit Log
+      </h3>
+      <div style="display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto;">
+        {% for h in history %}
+          <div style="padding: 8px 10px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 0.75rem;">
+            <div style="font-weight: 700; color: #1E293B;">{{ h.field_name }}</div>
+            <div style="color: #64748B; margin-top: 2px;">
+              <span style="color: #DC2626; text-decoration: line-through;">{{ h.old_value }}</span> &rarr;
+              <span style="color: #059669; font-weight: 700;">{{ h.new_value }}</span>
+            </div>
+            <div style="font-size: 0.68rem; color: #94A3B8; margin-top: 4px;">
+              By {{ h.changed_by.username|default:"System" }} &bull; {{ h.created_at|date:"M d, H:i" }}
+            </div>
+          </div>
+        {% empty %}
+          <div style="color: #94A3B8; font-size: 0.8rem; text-align: center; padding: 1.5rem 0;">
+            No settings changes recorded yet.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

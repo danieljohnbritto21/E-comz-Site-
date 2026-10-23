@@ -1,7 +1,48 @@
 from django.db import models
 from django.utils.text import slugify
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from decimal import Decimal
+
+
+def validate_pricing_rules(mrp_raw, selling_price_raw, product_cost_raw):
+    """
+    Enforces strict pricing rules: MRP > Selling Price > Product Cost.
+    All three must be valid positive amounts, and Product Cost is mandatory.
+    Returns: (is_valid: bool, error_message: str, cleaned_values: tuple(Decimal, Decimal, Decimal)|None)
+    """
+    if product_cost_raw is None or str(product_cost_raw).strip() == '':
+        return False, "Product Cost is mandatory and must be a positive amount.", None
+
+    if mrp_raw is None or str(mrp_raw).strip() == '':
+        return False, "MRP is mandatory and must be a positive amount.", None
+
+    if selling_price_raw is None or str(selling_price_raw).strip() == '':
+        return False, "Selling Price is mandatory and must be a positive amount.", None
+
+    try:
+        mrp = Decimal(str(mrp_raw).strip())
+        selling_price = Decimal(str(selling_price_raw).strip())
+        product_cost = Decimal(str(product_cost_raw).strip())
+    except Exception:
+        return False, "Please enter valid numeric values for MRP, Selling Price, and Product Cost.", None
+
+    if mrp <= Decimal('0'):
+        return False, "MRP must be a positive amount greater than zero.", None
+
+    if selling_price <= Decimal('0'):
+        return False, "Selling Price must be a positive amount greater than zero.", None
+
+    if product_cost <= Decimal('0'):
+        return False, "Product Cost must be a positive amount greater than zero.", None
+
+    if mrp <= selling_price:
+        return False, "MRP must be greater than Selling Price.", None
+
+    if selling_price <= product_cost:
+        return False, "Selling Price must be greater than Product Cost.", None
+
+    return True, "", (mrp, selling_price, product_cost)
 
 
 class Category(models.Model):
@@ -69,6 +110,15 @@ class Product(models.Model):
         ('boxes', 'Box(es)'),
     )
 
+    class ApprovalStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pending Approval'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+        SUSPENDED = 'SUSPENDED', 'Suspended'
+
+    # Fields whose changes trigger re-approval for an APPROVED product
+    REAPPROVAL_FIELDS = ['name', 'description', 'category', 'subcategory']
+
     seller = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -83,12 +133,16 @@ class Product(models.Model):
     description = models.TextField(blank=True, default='')
     unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='kg')
     unit_value = models.CharField(max_length=50, default='1 kg', help_text='Display unit, e.g. 500g, 1 kg, 1 bunch')
-    min_purchase_quantity = models.PositiveIntegerField(default=1, help_text='Minimum quantity that can be purchased')
-    quantity_step = models.PositiveIntegerField(default=1, help_text='Supported selling increment (e.g. 1 packet, 1 kg)')
+    min_purchase_quantity = models.PositiveIntegerField(default=1, blank=True, help_text='Minimum quantity that can be purchased')
+    quantity_step = models.PositiveIntegerField(default=1, blank=True, help_text='Supported selling increment (e.g. 1 packet, 1 kg)')
     max_quantity_per_order = models.PositiveIntegerField(null=True, blank=True, help_text='Maximum quantity a customer can order in a single order (bike delivery limit). If null, unit-based default applies.')
     
     mrp = models.DecimalField(max_digits=10, decimal_places=2, help_text='Maximum Retail Price')
     selling_price = models.DecimalField(max_digits=10, decimal_places=2, help_text='Actual discount/selling price')
+    product_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Purchase or production cost per unit. Used for profit calculation.'
+    )
     sku = models.CharField(max_length=50, unique=True, help_text='Unique Stock Keeping Unit')
     
     origin = models.CharField(max_length=100, default='Local Organic Farm', blank=True)
@@ -100,7 +154,18 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
     is_best_seller = models.BooleanField(default=False)
-    is_approved = models.BooleanField(default=True)
+    is_approved = models.BooleanField(default=False)
+    approval_status = models.CharField(
+        max_length=20,
+        choices=ApprovalStatus.choices,
+        default=ApprovalStatus.PENDING,
+        db_index=True,
+        help_text='Product approval status. Only APPROVED products are visible to customers.'
+    )
+    rejection_reason = models.TextField(
+        blank=True, default='',
+        help_text='Reason for rejection or suspension, visible to seller.'
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -108,7 +173,28 @@ class Product(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+    def clean(self):
+        super().clean()
+        if self.mrp is not None and self.selling_price is not None:
+            if self.mrp <= Decimal('0'):
+                raise ValidationError({'mrp': 'MRP must be a positive amount greater than zero.'})
+            if self.selling_price <= Decimal('0'):
+                raise ValidationError({'selling_price': 'Selling Price must be a positive amount greater than zero.'})
+            if self.mrp <= self.selling_price:
+                raise ValidationError({'mrp': 'MRP must be greater than Selling Price.'})
+        if self.product_cost is not None:
+            if self.product_cost <= Decimal('0'):
+                raise ValidationError({'product_cost': 'Product Cost must be a positive amount greater than zero.'})
+            if self.selling_price is not None and self.selling_price <= self.product_cost:
+                raise ValidationError({'selling_price': 'Selling Price must be greater than Product Cost.'})
+
     def save(self, *args, **kwargs):
+        # Strict pricing validation: MRP > Selling Price > Product Cost
+        if self.mrp is not None and self.selling_price is not None and self.mrp <= self.selling_price:
+            raise ValidationError({'mrp': 'MRP must be greater than Selling Price.'})
+        if self.selling_price is not None and self.product_cost is not None and self.selling_price <= self.product_cost:
+            raise ValidationError({'selling_price': 'Selling Price must be greater than Product Cost.'})
+
         if not self.slug:
             base_slug = slugify(f"{self.name}-{self.seller.username}")
             candidate = base_slug
@@ -117,6 +203,18 @@ class Product(models.Model):
                 candidate = f"{base_slug}-{idx}"
                 idx += 1
             self.slug = candidate
+
+        # Keep is_approved synchronized with approval_status
+        if self.is_approved and self.approval_status == self.ApprovalStatus.PENDING:
+            self.approval_status = self.ApprovalStatus.APPROVED
+        self.is_approved = (self.approval_status == self.ApprovalStatus.APPROVED)
+
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None and 'approval_status' in update_fields and 'is_approved' not in update_fields:
+            kwargs['update_fields'] = list(update_fields) + ['is_approved']
+        elif update_fields is not None and 'is_approved' in update_fields and 'approval_status' not in update_fields:
+            kwargs['update_fields'] = list(update_fields) + ['approval_status']
+
         super().save(*args, **kwargs)
 
     @property

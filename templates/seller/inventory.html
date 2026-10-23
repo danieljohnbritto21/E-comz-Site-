@@ -19,33 +19,140 @@
       <i class="fa-solid fa-boxes-packing" style="color: var(--color-primary-dark);"></i> Quick Stock Inward / Adjustment
     </h3>
 
-    <form method="POST" class="inventory-form-grid">
+    <form method="POST" class="inventory-form-grid" id="stockAdjustmentForm">
       {% csrf_token %}
       
+      <!-- PRODUCT SELECTOR: Custom Searchable Dropdown -->
       <div class="form-group" style="margin-bottom: 0;">
         <label class="form-label">Select Produce / Product</label>
-        <select name="product_id" class="form-select" required>
+        <select name="product_id" id="nativeProductSelect" class="form-select" required style="display: none;">
           <option value="">-- Choose Item --</option>
           {% for p in products %}
-            <option value="{{ p.id }}">{{ p.name }} (Current: {{ p.stock_record.current_stock }} {{ p.stock_unit_display }})</option>
+            <option value="{{ p.id }}" 
+                    data-name="{{ p.name }}"
+                    data-stock="{{ p.stock_record.current_stock }}"
+                    data-unit="{{ p.stock_unit_display }}"
+                    data-low="{{ p.stock_record.low_stock_threshold }}"
+                    data-category="{{ p.category.name }}">
+              {{ p.name }} (Current: {{ p.stock_record.current_stock }} {{ p.stock_unit_display }})
+            </option>
           {% endfor %}
         </select>
+
+        <div class="custom-dropdown" id="productDropdown">
+          <button type="button" class="custom-dropdown-trigger" tabindex="0" aria-haspopup="listbox">
+            <span class="trigger-label">
+              <span class="trigger-placeholder"><i class="fa-solid fa-seedling" style="opacity: 0.5;"></i> Choose a product…</span>
+            </span>
+            <i class="fa-solid fa-chevron-down trigger-chevron"></i>
+          </button>
+          <div class="custom-dropdown-panel">
+            <div class="custom-dropdown-search">
+              <i class="fa-solid fa-magnifying-glass search-icon"></i>
+              <input type="text" placeholder="Search products…" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="custom-dropdown-options" role="listbox">
+              {% for p in products %}
+                <div class="custom-dropdown-option" 
+                     role="option"
+                     data-value="{{ p.id }}"
+                     data-name="{{ p.name }}"
+                     data-stock="{{ p.stock_record.current_stock }}"
+                     data-unit="{{ p.stock_unit_display }}"
+                     data-low="{{ p.stock_record.low_stock_threshold }}"
+                     data-category="{{ p.category.name }}">
+                  <div class="option-icon icon-product">
+                    <i class="fa-solid fa-box"></i>
+                  </div>
+                  <div class="option-content">
+                    <span class="option-label">{{ p.name }}</span>
+                    <span class="option-meta">
+                      {{ p.category.name }} · 
+                      {% if p.stock_record.current_stock <= 0 %}
+                        <span style="color: #DC2626; font-weight: 600;">Out of stock</span>
+                      {% elif p.stock_record.current_stock <= p.stock_record.low_stock_threshold %}
+                        <span style="color: #D97706; font-weight: 600;">Low: {{ p.stock_record.current_stock }} {{ p.stock_unit_display }}</span>
+                      {% else %}
+                        <span style="color: #047857; font-weight: 600;">{{ p.stock_record.current_stock }} {{ p.stock_unit_display }}</span>
+                      {% endif %}
+                    </span>
+                  </div>
+                </div>
+              {% endfor %}
+              <div class="custom-dropdown-empty" style="display: none;">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                No products match your search
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
+      <!-- QUANTITY -->
       <div class="form-group" style="margin-bottom: 0;">
         <label class="form-label">Quantity Change (+/-)</label>
         <input type="number" name="quantity_change" class="form-control" placeholder="+20 or -5" required>
       </div>
 
+      <!-- REASON CODE: Custom Icon Dropdown -->
       <div class="form-group" style="margin-bottom: 0;">
         <label class="form-label">Reason Code</label>
-        <select name="change_type" class="form-select">
+        <select name="change_type" id="nativeReasonSelect" class="form-select" style="display: none;">
           <option value="RESTOCK">Stock Inward / Restock</option>
           <option value="DAMAGE">Damaged Produce Disposal</option>
           <option value="MANUAL">Manual Stock Audit Correction</option>
         </select>
+
+        <div class="custom-dropdown" id="reasonDropdown">
+          <button type="button" class="custom-dropdown-trigger" tabindex="0" aria-haspopup="listbox">
+            <span class="trigger-label">
+              <span class="trigger-icon" style="color: #065F46;"><i class="fa-solid fa-truck-ramp-box"></i></span>
+              Stock Inward / Restock
+            </span>
+            <i class="fa-solid fa-chevron-down trigger-chevron"></i>
+          </button>
+          <div class="custom-dropdown-panel" style="min-width: 320px;">
+            <div class="custom-dropdown-options" role="listbox">
+              <div class="custom-dropdown-section-header">Select reason for adjustment</div>
+              <div class="custom-dropdown-option active" role="option" 
+                   data-value="RESTOCK" data-icon="fa-truck-ramp-box" data-icon-class="icon-restock"
+                   data-label="Stock Inward / Restock" data-icon-color="#065F46">
+                <div class="option-icon icon-restock">
+                  <i class="fa-solid fa-truck-ramp-box"></i>
+                </div>
+                <div class="option-content">
+                  <span class="option-label">Stock Inward / Restock</span>
+                  <span class="option-meta">New inventory arrived from supplier</span>
+                </div>
+              </div>
+              <div class="custom-dropdown-option" role="option"
+                   data-value="DAMAGE" data-icon="fa-trash-can" data-icon-class="icon-damage"
+                   data-label="Damaged Produce Disposal" data-icon-color="#991B1B">
+                <div class="option-icon icon-damage">
+                  <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <div class="option-content">
+                  <span class="option-label">Damaged Produce Disposal</span>
+                  <span class="option-meta">Write off expired, spoiled, or damaged items</span>
+                </div>
+              </div>
+              <div class="custom-dropdown-option" role="option"
+                   data-value="MANUAL" data-icon="fa-clipboard-check" data-icon-class="icon-manual"
+                   data-label="Manual Stock Audit Correction" data-icon-color="#1E40AF">
+                <div class="option-icon icon-manual">
+                  <i class="fa-solid fa-clipboard-check"></i>
+                </div>
+                <div class="option-content">
+                  <span class="option-label">Manual Stock Audit Correction</span>
+                  <span class="option-meta">Physical count differs from system count</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
+      <!-- NOTES -->
       <div class="form-group" style="margin-bottom: 0;">
         <label class="form-label">Notes / Remarks</label>
         <input type="text" name="reason" class="form-control" placeholder="e.g. Received morning batch #5">
@@ -71,7 +178,6 @@
             <th>Category</th>
             <th>Selling Unit</th>
             <th>Available Stock</th>
-            <th>Max Per Order (Bike)</th>
             <th>Alert Threshold</th>
             <th>Stock Health</th>
             <th>Last Restocked</th>
@@ -93,11 +199,6 @@
               <td>
                 <span style="font-size: 1.15rem; font-weight: 800; {% if p.stock_record.current_stock <= 0 %}color: #DC2626;{% elif p.stock_record.current_stock <= p.stock_record.low_stock_threshold %}color: #D97706;{% else %}color: #047857;{% endif %}">
                   {{ p.stock_record.current_stock }} {{ p.get_unit_label }}
-                </span>
-              </td>
-              <td>
-                <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                  <i class="fa-solid fa-bicycle"></i> Maximum {{ p.per_order_limit }} {{ p.get_unit_label }} per order
                 </span>
               </td>
               <td>{{ p.stock_record.low_stock_threshold }} {{ p.get_unit_label }}</td>
@@ -178,4 +279,240 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  /* ================================================================
+     REUSABLE DROPDOWN ENGINE
+     ================================================================ */
+  class EnhancedDropdown {
+    constructor(containerEl, nativeSelectEl, options = {}) {
+      this.container = containerEl;
+      this.nativeSelect = nativeSelectEl;
+      this.trigger = containerEl.querySelector('.custom-dropdown-trigger');
+      this.panel = containerEl.querySelector('.custom-dropdown-panel');
+      this.optionsContainer = containerEl.querySelector('.custom-dropdown-options');
+      this.searchInput = containerEl.querySelector('.custom-dropdown-search input');
+      this.emptyState = containerEl.querySelector('.custom-dropdown-empty');
+      this.allOptions = [...containerEl.querySelectorAll('.custom-dropdown-option')];
+      this.isSearchable = !!this.searchInput;
+      this.isOpen = false;
+      this.focusedIndex = -1;
+      this.onSelect = options.onSelect || null;
+
+      this._bindEvents();
+    }
+
+    _bindEvents() {
+      // Toggle open/close
+      this.trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.isOpen ? this.close() : this.open();
+      });
+
+      // Option click
+      this.allOptions.forEach((opt) => {
+        opt.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.selectOption(opt);
+        });
+      });
+
+      // Search input (if exists)
+      if (this.searchInput) {
+        this.searchInput.addEventListener('input', () => this._filterOptions());
+        this.searchInput.addEventListener('click', (e) => e.stopPropagation());
+      }
+
+      // Keyboard
+      this.container.addEventListener('keydown', (e) => this._handleKeyboard(e));
+
+      // Close on outside click
+      document.addEventListener('click', (e) => {
+        if (!this.container.contains(e.target)) this.close();
+      });
+    }
+
+    open() {
+      // Close all other dropdowns first
+      document.querySelectorAll('.custom-dropdown.open').forEach(d => {
+        if (d !== this.container) {
+          d.classList.remove('open');
+        }
+      });
+      this.container.classList.add('open');
+      this.isOpen = true;
+      this.focusedIndex = -1;
+      if (this.searchInput) {
+        this.searchInput.value = '';
+        this._filterOptions();
+        setTimeout(() => this.searchInput.focus(), 80);
+      }
+    }
+
+    close() {
+      this.container.classList.remove('open');
+      this.isOpen = false;
+      this.focusedIndex = -1;
+      this._clearFocus();
+    }
+
+    selectOption(optEl) {
+      const value = optEl.dataset.value;
+      // Update native select
+      this.nativeSelect.value = value;
+      this.nativeSelect.dispatchEvent(new Event('change'));
+
+      // Update active class
+      this.allOptions.forEach(o => o.classList.remove('active'));
+      optEl.classList.add('active');
+
+      // Custom callback
+      if (this.onSelect) this.onSelect(optEl, value);
+
+      this.close();
+    }
+
+    _filterOptions() {
+      if (!this.searchInput) return;
+      const query = this.searchInput.value.trim().toLowerCase();
+      let visibleCount = 0;
+
+      this.allOptions.forEach(opt => {
+        const name = (opt.dataset.name || opt.querySelector('.option-label')?.textContent || '').toLowerCase();
+        const category = (opt.dataset.category || '').toLowerCase();
+        const matched = !query || name.includes(query) || category.includes(query);
+        opt.style.display = matched ? '' : 'none';
+        if (matched) visibleCount++;
+      });
+
+      if (this.emptyState) {
+        this.emptyState.style.display = visibleCount === 0 ? '' : 'none';
+      }
+      this.focusedIndex = -1;
+      this._clearFocus();
+    }
+
+    _handleKeyboard(e) {
+      const visibleOpts = this.allOptions.filter(o => o.style.display !== 'none');
+      if (!visibleOpts.length) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!this.isOpen) { this.open(); return; }
+        this.focusedIndex = Math.min(this.focusedIndex + 1, visibleOpts.length - 1);
+        this._applyFocus(visibleOpts);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!this.isOpen) { this.open(); return; }
+        this.focusedIndex = Math.max(this.focusedIndex - 1, 0);
+        this._applyFocus(visibleOpts);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (this.isOpen && this.focusedIndex >= 0 && visibleOpts[this.focusedIndex]) {
+          this.selectOption(visibleOpts[this.focusedIndex]);
+        } else if (!this.isOpen) {
+          this.open();
+        }
+      } else if (e.key === 'Escape') {
+        this.close();
+        this.trigger.focus();
+      }
+    }
+
+    _applyFocus(visibleOpts) {
+      this._clearFocus();
+      if (visibleOpts[this.focusedIndex]) {
+        visibleOpts[this.focusedIndex].style.background = '#F0FDF4';
+        visibleOpts[this.focusedIndex].scrollIntoView({ block: 'nearest' });
+      }
+    }
+
+    _clearFocus() {
+      this.allOptions.forEach(o => o.style.background = '');
+    }
+  }
+
+  /* ================================================================
+     PRODUCT DROPDOWN — with search + stock badges in trigger
+     ================================================================ */
+  const productDropdown = document.getElementById('productDropdown');
+  const nativeProductSelect = document.getElementById('nativeProductSelect');
+
+  if (productDropdown && nativeProductSelect) {
+    new EnhancedDropdown(productDropdown, nativeProductSelect, {
+      onSelect: function(optEl, value) {
+        const trigger = productDropdown.querySelector('.trigger-label');
+        const name = optEl.dataset.name || 'Selected';
+        const stock = parseInt(optEl.dataset.stock || '0', 10);
+        const unit = optEl.dataset.unit || '';
+        const low = parseInt(optEl.dataset.low || '0', 10);
+
+        let badgeClass = 'healthy';
+        let badgeText = stock + ' ' + unit;
+        if (stock <= 0) {
+          badgeClass = 'out';
+          badgeText = 'Out of stock';
+        } else if (stock <= low) {
+          badgeClass = 'low';
+          badgeText = 'Low: ' + stock + ' ' + unit;
+        }
+
+        trigger.innerHTML = `
+          <span class="trigger-selected-tag">
+            <i class="fa-solid fa-box" style="opacity: 0.6; font-size: 0.78rem;"></i>
+            ${name}
+            <span class="stock-badge ${badgeClass}">${badgeText}</span>
+          </span>`;
+      }
+    });
+  }
+
+  /* ================================================================
+     REASON CODE DROPDOWN — with icon update in trigger
+     ================================================================ */
+  const reasonDropdown = document.getElementById('reasonDropdown');
+  const nativeReasonSelect = document.getElementById('nativeReasonSelect');
+
+  if (reasonDropdown && nativeReasonSelect) {
+    new EnhancedDropdown(reasonDropdown, nativeReasonSelect, {
+      onSelect: function(optEl, value) {
+        const trigger = reasonDropdown.querySelector('.trigger-label');
+        const label = optEl.dataset.label || value;
+        const icon = optEl.dataset.icon || 'fa-circle';
+        const iconColor = optEl.dataset.iconColor || '#6B7280';
+
+        trigger.innerHTML = `
+          <span class="trigger-icon" style="color: ${iconColor};"><i class="fa-solid ${icon}"></i></span>
+          ${label}`;
+      }
+    });
+  }
+
+  /* ================================================================
+     FORM VALIDATION — require product selection before submit
+     ================================================================ */
+  const adjustForm = document.getElementById('stockAdjustmentForm');
+  if (adjustForm && nativeProductSelect) {
+    adjustForm.addEventListener('submit', function(e) {
+      if (!nativeProductSelect.value) {
+        e.preventDefault();
+        // Flash the product dropdown trigger
+        const trigger = productDropdown.querySelector('.custom-dropdown-trigger');
+        trigger.style.borderColor = '#EF4444';
+        trigger.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.18)';
+        setTimeout(() => {
+          trigger.style.borderColor = '';
+          trigger.style.boxShadow = '';
+        }, 2000);
+      }
+    });
+  }
+
+});
+</script>
 {% endblock %}

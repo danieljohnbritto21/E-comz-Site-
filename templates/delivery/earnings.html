@@ -1,0 +1,190 @@
+{% extends 'delivery/base_delivery.html' %}
+{% load static %}
+
+{% block title %}My Delivery Earnings & Payouts - Fresh Mart{% endblock %}
+
+{% block delivery_content %}
+<div>
+  
+  <div class="dashboard-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h1 class="dashboard-title">My Delivery Earnings</h1>
+      <p class="dashboard-subtitle">Earn ₹30 for each successfully delivered and OTP-verified grocery order</p>
+    </div>
+
+    <!-- Request Payout Button -->
+    <button type="button" class="btn btn-primary" onclick="togglePayoutModal()" style="padding: 10px 20px; font-weight: 700; border-radius: 8px;">
+      <i class="fa-solid fa-money-bill-transfer"></i> Request Withdrawal
+    </button>
+  </div>
+
+  <!-- Metric Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    
+    <div style="background: #ffffff; border: 2px solid #10B981; border-radius: 14px; padding: 1.25rem; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+      <div style="font-size: 0.75rem; font-weight: 800; color: #047857; text-transform: uppercase;">Available for Payout</div>
+      <div style="font-size: 2rem; font-weight: 900; color: #047857; margin-top: 6px;">₹{{ available_for_payout|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #059669; font-weight: 600; margin-top: 4px;">Ready to withdraw to Bank/UPI</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #2563EB; text-transform: uppercase;">Today's Earnings</div>
+      <div style="font-size: 2rem; font-weight: 800; color: #2563EB; margin-top: 6px;">₹{{ today_earnings|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">Earned today</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #7C3AED; text-transform: uppercase;">Total Lifetime Earned</div>
+      <div style="font-size: 2rem; font-weight: 800; color: #7C3AED; margin-top: 6px;">₹{{ total_settled|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">All completed deliveries</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Disbursed</div>
+      <div style="font-size: 2rem; font-weight: 800; color: #1E293B; margin-top: 6px;">₹{{ total_paid_out|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">Withdrawn to your account</div>
+    </div>
+
+  </div>
+
+  <!-- Payout Requests History -->
+  {% if payouts %}
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem;">
+        <i class="fa-solid fa-clock-rotate-left"></i> Withdrawal Requests History
+      </h3>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Request ID</th>
+              <th>Amount</th>
+              <th>Payment Details</th>
+              <th>Status</th>
+              <th>Date Requested</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pr in payouts %}
+              <tr>
+                <td><strong>#{{ pr.id }}</strong></td>
+                <td><span style="font-weight: 800; color: #047857;">₹{{ pr.amount|floatformat:2 }}</span></td>
+                <td><span style="font-family: monospace; font-size: 0.82rem; background: #F1F5F9; padding: 2px 6px; border-radius: 4px;">{{ pr.payment_details }}</span></td>
+                <td>
+                  {% if pr.status == 'REQUESTED' %}
+                    <span class="badge" style="background: #FEF3C7; color: #B45309; font-weight: 700;">Pending Admin Transfer</span>
+                  {% elif pr.status == 'PAID' %}
+                    <span class="badge badge-success"><i class="fa-solid fa-check"></i> Paid</span>
+                  {% elif pr.status == 'REJECTED' %}
+                    <span class="badge" style="background: #FEE2E2; color: #DC2626; font-weight: 700;">Rejected</span>
+                  {% endif %}
+                </td>
+                <td><div style="font-size: 0.8rem; color: #64748B;">{{ pr.requested_at|date:"M d, Y H:i" }}</div></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Earnings Activity Ledger -->
+  <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+    <h3 style="font-size: 1.05rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem;">
+      <i class="fa-solid fa-receipt"></i> Completed Delivery Earnings
+    </h3>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Description</th>
+            <th>Earning Credited</th>
+            <th>Status</th>
+            <th>Settlement Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in earnings %}
+            <tr>
+              <td><strong>#{{ e.order.order_id }}</strong></td>
+              <td>{{ e.description }}</td>
+              <td><span style="font-weight: 800; color: #047857; font-size: 1rem;">+₹{{ e.earning_amount|floatformat:2 }}</span></td>
+              <td>
+                {% if e.status == 'SETTLED' %}
+                  <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Settled</span>
+                {% elif e.status == 'PENDING' %}
+                  <span class="badge" style="background: #FEF3C7; color: #B45309;">Pending</span>
+                {% elif e.status == 'REVERSED' %}
+                  <span class="badge" style="background: #FEE2E2; color: #DC2626;">Reversed</span>
+                {% endif %}
+              </td>
+              <td><div style="font-size: 0.8rem; color: #64748B;">{{ e.settled_at|default:e.created_at|date:"M d, Y H:i" }}</div></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 2rem; color: #94A3B8;">
+                No delivery earnings recorded yet. Complete deliveries with OTP verification to earn ₹30 per order!
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal: Request Withdrawal -->
+<div id="payout-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; border-radius: 14px; padding: 2rem; max-width: 480px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: #1E293B;">Request Earnings Withdrawal</h3>
+      <button type="button" onclick="togglePayoutModal()" style="background: none; border: none; font-size: 1.25rem; color: #64748B; cursor: pointer;">&times;</button>
+    </div>
+
+    <form method="POST">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="request_payout">
+
+      <div style="margin-bottom: 1rem; padding: 10px 12px; background: #ECFDF5; border-radius: 8px; border: 1px solid #A7F3D0;">
+        <span style="font-size: 0.8rem; color: #065F46;">Available to Withdraw:</span>
+        <div style="font-size: 1.35rem; font-weight: 800; color: #047857;">₹{{ available_for_payout|floatformat:2 }}</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">Withdrawal Amount (₹) *</label>
+        <input type="number" step="0.01" min="1" max="{{ available_for_payout }}" name="amount" class="form-control" placeholder="e.g. 300.00" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">Payout Method</label>
+        <select name="payment_method" class="form-select">
+          <option value="UPI">UPI ID (Google Pay, PhonePe, Paytm)</option>
+          <option value="BANK_TRANSFER">Bank Account (NEFT / IMPS)</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label">UPI ID or Bank Account Details *</label>
+        <textarea name="payment_details" rows="2" class="form-control" placeholder="Enter your registered UPI ID or Account No + IFSC" required></textarea>
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="togglePayoutModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" {% if available_for_payout <= 0 %}disabled{% endif %}>
+          Submit Withdrawal Request
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function togglePayoutModal() {
+  const modal = document.getElementById('payout-modal');
+  modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+}
+</script>
+{% endblock %}

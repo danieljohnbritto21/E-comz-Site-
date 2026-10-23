@@ -99,6 +99,7 @@ class GroceryMarketplaceTests(TestCase):
             'description': 'Crisp organic green lettuce',
             'mrp': '60.00',
             'selling_price': '45.00',
+            'product_cost': '35.00',
             'unit': 'pack',
             'unit_value': '1 pack (200g)',
             'initial_stock': '30',
@@ -110,6 +111,11 @@ class GroceryMarketplaceTests(TestCase):
         # Appears in seller list
         seller_list = self.client.get(reverse('seller:product_list'))
         self.assertContains(seller_list, 'Crisp Hydroponic Lettuce')
+
+        # Approve product (required under new Product Approval workflow)
+        lettuce = Product.objects.get(name='Crisp Hydroponic Lettuce')
+        lettuce.approval_status = Product.ApprovalStatus.APPROVED
+        lettuce.save()
 
         # Appears in buyer shop and buyer home
         buyer_shop = self.client.get(reverse('catalog:product_list'))
@@ -132,6 +138,7 @@ class GroceryMarketplaceTests(TestCase):
             'brand': 'Mango King',
             'mrp': '120.00',
             'selling_price': '90.00',
+            'product_cost': '75.00',
             'unit': 'kg',
             'unit_value': '1 kg',
             'initial_stock': '15',
@@ -156,6 +163,7 @@ class GroceryMarketplaceTests(TestCase):
             'brand': 'Exotic Fruits',
             'mrp': '150.00',
             'selling_price': '130.00',
+            'product_cost': '100.00',
             'unit': 'pcs',
             'unit_value': '1 pc',
             'initial_stock': '10',
@@ -275,11 +283,12 @@ class GroceryMarketplaceTests(TestCase):
             'category': self.category.id,
             'mrp': '50.00',
             'selling_price': '100.00', # Invalid!
+            'product_cost': '40.00',
             'unit_value': '1 kg',
             'initial_stock': '10',
         })
         self.assertEqual(resp.status_code, 200) # Re-renders form with error
-        self.assertContains(resp, 'Selling price cannot exceed Maximum Retail Price')
+        self.assertContains(resp, 'MRP must be greater than Selling Price.')
         self.assertFalse(Product.objects.filter(name='Overpriced Item').exists())
 
         # Missing product name
@@ -288,6 +297,7 @@ class GroceryMarketplaceTests(TestCase):
             'category': self.category.id,
             'mrp': '50.00',
             'selling_price': '40.00',
+            'product_cost': '30.00',
         })
         self.assertEqual(resp_missing.status_code, 200)
         self.assertContains(resp_missing, 'Please enter a valid product name')

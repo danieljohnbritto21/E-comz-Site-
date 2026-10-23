@@ -28,10 +28,16 @@ class Cart(models.Model):
 
     @property
     def delivery_fee(self):
-        # Free delivery if subtotal > ₹499, otherwise ₹40
-        if self.subtotal == 0 or self.subtotal >= 499:
+        if self.subtotal == 0:
             return Decimal('0.00')
-        return Decimal('40.00')
+        try:
+            from apps.reports.models import MarketplaceConfig
+            config = MarketplaceConfig.get_config()
+            if config.delivery_fee_free_above > Decimal('0.00') and self.subtotal >= config.delivery_fee_free_above:
+                return Decimal('0.00')
+            return config.delivery_fee_default
+        except Exception:
+            return Decimal('30.00')
 
     @property
     def grand_total(self):
@@ -63,13 +69,12 @@ class CartItem(models.Model):
 
     @property
     def is_available(self):
-        min_qty = getattr(self.product, 'min_purchase_quantity', 1) or 1
         actual_max = getattr(self.product, 'actual_max_order_quantity', self.product.current_stock_count)
         return (
             self.product.is_active and
             self.product.current_stock_count >= self.quantity and
             self.quantity <= actual_max and
-            self.quantity >= min_qty
+            self.quantity >= 1
         )
 
     @property

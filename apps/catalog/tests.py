@@ -219,6 +219,7 @@ class FreshMartPlatformRequirementsTests(TestCase):
             'category': self.category.id,
             'mrp': '40.00',
             'selling_price': '30.00',
+            'product_cost': '20.00',
             'unit': 'bunch',
             'unit_value': '1 bunch',
             'initial_stock': '20',
@@ -974,6 +975,179 @@ class SellerCustomerHistoryTests(TestCase):
         self.assertContains(resp, 'Himachal Apples')
         self.assertContains(resp, '₹100.00')
         self.assertContains(resp, 'Store Subtotal')
+
+
+class StrictPricingValidationTests(TestCase):
+    """
+    Comprehensive tests enforcing strict pricing rules:
+    MRP > Selling Price > Product Cost.
+    All three must be valid, positive amounts, and Product Cost must be mandatory.
+    """
+
+    def setUp(self):
+        self.seller_user = User.objects.create_user(
+            username='pricing_seller',
+            email='seller_pricing@freshmart.test',
+            password='password123',
+            role=User.Role.SELLER
+        )
+        self.seller_profile = SellerProfile.objects.create(
+            user=self.seller_user,
+            store_name='Strict Pricing Farm',
+            store_slug='strict-pricing-farm',
+            is_approved=True,
+            commission_rate=Decimal('5.00')
+        )
+        self.category = Category.objects.create(name='Fresh Dairy', slug='fresh-dairy')
+        self.client_seller = Client()
+        self.client_seller.force_login(self.seller_user)
+
+    def test_pricing_helper_exact_specification_matrix(self):
+        from apps.catalog.models import validate_pricing_rules
+
+        # 1. ₹50, ₹45, ₹40 -> Accept
+        valid, msg, cleaned = validate_pricing_rules('50.00', '45.00', '40.00')
+        self.assertTrue(valid)
+        self.assertEqual(cleaned, (Decimal('50.00'), Decimal('45.00'), Decimal('40.00')))
+
+        # 2. ₹50, ₹45, ₹45 -> Reject (Selling Price == Product Cost)
+        valid, msg, _ = validate_pricing_rules('50.00', '45.00', '45.00')
+        self.assertFalse(valid)
+        self.assertEqual(msg, "Selling Price must be greater than Product Cost.")
+
+        # 3. ₹50, ₹45, ₹46 -> Reject (Selling Price < Product Cost)
+        valid, msg, _ = validate_pricing_rules('50.00', '45.00', '46.00')
+        self.assertFalse(valid)
+        self.assertEqual(msg, "Selling Price must be greater than Product Cost.")
+
+        # 4. ₹50, ₹50, ₹40 -> Reject (MRP == Selling Price)
+        valid, msg, _ = validate_pricing_rules('50.00', '50.00', '40.00')
+        self.assertFalse(valid)
+        self.assertEqual(msg, "MRP must be greater than Selling Price.")
+
+        # 5. ₹40, ₹45, ₹30 -> Reject (MRP < Selling Price)
+        valid, msg, _ = validate_pricing_rules('40.00', '45.00', '30.00')
+        self.assertFalse(valid)
+        self.assertEqual(msg, "MRP must be greater than Selling Price.")
+
+        # 6. ₹100, ₹80, ₹60 -> Accept
+        valid, msg, cleaned = validate_pricing_rules('100.00', '80.00', '60.00')
+        self.assertTrue(valid)
+        self.assertEqual(cleaned, (Decimal('100.00'), Decimal('80.00'), Decimal('60.00')))
+
+    def test_pricing_helper_mandatory_and_positive_rules(self):
+        from apps.catalog.models import validate_pricing_rules
+
+        # Missing product cost
+        valid, msg, _ = validate_pricing_rules('50.00', '40.00', None)
+        self.assertFalse(valid)
+        self.assertIn("Product Cost is mandatory", msg)
+
+        # Empty string product cost
+        valid, msg, _ = validate_pricing_rules('50.00', '40.00', '')
+        self.assertFalse(valid)
+        self.assertIn("Product Cost is mandatory", msg)
+
+        # Zero product cost
+        valid, msg, _ = validate_pricing_rules('50.00', '40.00', '0')
+        self.assertFalse(valid)
+        self.assertIn("Product Cost must be a positive amount", msg)
+
+        # Negative product cost
+        valid, msg, _ = validate_pricing_rules('50.00', '40.00', '-10')
+        self.assertFalse(valid)
+        self.assertIn("Product Cost must be a positive amount", msg)
+
+        # Zero MRP
+        valid, msg, _ = validate_pricing_rules('0', '40.00', '30.00')
+        self.assertFalse(valid)
+        self.assertIn("MRP must be a positive amount", msg)
+
+        # Zero Selling Price
+        valid, msg, _ = validate_pricing_rules('50.00', '0', '30.00')
+        self.assertFalse(valid)
+        self.assertIn("Selling Price must be a positive amount", msg)
+
+    def test_model_level_validation_blocks_invalid_save(self):
+        from django.core.exceptions import ValidationError
+
+        # Selling price == product cost
+        p1 = Product(
+            seller=self.seller_user, category=self.category, name='Test P1',
+            mrp=Decimal('50.00'), selling_price=Decimal('45.00'), product_cost=Decimal('45.00')
+        )
+        with self.assertRaises(ValidationError):
+            p1.save()
+
+        # MRP == selling price
+        p2 = Product(
+            seller=self.seller_user, category=self.category, name='Test P2',
+            mrp=Decimal('50.00'), selling_price=Decimal('50.00'), product_cost=Decimal('40.00')
+        )
+        with self.assertRaises(ValidationError):
+            p2.save()
+
+    def test_seller_add_product_rejects_screenshot_bug(self):
+        """Rejects the exact bug shown in the screenshot: MRP=50, Selling=45, Cost=45."""
+        resp = self.client_seller.post(reverse('seller:product_add'), {
+            'name': 'Screenshot Bug Product',
+            'category': self.category.id,
+            'mrp': '50.00',
+            'selling_price': '45.00',
+            'product_cost': '45.00',
+            'unit': 'packet',
+            'unit_value': '1 packet',
+            'initial_stock': '10',
+            'low_stock_threshold': '2',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Selling Price must be greater than Product Cost.')
+        self.assertFalse(Product.objects.filter(name='Screenshot Bug Product').exists())
+
+    def test_seller_add_product_accepts_valid_strict_pricing(self):
+        """Accepts MRP=50, Selling=45, Cost=40 and saves product."""
+        resp = self.client_seller.post(reverse('seller:product_add'), {
+            'name': 'Valid Strictly Priced Product',
+            'category': self.category.id,
+            'mrp': '50.00',
+            'selling_price': '45.00',
+            'product_cost': '40.00',
+            'unit': 'packet',
+            'unit_value': '1 packet',
+            'initial_stock': '15',
+            'low_stock_threshold': '3',
+        })
+        self.assertEqual(resp.status_code, 302)
+        prod = Product.objects.get(name='Valid Strictly Priced Product')
+        self.assertEqual(prod.mrp, Decimal('50.00'))
+        self.assertEqual(prod.selling_price, Decimal('45.00'))
+        self.assertEqual(prod.product_cost, Decimal('40.00'))
+
+    def test_seller_edit_product_rejects_invalid_pricing(self):
+        """Editing product to have Selling Price <= Product Cost is rejected and preserves DB."""
+        prod = Product.objects.create(
+            seller=self.seller_user, category=self.category, name='Original Product',
+            mrp=Decimal('100.00'), selling_price=Decimal('80.00'), product_cost=Decimal('60.00'),
+            unit='packet', unit_value='1 pack'
+        )
+        StockRecord.objects.create(product=prod, current_stock=10, low_stock_threshold=2)
+
+        resp = self.client_seller.post(reverse('seller:product_edit', args=[prod.id]), {
+            'name': 'Original Product',
+            'category': self.category.id,
+            'mrp': '100.00',
+            'selling_price': '60.00',
+            'product_cost': '60.00', # Equal!
+            'unit': 'packet',
+            'unit_value': '1 pack',
+            'current_stock': '10',
+            'low_stock_threshold': '2',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Selling Price must be greater than Product Cost.')
+        prod.refresh_from_db()
+        self.assertEqual(prod.selling_price, Decimal('80.00')) # Preserved original
+
 
 
 

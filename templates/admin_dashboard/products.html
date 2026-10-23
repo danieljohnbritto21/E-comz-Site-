@@ -40,6 +40,12 @@
     </div>
 
     <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #EA580C; text-transform: uppercase;">Pending Approval</div>
+      <div style="font-size: 1.75rem; font-weight: 800; color: #EA580C; margin-top: 4px;">{{ pending_approval_products }}</div>
+      <div style="font-size: 0.725rem; color: #C2410C; margin-top: 2px;">Awaiting moderation</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
       <div style="font-size: 0.75rem; font-weight: 700; color: #7C3AED; text-transform: uppercase;">Total Sellers</div>
       <div style="font-size: 1.75rem; font-weight: 800; color: #7C3AED; margin-top: 4px;">{{ total_sellers }}</div>
       <div style="font-size: 0.725rem; color: #8B5CF6; margin-top: 2px;">Verified merchants</div>
@@ -90,7 +96,10 @@
         <label style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Stock & Status</label>
         <select name="status" class="form-select">
           <option value="">-- Any Status --</option>
+          <option value="pending_approval" {% if status_filter == 'pending_approval' %}selected{% endif %}>Pending Approval ({{ pending_approval_products }})</option>
           <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active & Live</option>
+          <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+          <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>Suspended</option>
           <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Deactivated</option>
           <option value="in_stock" {% if status_filter == 'in_stock' %}selected{% endif %}>In Stock</option>
           <option value="low_stock" {% if status_filter == 'low_stock' %}selected{% endif %}>Low Stock</option>
@@ -132,8 +141,9 @@
             <th>Available Stock</th>
             <th>Configured Max / Order</th>
             <th>Effective Max (Bike)</th>
+            <th>Approval</th>
             <th>Visibility</th>
-            <th style="text-align: right;">Inventory & Limit Controls</th>
+            <th style="text-align: right;">Inventory & Moderation Controls</th>
           </tr>
         </thead>
         <tbody>
@@ -145,7 +155,12 @@
                   <div>
                     <div style="font-weight: 700;">{{ p.name }}</div>
                     <div style="font-size: 0.72rem; color: var(--text-muted);">{{ p.unit_value }} &bull; SKU: {{ p.sku }}</div>
-                    <div style="font-size: 0.75rem; color: var(--color-primary-dark); font-weight: 700;">{{ p.selling_price|inr }}</div>
+                    <div style="font-size: 0.75rem; color: var(--color-primary-dark); font-weight: 700;">
+                      {{ p.selling_price|inr }}
+                      {% if p.product_cost %}
+                        <span style="font-size: 0.68rem; color: #64748B; font-weight: normal; margin-left: 4px;">(Cost: ₹{{ p.product_cost }})</span>
+                      {% endif %}
+                    </div>
                   </div>
                 </div>
               </td>
@@ -200,6 +215,19 @@
                 </div>
               </td>
               <td>
+                {% if p.approval_status == 'APPROVED' %}
+                  <span class="badge badge-success"><i class="fa-solid fa-check"></i> Approved</span>
+                {% elif p.approval_status == 'PENDING' %}
+                  <span class="badge" style="background: #FEF3C7; color: #B45309; font-weight: 700;"><i class="fa-solid fa-clock"></i> Pending Review</span>
+                {% elif p.approval_status == 'REJECTED' %}
+                  <span class="badge" style="background: #FEE2E2; color: #DC2626; font-weight: 700;" title="{{ p.rejection_reason }}"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>
+                  {% if p.rejection_reason %}<div style="font-size: 0.7rem; color: #DC2626; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ p.rejection_reason }}">{{ p.rejection_reason }}</div>{% endif %}
+                {% elif p.approval_status == 'SUSPENDED' %}
+                  <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 700;" title="{{ p.rejection_reason }}"><i class="fa-solid fa-ban"></i> Suspended</span>
+                  {% if p.rejection_reason %}<div style="font-size: 0.7rem; color: #475569; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ p.rejection_reason }}">{{ p.rejection_reason }}</div>{% endif %}
+                {% endif %}
+              </td>
+              <td>
                 {% if p.is_active %}
                   <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>
                 {% else %}
@@ -208,6 +236,30 @@
               </td>
               <td style="text-align: right;">
                 <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                  <!-- Product Approval Controls -->
+                  <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;">
+                    {% if p.approval_status != 'APPROVED' %}
+                      <form method="POST" style="display: inline; margin: 0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="approve_product">
+                        <input type="hidden" name="product_id" value="{{ p.id }}">
+                        <button type="submit" class="btn btn-sm" style="padding: 2px 7px; font-size: 0.72rem; background: #059669; color: white; border: none; border-radius: 4px; font-weight: 700;" title="Approve Product for Storefront">
+                          <i class="fa-solid fa-check"></i> Approve
+                        </button>
+                      </form>
+                    {% endif %}
+                    {% if p.approval_status != 'REJECTED' %}
+                      <button type="button" class="btn btn-sm" style="padding: 2px 7px; font-size: 0.72rem; background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 4px; font-weight: 600;" onclick="promptReject('{{ p.id }}', '{{ p.name|escapejs }}')" title="Reject Product with Reason">
+                        <i class="fa-solid fa-xmark"></i> Reject
+                      </button>
+                    {% endif %}
+                    {% if p.approval_status == 'APPROVED' %}
+                      <button type="button" class="btn btn-sm" style="padding: 2px 7px; font-size: 0.72rem; background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; border-radius: 4px; font-weight: 600;" onclick="promptSuspend('{{ p.id }}', '{{ p.name|escapejs }}')" title="Suspend Product with Reason">
+                        <i class="fa-solid fa-ban"></i> Suspend
+                      </button>
+                    {% endif %}
+                  </div>
+
                   <!-- Stock Adjustment Form -->
                   <form method="POST" style="display: inline-flex; align-items: center; gap: 4px; margin: 0;">
                     {% csrf_token %}
@@ -250,7 +302,7 @@
             </tr>
           {% empty %}
             <tr>
-              <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+              <td colspan="9" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
                 No products match the selected criteria.
               </td>
             </tr>
@@ -261,4 +313,38 @@
   </div>
 
 </div>
+
+<script>
+function promptReject(productId, productName) {
+  const reason = prompt("Enter rejection reason for '" + productName + "':");
+  if (reason && reason.trim()) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+      <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="reject_product">
+      <input type="hidden" name="product_id" value="${productId}">
+      <input type="hidden" name="rejection_reason" value="${reason.replace(/"/g, '&quot;')}">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+
+function promptSuspend(productId, productName) {
+  const reason = prompt("Enter suspension reason for '" + productName + "':");
+  if (reason && reason.trim()) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+      <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="suspend_product">
+      <input type="hidden" name="product_id" value="${productId}">
+      <input type="hidden" name="rejection_reason" value="${reason.replace(/"/g, '&quot;')}">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+</script>
 {% endblock %}

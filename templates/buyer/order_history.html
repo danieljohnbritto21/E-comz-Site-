@@ -6,14 +6,25 @@
 {% block content %}
 <div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
   
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.75rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.75rem; flex-wrap: wrap; gap: 1rem;">
     <div>
       <h1 style="font-size: 1.75rem; font-weight: 800;">My Orders</h1>
       <p class="text-muted" style="font-size: 0.9rem;">Track shipments, review past orders, or reorder essentials</p>
     </div>
-    <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-sm btn-pill">
-      <i class="fa-solid fa-basket-shopping"></i> Order Groceries
-    </a>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <!-- Cashback Balance Card -->
+      <div style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-radius: var(--radius-md); padding: 8px 16px; display: flex; align-items: center; gap: 10px;">
+        <i class="fa-solid fa-coins" style="color: #059669; font-size: 1.25rem;"></i>
+        <div>
+          <div style="font-size: 0.72rem; color: #065F46; font-weight: 700; text-transform: uppercase;">Cashback Balance</div>
+          <div style="font-size: 1.15rem; font-weight: 900; color: #047857;">₹{{ cashback_balance|floatformat:2 }}</div>
+        </div>
+      </div>
+
+      <a href="{% url 'catalog:product_list' %}" class="btn btn-primary btn-sm btn-pill" style="height: 42px; display: flex; align-items: center;">
+        <i class="fa-solid fa-basket-shopping"></i> Order Groceries
+      </a>
+    </div>
   </div>
 
   {% if orders %}

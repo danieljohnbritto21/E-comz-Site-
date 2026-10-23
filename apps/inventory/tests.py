@@ -133,6 +133,7 @@ class BikeDeliveryPurchaseLimitsAndInventoryTests(TestCase):
             unit_value='1 kg',
             selling_price=Decimal('30.00'),
             mrp=Decimal('40.00'),
+            product_cost=Decimal('20.00'),
             is_active=True
         )
         self.stock_potatoes = StockRecord.objects.create(
@@ -152,6 +153,7 @@ class BikeDeliveryPurchaseLimitsAndInventoryTests(TestCase):
             unit_value='1 Litre Pouch',
             selling_price=Decimal('60.00'),
             mrp=Decimal('65.00'),
+            product_cost=Decimal('50.00'),
             is_active=True
         )
         self.stock_milk = StockRecord.objects.create(
@@ -171,6 +173,7 @@ class BikeDeliveryPurchaseLimitsAndInventoryTests(TestCase):
             unit_value='1 bunch (6-8 pcs)',
             selling_price=Decimal('45.00'),
             mrp=Decimal('50.00'),
+            product_cost=Decimal('35.00'),
             is_active=True
         )
         self.stock_bananas = StockRecord.objects.create(
@@ -189,7 +192,8 @@ class BikeDeliveryPurchaseLimitsAndInventoryTests(TestCase):
             unit='packets',
             unit_value='52 g packet',
             selling_price=Decimal('20.00'),
-            mrp=Decimal('20.00'),
+            mrp=Decimal('25.00'),
+            product_cost=Decimal('15.00'),
             is_active=True
         )
         self.stock_lays_low = StockRecord.objects.create(
@@ -228,6 +232,7 @@ class BikeDeliveryPurchaseLimitsAndInventoryTests(TestCase):
             unit_value='1 kg',
             selling_price=Decimal('180.00'),
             mrp=Decimal('220.00'),
+            product_cost=Decimal('150.00'),
             is_active=True
         )
         self.stock_apples = StockRecord.objects.create(
@@ -246,7 +251,8 @@ class BikeDeliveryPurchaseLimitsAndInventoryTests(TestCase):
             unit='packets',
             unit_value='52 g packet',
             selling_price=Decimal('20.00'),
-            mrp=Decimal('20.00'),
+            mrp=Decimal('25.00'),
+            product_cost=Decimal('15.00'),
             is_active=True
         )
         self.stock_lays = StockRecord.objects.create(
@@ -266,6 +272,7 @@ class BikeDeliveryPurchaseLimitsAndInventoryTests(TestCase):
             unit_value='6 pieces pack',
             selling_price=Decimal('55.00'),
             mrp=Decimal('60.00'),
+            product_cost=Decimal('45.00'),
             is_active=True
         )
         self.stock_eggs = StockRecord.objects.create(
@@ -273,6 +280,8 @@ class BikeDeliveryPurchaseLimitsAndInventoryTests(TestCase):
             current_stock=25,
             low_stock_threshold=10
         )
+        # Mark setUp products as approved for storefront browsing
+        Product.objects.filter(is_active=True).update(is_approved=True, approval_status=Product.ApprovalStatus.APPROVED)
 
         # HTTP Clients
         self.client_alice = Client()
@@ -655,6 +664,7 @@ class BikeDeliveryPurchaseLimitsAndInventoryTests(TestCase):
             unit_value='1 L bottle',
             selling_price=Decimal('150.00'),
             mrp=Decimal('160.00'),
+            product_cost=Decimal('120.00'),
             is_active=True
         )
         StockRecord.objects.create(product=bottle_oil, current_stock=30)

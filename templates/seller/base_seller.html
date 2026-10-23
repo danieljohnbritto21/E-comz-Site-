@@ -119,6 +119,14 @@
         </a>
       </li>
 
+      <!-- Wallet & Profits -->
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'wallet' %}active{% endif %}">
+        <a href="{% url 'seller:wallet' %}">
+          <i class="fa-solid fa-wallet"></i>
+          <span>Wallet & Profits</span>
+        </a>
+      </li>
+
       <!-- 11. Store Settings -->
       <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'settings' %}active{% endif %}">
         <a href="{% url 'seller:settings' %}">

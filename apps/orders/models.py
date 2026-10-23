@@ -101,6 +101,16 @@ class Order(models.Model):
     stock_restored = models.BooleanField(default=False, help_text='True if stock was restored upon cancellation')
     checkout_token = models.CharField(max_length=64, blank=True, default='', db_index=True)
 
+    # Financial tracking
+    cashback_earned = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal('0.00'),
+        help_text='Total cashback earned by buyer for this order.'
+    )
+    cashback_redeemed = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal('0.00'),
+        help_text='Cashback amount redeemed/applied by buyer at checkout.'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -195,6 +205,10 @@ class OrderItem(models.Model):
     unit_value = models.CharField(max_length=50, blank=True, default='')
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     mrp = models.DecimalField(max_digits=10, decimal_places=2)
+    product_cost_snapshot = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Product cost per unit at time of order.'
+    )
     quantity = models.PositiveIntegerField(default=1)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     image_url = models.CharField(max_length=500, blank=True, default='')

@@ -59,15 +59,9 @@
                 <div style="font-size: 0.775rem; color: #DC2626; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
                   {% if item.product.current_stock_count <= 0 %}
                     <i class="fa-solid fa-circle-xmark"></i> Out of Stock! Please remove this item to proceed.
-                  {% elif item.product.current_stock_count < item.product.per_order_limit and item.quantity > item.product.current_stock_count %}
-                    <i class="fa-solid fa-triangle-exclamation"></i> Only {{ item.product.current_stock_count }} {{ item.product.get_unit_label }} available in stock (you have {{ item.quantity }} in basket).
                   {% else %}
-                    <i class="fa-solid fa-bicycle"></i> Maximum {{ item.product.per_order_limit }} {{ item.product.get_unit_label }} per order for bike delivery (you have {{ item.quantity }} in basket).
+                    <i class="fa-solid fa-triangle-exclamation"></i> Only {{ item.product.current_stock_count }} {{ item.product.get_unit_label }} available in stock (you have {{ item.quantity }} in basket).
                   {% endif %}
-                </div>
-              {% else %}
-                <div style="font-size: 0.725rem; color: #047857; margin-top: 3px; display: flex; align-items: center; gap: 4px;">
-                  <i class="fa-solid fa-bicycle"></i> Bike delivery limit: Max {{ item.product.per_order_limit }} {{ item.product.get_unit_label }}/order
                 </div>
               {% endif %}
             </div>
@@ -77,8 +71,8 @@
                 <button type="button" class="qty-btn" onclick="updateCartItem({{ item.id }}, {{ item.quantity|add:'-1' }})" aria-label="Decrease quantity">-</button>
                 <input type="text" value="{{ item.quantity }}" readonly class="qty-input">
                 <button type="button" class="qty-btn" 
-                        {% if item.quantity >= item.actual_max_quantity %}style="opacity: 0.45; cursor: not-allowed;" title="Maximum permitted order quantity reached"{% endif %}
-                        onclick="if({{ item.quantity }} < {{ item.actual_max_quantity }}) { updateCartItem({{ item.id }}, {{ item.quantity|add:'1' }}); } else { {% if item.product.current_stock_count < item.product.per_order_limit %}showToast('Cannot add more. Only {{ item.product.current_stock_count }} {{ item.product.get_unit_label|escapejs }} available in stock.', 'warning');{% else %}showToast('You can order a maximum of {{ item.product.per_order_limit }} {{ item.product.get_unit_label|escapejs }} of \'{{ item.product.name|escapejs }}\' per order.', 'warning');{% endif %} }"
+                        {% if item.quantity >= item.actual_max_quantity %}style="opacity: 0.45; cursor: not-allowed;" title="Maximum available stock reached"{% endif %}
+                        onclick="if({{ item.quantity }} < {{ item.actual_max_quantity }}) { updateCartItem({{ item.id }}, {{ item.quantity|add:'1' }}); } else { showToast('Cannot add more. Only {{ item.product.current_stock_count }} {{ item.product.get_unit_label|escapejs }} available in stock.', 'warning'); }"
                         aria-label="Increase quantity">+</button>
               </div>
             </div>

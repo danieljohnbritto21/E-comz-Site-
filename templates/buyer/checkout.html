@@ -561,6 +561,32 @@
             {% endfor %}
           </div>
 
+          <!-- Cashback Rewards Notice -->
+          {% if expected_cashback > 0 %}
+            <div style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 12px; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+              <i class="fa-solid fa-coins" style="color: #D97706; font-size: 1.25rem;"></i>
+              <div>
+                <div style="font-weight: 700; font-size: 0.85rem; color: #92400E;">Earn ₹{{ expected_cashback|floatformat:2 }} Cashback!</div>
+                <div style="font-size: 0.72rem; color: #B45309;">₹{{ cashback_per_unit }} per item unit purchased, credited on successful delivery.</div>
+              </div>
+            </div>
+          {% endif %}
+
+          <!-- Cashback Redemption Toggle (if buyer has balance) -->
+          {% if available_cashback > 0 %}
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 12px; margin-bottom: 1rem;">
+              <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin: 0;">
+                <input type="checkbox" name="redeem_cashback" value="1" id="redeem-cb-checkbox" onchange="toggleCashbackRedeem(this)" style="margin-top: 3px;">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.85rem; color: #166534;">
+                    Redeem Cashback (Available: ₹{{ available_cashback|floatformat:2 }})
+                  </div>
+                  <div style="font-size: 0.72rem; color: #15803D;">Check to apply towards order total.</div>
+                </div>
+              </label>
+            </div>
+          {% endif %}
+
           <div class="summary-row">
             <span>Items Subtotal</span>
             <span style="font-weight: 600;">{{ cart.subtotal|inr }}</span>
@@ -584,6 +610,12 @@
             </span>
           </div>
 
+          <!-- Cashback Applied Row -->
+          <div class="summary-row" id="cashback-deduct-row" style="display: none; color: #047857; font-weight: 700;">
+            <span>Cashback Redeemed</span>
+            <span id="cashback-deduct-amount">-₹0.00</span>
+          </div>
+
           <div class="summary-row">
             <span>Applicable Taxes (GST)</span>
             <span style="color: var(--text-muted);">Included</span>
@@ -591,12 +623,12 @@
 
           <div class="summary-total-row">
             <span>Final Payable Amount</span>
-            <span style="color: var(--color-primary-dark);">{{ cart.grand_total|inr }}</span>
+            <span style="color: var(--color-primary-dark);" id="final-payable-display">{{ cart.grand_total|inr }}</span>
           </div>
 
           <!-- Place Order Button with Anti-duplicate Protection -->
           <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1.5rem; font-weight: 800; font-size: 1.05rem;" id="place-order-btn">
-            <i class="fa-solid fa-bag-shopping"></i> Place Order Now ({{ cart.grand_total|inr }})
+            <i class="fa-solid fa-bag-shopping"></i> Place Order Now (<span id="place-order-btn-amount">{{ cart.grand_total|inr }}</span>)
           </button>
 
           <div style="margin-top: 1.25rem; font-size: 0.75rem; color: var(--text-muted); text-align: center; line-height: 1.4;">
@@ -613,6 +645,33 @@
 
 {% block extra_js %}
 <script>
+// =============================================================================
+// CASHBACK REDEMPTION DYNAMIC CALCULATION
+// =============================================================================
+const originalGrandTotal = parseFloat("{{ cart.grand_total }}") || 0;
+const maxCashbackAvailable = parseFloat("{{ available_cashback|default:0 }}") || 0;
+const cartSubtotal = parseFloat("{{ cart.subtotal }}") || 0;
+
+function toggleCashbackRedeem(checkbox) {
+  const deductRow = document.getElementById('cashback-deduct-row');
+  const deductAmountEl = document.getElementById('cashback-deduct-amount');
+  const finalPayableEl = document.getElementById('final-payable-display');
+  const btnAmountEl = document.getElementById('place-order-btn-amount');
+
+  if (checkbox && checkbox.checked) {
+    const deduct = Math.min(maxCashbackAvailable, cartSubtotal);
+    const newTotal = Math.max(0, originalGrandTotal - deduct);
+    if (deductRow) deductRow.style.display = 'flex';
+    if (deductAmountEl) deductAmountEl.innerText = '-₹' + deduct.toFixed(2);
+    if (finalPayableEl) finalPayableEl.innerText = '₹' + newTotal.toFixed(2);
+    if (btnAmountEl) btnAmountEl.innerText = '₹' + newTotal.toFixed(2);
+  } else {
+    if (deductRow) deductRow.style.display = 'none';
+    if (finalPayableEl) finalPayableEl.innerText = '₹' + originalGrandTotal.toFixed(2);
+    if (btnAmountEl) btnAmountEl.innerText = '₹' + originalGrandTotal.toFixed(2);
+  }
+}
+
 // =============================================================================
 // MODAL POPUP FOR DELIVERY ADDRESS
 // =============================================================================

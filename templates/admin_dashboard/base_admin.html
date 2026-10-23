@@ -81,6 +81,30 @@
           <span>Financial Reports</span>
         </a>
       </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'company_pnl' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:company_pnl' %}">
+          <i class="fa-solid fa-scale-balanced"></i>
+          <span>Company P&L</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'seller_wallets' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:seller_wallets' %}">
+          <i class="fa-solid fa-wallet"></i>
+          <span>Seller Wallets & Payouts</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'delivery_earnings' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:delivery_earnings' %}">
+          <i class="fa-solid fa-hand-holding-dollar"></i>
+          <span>Delivery Fleet Earnings</span>
+        </a>
+      </li>
+      <li class="sidebar-menu-item {% if request.resolver_match.url_name == 'marketplace_config' %}active{% endif %}">
+        <a href="{% url 'admin_dashboard:marketplace_config' %}">
+          <i class="fa-solid fa-gears"></i>
+          <span>Marketplace Settings</span>
+        </a>
+      </li>
       <li class="sidebar-menu-item" style="margin-top: auto; border-top: 1px solid var(--bg-border); padding-top: 0.5rem;">
         <a href="{% url 'catalog:home' %}">
           <i class="fa-solid fa-basket-shopping"></i>

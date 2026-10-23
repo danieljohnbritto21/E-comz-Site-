@@ -317,6 +317,16 @@ def delivery_order_detail(request, assignment_id):
                     f"Delivered to customer doorstep. Verified via Customer OTP ({active_otp.recipient_phone}). Proof: {proof_note}"
                 )
 
+                # Trigger Financial Settlements: Seller profit credit, Buyer cashback award, Delivery partner earning
+                from apps.reports.services import (
+                    settle_seller_profit,
+                    award_buyer_cashback,
+                    create_delivery_earning,
+                )
+                settle_seller_profit(order)
+                award_buyer_cashback(order)
+                create_delivery_earning(order, assignment)
+
                 # Update agent profile
                 if hasattr(agent, 'delivery_profile'):
                     profile = agent.delivery_profile
@@ -441,4 +451,59 @@ def delivery_history(request):
     return render(request, 'delivery/history.html', {
         'history': history,
         'total_cod_collected': total_cod_collected,
+    })
+
+
+@role_required(['DELIVERY'])
+def delivery_earnings_view(request):
+    """Delivery driver earnings and payout history."""
+    from apps.reports.models import DeliveryEarning, DeliveryPayout
+
+    agent = request.user
+    today = timezone.now().date()
+
+    earnings = DeliveryEarning.objects.filter(delivery_person=agent).select_related('order').order_by('-created_at')
+    total_settled = earnings.filter(status='SETTLED').aggregate(t=Sum('earning_amount'))['t'] or Decimal('0.00')
+    today_earnings = earnings.filter(status='SETTLED', settled_at__date=today).aggregate(t=Sum('earning_amount'))['t'] or Decimal('0.00')
+    total_pending = earnings.filter(status='PENDING').aggregate(t=Sum('earning_amount'))['t'] or Decimal('0.00')
+
+    payouts = DeliveryPayout.objects.filter(delivery_person=agent).order_by('-requested_at')
+    total_paid_out = payouts.filter(status='PAID').aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    available_for_payout = max(Decimal('0.00'), total_settled - total_paid_out)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'request_payout':
+            try:
+                amt_str = request.POST.get('amount', '').strip()
+                amt = Decimal(amt_str)
+                if amt <= Decimal('0.00'):
+                    messages.error(request, "Payout amount must be greater than zero.")
+                elif amt > available_for_payout:
+                    messages.error(request, f"Requested amount (₹{amt}) exceeds available earnings (₹{available_for_payout}).")
+                else:
+                    details = request.POST.get('payment_details', '').strip()
+                    if not details:
+                        messages.error(request, "Please enter your bank or UPI details.")
+                    else:
+                        DeliveryPayout.objects.create(
+                            delivery_person=agent,
+                            amount=amt,
+                            payment_method=request.POST.get('payment_method', 'UPI'),
+                            payment_details=details,
+                            status='REQUESTED',
+                        )
+                        messages.success(request, f"Payout request for ₹{amt} submitted successfully.")
+            except (ValueError, TypeError):
+                messages.error(request, "Please enter a valid payout amount.")
+            return redirect('delivery:earnings')
+
+    return render(request, 'delivery/earnings.html', {
+        'earnings': earnings[:50],
+        'total_settled': total_settled,
+        'today_earnings': today_earnings,
+        'total_pending': total_pending,
+        'payouts': payouts[:20],
+        'total_paid_out': total_paid_out,
+        'available_for_payout': available_for_payout,
     })

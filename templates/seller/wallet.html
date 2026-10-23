@@ -1,0 +1,311 @@
+{% extends 'seller/base_seller.html' %}
+{% load static %}
+
+{% block title %}My Seller Wallet & Profit Earnings - Fresh Mart{% endblock %}
+
+{% block seller_content %}
+<div>
+  
+  <div class="dashboard-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h1 class="dashboard-title">My Seller Wallet & Profits</h1>
+      <p class="dashboard-subtitle">Track your net product profits, pending delivery earnings, withdrawal payouts, and item-by-item accounting</p>
+    </div>
+
+    <!-- Request Payout Button -->
+    <button type="button" class="btn btn-primary" onclick="togglePayoutModal()" style="padding: 10px 20px; font-weight: 700; border-radius: 8px;">
+      <i class="fa-solid fa-money-bill-transfer"></i> Request Withdrawal
+    </button>
+  </div>
+
+  <!-- Wallet Metric Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    
+    <div style="background: #ffffff; border: 2px solid #10B981; border-radius: 14px; padding: 1.25rem; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.75rem; font-weight: 800; color: #047857; text-transform: uppercase;">Available Balance</span>
+        <i class="fa-solid fa-wallet" style="color: #059669; font-size: 1.2rem;"></i>
+      </div>
+      <div style="font-size: 2rem; font-weight: 900; color: #047857; margin-top: 6px;">₹{{ wallet.available_balance|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #059669; font-weight: 600; margin-top: 4px;">Ready for bank/UPI withdrawal</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.75rem; font-weight: 700; color: #2563EB; text-transform: uppercase;">Pending Profit Earnings</span>
+        <i class="fa-solid fa-clock-rotate-left" style="color: #2563EB; font-size: 1.2rem;"></i>
+      </div>
+      <div style="font-size: 2rem; font-weight: 800; color: #2563EB; margin-top: 6px;">₹{{ wallet.pending_earnings|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">Credits automatically on customer delivery</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.75rem; font-weight: 700; color: #7C3AED; text-transform: uppercase;">Lifetime Credited Profit</span>
+        <i class="fa-solid fa-trophy" style="color: #7C3AED; font-size: 1.2rem;"></i>
+      </div>
+      <div style="font-size: 2rem; font-weight: 800; color: #7C3AED; margin-top: 6px;">₹{{ wallet.lifetime_credited|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">Total settled profits earned</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.75rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Withdrawn</span>
+        <i class="fa-solid fa-building-columns" style="color: #64748B; font-size: 1.2rem;"></i>
+      </div>
+      <div style="font-size: 2rem; font-weight: 800; color: #1E293B; margin-top: 6px;">₹{{ wallet.total_withdrawn|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">Paid out to your bank account</div>
+    </div>
+
+  </div>
+
+  <!-- Payout Requests History -->
+  {% if payout_requests %}
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-money-bill-wave" style="color: #059669;"></i> Withdrawal Payout Status
+      </h3>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Request ID</th>
+              <th>Amount</th>
+              <th>Payment Details</th>
+              <th>Status</th>
+              <th>Requested At</th>
+              <th>Processed At</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pr in payout_requests %}
+              <tr>
+                <td><strong>#{{ pr.id }}</strong></td>
+                <td><span style="font-weight: 800; color: #047857;">₹{{ pr.amount|floatformat:2 }}</span></td>
+                <td><span style="font-family: monospace; font-size: 0.82rem; background: #F1F5F9; padding: 2px 6px; border-radius: 4px;">{{ pr.payment_details }}</span></td>
+                <td>
+                  {% if pr.status == 'REQUESTED' %}
+                    <span class="badge" style="background: #FEF3C7; color: #B45309; font-weight: 700;"><i class="fa-solid fa-clock"></i> In Review</span>
+                  {% elif pr.status == 'PAID' %}
+                    <span class="badge badge-success"><i class="fa-solid fa-check"></i> Paid</span>
+                  {% elif pr.status == 'REJECTED' %}
+                    <span class="badge" style="background: #FEE2E2; color: #DC2626; font-weight: 700;"><i class="fa-solid fa-xmark"></i> Rejected</span>
+                    {% if pr.description %}<div style="font-size: 0.72rem; color: #DC2626;">{{ pr.description }}</div>{% endif %}
+                  {% endif %}
+                </td>
+                <td><div style="font-size: 0.8rem; color: #64748B;">{{ pr.requested_at|date:"M d, Y H:i" }}</div></td>
+                <td><div style="font-size: 0.8rem; color: #64748B;">{{ pr.processed_at|date:"M d, Y H:i"|default:"-" }}</div></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Immutable Wallet Transaction Ledger -->
+  <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+    <h3 style="font-size: 1.05rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+      <i class="fa-solid fa-book" style="color: #7C3AED;"></i> Wallet Transaction Ledger (Audit Trail)
+    </h3>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date & Time</th>
+            <th>Type</th>
+            <th>Description</th>
+            <th>Order Ref</th>
+            <th>Amount</th>
+            <th>Balance Before</th>
+            <th>Balance After</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in transactions %}
+            <tr>
+              <td>
+                <div style="font-size: 0.82rem; font-weight: 600;">{{ t.created_at|date:"M d, Y" }}</div>
+                <div style="font-size: 0.72rem; color: #94A3B8;">{{ t.created_at|date:"H:i:s" }}</div>
+              </td>
+              <td>
+                {% if t.transaction_type == 'PROFIT_CREDIT' %}
+                  <span class="badge badge-success"><i class="fa-solid fa-arrow-down-left"></i> Profit Credit</span>
+                {% elif t.transaction_type == 'EARNING_PENDING' %}
+                  <span class="badge" style="background: #FEF3C7; color: #B45309;"><i class="fa-solid fa-hourglass-start"></i> Pending</span>
+                {% elif t.transaction_type == 'REVERSAL' %}
+                  <span class="badge" style="background: #FEE2E2; color: #DC2626;"><i class="fa-solid fa-rotate-left"></i> Reversal</span>
+                {% elif t.transaction_type == 'WITHDRAWAL_REQUEST' %}
+                  <span class="badge" style="background: #EDE9FE; color: #6D28D9;"><i class="fa-solid fa-paper-plane"></i> Withdrawal Req</span>
+                {% elif t.transaction_type == 'WITHDRAWAL_CONFIRMED' %}
+                  <span class="badge" style="background: #F1F5F9; color: #475569;"><i class="fa-solid fa-check-double"></i> Disbursed</span>
+                {% else %}
+                  <span class="badge badge-secondary">{{ t.get_transaction_type_display }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="font-size: 0.82rem; color: #334155;">{{ t.description }}</div>
+              </td>
+              <td>
+                {% if t.order %}
+                  <a href="{% url 'seller:order_detail' order_id=t.order.order_id %}" style="font-weight: 700; color: #2563EB;">#{{ t.order.order_id }}</a>
+                {% else %}
+                  <span style="color: #94A3B8;">-</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if t.amount >= 0 %}
+                  <span style="font-weight: 800; color: #047857; font-size: 0.95rem;">+₹{{ t.amount|floatformat:2 }}</span>
+                {% else %}
+                  <span style="font-weight: 800; color: #DC2626; font-size: 0.95rem;">-₹{{ t.amount|stringformat:".2f"|slice:"1:" }}</span>
+                {% endif %}
+              </td>
+              <td><span style="font-size: 0.82rem; color: #64748B;">₹{{ t.balance_before|floatformat:2 }}</span></td>
+              <td><span style="font-size: 0.82rem; font-weight: 700; color: #1E293B;">₹{{ t.balance_after|floatformat:2 }}</span></td>
+              <td>
+                {% if t.status == 'COMPLETED' %}
+                  <span style="color: #059669; font-size: 0.75rem; font-weight: 700;"><i class="fa-solid fa-circle-check"></i> Completed</span>
+                {% elif t.status == 'PENDING' %}
+                  <span style="color: #D97706; font-size: 0.75rem; font-weight: 700;"><i class="fa-solid fa-clock"></i> Pending</span>
+                {% elif t.status == 'REVERSED' %}
+                  <span style="color: #DC2626; font-size: 0.75rem; font-weight: 700;"><i class="fa-solid fa-circle-xmark"></i> Reversed</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 2.5rem; color: #94A3B8;">
+                No wallet transactions recorded yet. Deliver orders to start accumulating settled profits!
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Order Financial Snapshots Breakdown -->
+  {% if snapshots %}
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <h3 style="font-size: 1.05rem; font-weight: 700; color: #1E293B; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-file-invoice" style="color: #059669;"></i> Item-Level Financial Snapshots
+      </h3>
+      <p style="font-size: 0.78rem; color: #64748B; margin-bottom: 1rem;">
+        Immutable breakdown captured at the moment of order placement. Reflects Selling Price, Commission Deduction, Product Cost, and Calculated Net Profit.
+      </p>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Product Item</th>
+              <th>Qty</th>
+              <th>Selling Price</th>
+              <th>Revenue</th>
+              <th>Commission</th>
+              <th>Payable</th>
+              <th>Product Cost</th>
+              <th>Net Profit</th>
+              <th>Settlement</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in snapshots %}
+              <tr>
+                <td><a href="{% url 'seller:order_detail' order_id=s.order.order_id %}" style="font-weight: 700; color: #2563EB;">#{{ s.order.order_id }}</a></td>
+                <td><div style="font-weight: 600; font-size: 0.85rem;">{{ s.order_item.product_name }}</div></td>
+                <td>{{ s.quantity }}</td>
+                <td>₹{{ s.selling_price_per_unit|floatformat:2 }}</td>
+                <td>₹{{ s.product_revenue|floatformat:2 }}</td>
+                <td><span style="color: #DC2626;">-₹{{ s.commission_amount|floatformat:2 }} ({{ s.commission_rate }}%)</span></td>
+                <td><span style="font-weight: 700; color: #1E293B;">₹{{ s.seller_payable|floatformat:2 }}</span></td>
+                <td>
+                  {% if s.product_cost_total %}
+                    <span style="color: #64748B;">₹{{ s.product_cost_total|floatformat:2 }}</span>
+                  {% else %}
+                    <span style="color: #94A3B8; font-style: italic;">No cost set</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if s.seller_profit is not None %}
+                    <span style="font-weight: 800; {% if s.seller_profit >= 0 %}color: #047857;{% else %}color: #DC2626;{% endif %}">
+                      ₹{{ s.seller_profit|floatformat:2 }}
+                    </span>
+                  {% else %}
+                    <span style="font-weight: 700; color: #047857;">₹{{ s.seller_payable|floatformat:2 }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if s.settlement_status == 'SETTLED' %}
+                    <span class="badge badge-success">Settled</span>
+                  {% elif s.settlement_status == 'PENDING' %}
+                    <span class="badge" style="background: #FEF3C7; color: #B45309;">Pending</span>
+                  {% elif s.settlement_status == 'CANCELLED' or s.settlement_status == 'REVERSED' %}
+                    <span class="badge" style="background: #FEE2E2; color: #DC2626;">{{ s.settlement_status }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+
+<!-- Modal: Request Withdrawal -->
+<div id="payout-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+  <div style="background: #ffffff; border-radius: 14px; padding: 2rem; max-width: 480px; width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: #1E293B;">Request Wallet Withdrawal</h3>
+      <button type="button" onclick="togglePayoutModal()" style="background: none; border: none; font-size: 1.25rem; color: #64748B; cursor: pointer;">&times;</button>
+    </div>
+
+    <form method="POST">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="request_payout">
+
+      <div style="margin-bottom: 1rem; padding: 10px 12px; background: #ECFDF5; border-radius: 8px; border: 1px solid #A7F3D0;">
+        <span style="font-size: 0.8rem; color: #065F46;">Available Wallet Balance:</span>
+        <div style="font-size: 1.35rem; font-weight: 800; color: #047857;">₹{{ wallet.available_balance|floatformat:2 }}</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">Withdrawal Amount (₹) *</label>
+        <input type="number" step="0.01" min="1" max="{{ wallet.available_balance }}" name="amount" class="form-control" placeholder="e.g. 500.00" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">Disbursement Method</label>
+        <select name="payment_method" class="form-select">
+          <option value="UPI">UPI ID (Google Pay, PhonePe, Paytm)</option>
+          <option value="BANK_TRANSFER">Bank Account (NEFT / IMPS)</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label">Account / UPI Details *</label>
+        <textarea name="payment_details" rows="2" class="form-control" placeholder="Enter your UPI ID (e.g. mobile@upi) or Bank Details (A/C No, IFSC, Beneficiary Name)" required></textarea>
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="togglePayoutModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" {% if wallet.available_balance <= 0 %}disabled{% endif %}>
+          Submit Withdrawal Request
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function togglePayoutModal() {
+  const modal = document.getElementById('payout-modal');
+  modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+}
+</script>
+{% endblock %}

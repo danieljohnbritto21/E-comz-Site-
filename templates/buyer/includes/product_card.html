@@ -56,12 +56,9 @@
       </a>
     </h3>
 
-    <!-- 6. Unit or Package Size & Bike Limit -->
+    <!-- 6. Unit or Package Size -->
     <div class="product-unit">
       <span class="product-unit-val">{{ product.unit_value|default:"1 unit" }}</span>
-      <span class="product-unit-limit" title="Maximum order limit for bike delivery">
-        <i class="fa-solid fa-bicycle"></i> Max {{ product.per_order_limit }} {{ product.get_unit_label }}
-      </span>
     </div>
 
     <!-- 7. Pricing & Savings (Pushed to bottom alignment via margin-top: auto) -->
@@ -84,18 +81,17 @@
           <div class="product-cart-action-wrap" id="cart-wrap-{{ product.id }}"
                data-product-id="{{ product.id }}"
                data-max-stock="{{ product.current_stock_count }}"
-               data-actual-max="{{ product.actual_max_order_quantity }}"
-               data-order-limit="{{ product.per_order_limit }}"
+               data-actual-max="{{ product.current_stock_count }}"
                data-unit="{{ product.get_unit_label }}"
-               data-step="{{ product.quantity_step|default:1 }}"
-               data-min="{{ product.min_purchase_quantity|default:1 }}">
+               data-step="1"
+               data-min="1">
             
             <!-- Default Add Button (visible when not in cart) -->
             <button type="button" 
                     class="btn-add-cart {% if current_qty and current_qty > 0 %}is-hidden{% endif %}" 
                     id="add-btn-{{ product.id }}" 
                     {% if current_qty and current_qty > 0 %}style="display: none;"{% endif %}
-                    onclick="handleCartAction({{ product.id }}, {{ product.quantity_step|default:1 }}, {{ product.actual_max_order_quantity }}, '{{ product.get_unit_label|escapejs }}', {{ product.current_stock_count }}, {{ product.per_order_limit }})">
+                    onclick="handleCartAction({{ product.id }}, 1, {{ product.current_stock_count }}, '{{ product.get_unit_label|escapejs }}')">
               <i class="fa-solid fa-cart-plus"></i>
               <span>Add to Cart</span>
             </button>
@@ -106,7 +102,7 @@
                  {% if not current_qty or current_qty <= 0 %}style="display: none;"{% endif %}>
               <button type="button" 
                       class="stepper-btn minus" 
-                      onclick="handleCartAction({{ product.id }}, -{{ product.quantity_step|default:1 }}, {{ product.actual_max_order_quantity }}, '{{ product.get_unit_label|escapejs }}', {{ product.current_stock_count }}, {{ product.per_order_limit }})" 
+                      onclick="handleCartAction({{ product.id }}, -1, {{ product.current_stock_count }}, '{{ product.get_unit_label|escapejs }}')" 
                       aria-label="Decrease quantity">
                 <i class="fa-solid fa-minus"></i>
               </button>
@@ -115,7 +111,7 @@
               </span>
               <button type="button" 
                       class="stepper-btn plus" 
-                      onclick="handleCartAction({{ product.id }}, {{ product.quantity_step|default:1 }}, {{ product.actual_max_order_quantity }}, '{{ product.get_unit_label|escapejs }}', {{ product.current_stock_count }}, {{ product.per_order_limit }})" 
+                      onclick="handleCartAction({{ product.id }}, 1, {{ product.current_stock_count }}, '{{ product.get_unit_label|escapejs }}')" 
                       aria-label="Increase quantity">
                 <i class="fa-solid fa-plus"></i>
               </button>

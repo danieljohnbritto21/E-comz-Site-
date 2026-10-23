@@ -116,6 +116,12 @@
             <span style="font-weight: 600;">-{{ order.discount_amount|inr }}</span>
           </div>
         {% endif %}
+        {% if order.cashback_redeemed > 0 %}
+          <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 4px; color: #047857; font-weight: 600;">
+            <span>Cashback Redeemed:</span>
+            <span>-{{ order.cashback_redeemed|inr }}</span>
+          </div>
+        {% endif %}
         <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 6px;">
           <span style="color: var(--text-muted);">Delivery Fee:</span>
           <span>{% if order.delivery_fee == 0 %}<span class="badge badge-success">FREE</span>{% else %}{{ order.delivery_fee|inr }}{% endif %}</span>
@@ -124,6 +130,11 @@
           <span>Grand Total:</span>
           <span style="color: var(--color-primary-dark);">{{ order.total_amount|inr }}</span>
         </div>
+        {% if order.cashback_earned > 0 %}
+          <div style="margin-top: 8px; padding: 4px 8px; background: #FEF3C7; border-radius: 6px; font-size: 0.78rem; color: #92400E; font-weight: 700; text-align: center;">
+            <i class="fa-solid fa-coins"></i> Cashback Earned: {{ order.cashback_earned|inr }}
+          </div>
+        {% endif %}
       </div>
     </div>
 

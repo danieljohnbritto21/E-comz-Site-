@@ -136,21 +136,34 @@
                     </span>
                   {% endif %}
                 </div>
-                <!-- Maximum per order clearly separated from stock -->
-                <div style="margin-top: 6px;">
-                  <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                    <i class="fa-solid fa-bicycle"></i> Maximum {{ product.per_order_limit }} {{ product.get_unit_label }} per order
-                  </span>
-                </div>
               </td>
 
-              <!-- Store Status -->
+              <!-- Store & Approval Status -->
               <td>
-                {% if product.is_active %}
-                  <span class="badge badge-success">Active / Live</span>
-                {% else %}
-                  <span class="badge badge-secondary">Inactive / Hidden</span>
-                {% endif %}
+                <div style="margin-bottom: 4px;">
+                  {% if product.approval_status == 'APPROVED' %}
+                    <span class="badge badge-success"><i class="fa-solid fa-check"></i> Approved</span>
+                  {% elif product.approval_status == 'PENDING' %}
+                    <span class="badge" style="background: #FEF3C7; color: #B45309; font-weight: 700;"><i class="fa-solid fa-clock"></i> Pending Review</span>
+                  {% elif product.approval_status == 'REJECTED' %}
+                    <span class="badge" style="background: #FEE2E2; color: #DC2626; font-weight: 700;" title="{{ product.rejection_reason }}"><i class="fa-solid fa-xmark"></i> Rejected</span>
+                    {% if product.rejection_reason %}
+                      <div style="font-size: 0.72rem; color: #DC2626; margin-top: 2px;">Reason: {{ product.rejection_reason }}</div>
+                    {% endif %}
+                  {% elif product.approval_status == 'SUSPENDED' %}
+                    <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 700;"><i class="fa-solid fa-ban"></i> Suspended</span>
+                    {% if product.rejection_reason %}
+                      <div style="font-size: 0.72rem; color: #DC2626; margin-top: 2px;">Reason: {{ product.rejection_reason }}</div>
+                    {% endif %}
+                  {% endif %}
+                </div>
+                <div>
+                  {% if product.is_active %}
+                    <span class="badge badge-success" style="font-size: 0.7rem;">Active</span>
+                  {% else %}
+                    <span class="badge badge-secondary" style="font-size: 0.7rem;">Hidden</span>
+                  {% endif %}
+                </div>
               </td>
 
               <!-- Added date -->

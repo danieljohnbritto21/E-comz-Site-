@@ -62,6 +62,7 @@ class FreshMartCartSynchronizationTests(TestCase):
             sku='FM-OIL-001',
             selling_price=Decimal('149.00'),
             mrp=Decimal('185.00'),
+            product_cost=Decimal('120.00'),
             unit='bottle',
             max_quantity_per_order=50,
             is_active=True,
@@ -81,7 +82,8 @@ class FreshMartCartSynchronizationTests(TestCase):
             slug='lays-classic-salted',
             sku='FM-CHIPS-001',
             selling_price=Decimal('20.00'),
-            mrp=Decimal('20.00'),
+            mrp=Decimal('25.00'),
+            product_cost=Decimal('15.00'),
             unit='packet',
             max_quantity_per_order=10,
             is_active=True,
@@ -102,6 +104,7 @@ class FreshMartCartSynchronizationTests(TestCase):
             sku='FM-EGGS-001',
             selling_price=Decimal('54.00'),
             mrp=Decimal('65.00'),
+            product_cost=Decimal('40.00'),
             unit='piece',
             max_quantity_per_order=10,
             is_active=True,
@@ -262,7 +265,7 @@ class FreshMartCartSynchronizationTests(TestCase):
     def test_6_basket_totals_match_stored_cart_data(self):
         """6. Unit price, line subtotals, delivery fee, and grand total adhere to authoritative server calculations."""
         self.client_a.force_login(self.buyer_a)
-        # 2 x chips @ ₹20 = ₹40. Subtotal < 499 -> delivery fee = ₹40. Grand total = ₹80.
+        # 2 x chips @ ₹20 = ₹40. Subtotal < 499 -> delivery fee = ₹30 (default). Grand total = ₹70.
         self.client_a.post(
             reverse('cart:add_to_cart'),
             data=json.dumps({'product_id': self.chips.id, 'delta': 2}),
@@ -270,12 +273,12 @@ class FreshMartCartSynchronizationTests(TestCase):
         )
         user_cart = Cart.objects.get(user=self.buyer_a)
         self.assertEqual(user_cart.subtotal, Decimal('40.00'))
-        self.assertEqual(user_cart.delivery_fee, Decimal('40.00'))
-        self.assertEqual(user_cart.grand_total, Decimal('80.00'))
+        self.assertEqual(user_cart.delivery_fee, Decimal('30.00'))
+        self.assertEqual(user_cart.grand_total, Decimal('70.00'))
 
         res = self.client_a.get(reverse('cart:view_cart'))
         self.assertContains(res, '₹40.00')
-        self.assertContains(res, '₹80.00')
+        self.assertContains(res, '₹70.00')
 
     def test_7_empty_cart_displays_correct_empty_state(self):
         """7. An empty cart renders the empty basket design with aisles button."""
@@ -380,6 +383,7 @@ class FreshMartCartSynchronizationTests(TestCase):
             sku='FM-APPLES-OOS',
             selling_price=Decimal('199.00'),
             mrp=Decimal('240.00'),
+            product_cost=Decimal('150.00'),
             unit='kg',
             max_quantity_per_order=5,
             is_active=True,
@@ -673,8 +677,7 @@ class CustomerCartAuthenticationRegressionTests(TestCase):
         i2 = CartItem.objects.create(cart=cart, product=self.prod2, quantity=1)
         i3 = CartItem.objects.create(cart=cart, product=self.prod3, quantity=1)
 
-        # Remove prod2 (45.00). New subtotal = 120 + 180 = 300.00. New total_items = 3.
-        # New delivery (< 499) = 40.00. New grand total = 340.00.
+        # New delivery (< 499) = 30.00 (MarketplaceConfig default). New grand total = 330.00.
         res = self.client.post(
             reverse('cart:remove_cart', kwargs={'item_id': i2.id}),
             HTTP_X_REQUESTED_WITH='XMLHttpRequest'
@@ -685,7 +688,7 @@ class CustomerCartAuthenticationRegressionTests(TestCase):
         self.assertEqual(data['total_items'], 3)
         self.assertEqual(data['product_lines'], 2)
         self.assertIn('300.00', data['subtotal'])
-        self.assertIn('340.00', data['grand_total'])
+        self.assertIn('330.00', data['grand_total'])
 
         # Context processor also reflects 3 items
         page_res = self.client.get(reverse('catalog:home'))

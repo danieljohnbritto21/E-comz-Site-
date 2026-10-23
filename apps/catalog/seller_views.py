@@ -9,7 +9,7 @@ from django.db.models import Sum, Count, Q
 from django.core.paginator import Paginator
 from apps.accounts.decorators import role_required
 from apps.accounts.models import SellerProfile
-from apps.catalog.models import Product, ProductImage, Category, SubCategory
+from apps.catalog.models import Product, ProductImage, Category, SubCategory, validate_pricing_rules
 from apps.inventory.models import StockRecord, StockMovement
 from apps.orders.models import Order, OrderItem, SellerSubOrder, OrderStatusHistory
 from apps.notifications.models import Notification
@@ -17,6 +17,7 @@ from apps.accounts.models import User
 from apps.delivery.models import DeliveryAssignment
 from apps.delivery.services import auto_assign_delivery_partner
 from apps.inventory.services import restore_stock_for_sub_order
+from apps.reports.services import get_seller_commission_rate
 
 
 @role_required(['SELLER'])
@@ -147,6 +148,7 @@ def seller_product_add(request):
     """Add a new product with stock record, threshold, images, and full produce specifications."""
     categories = Category.objects.filter(is_active=True)
     subcategories = SubCategory.objects.filter(is_active=True)
+    commission_rate = get_seller_commission_rate(request.user)
 
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
@@ -166,43 +168,37 @@ def seller_product_add(request):
         # Validations
         if not name:
             messages.error(request, "Please enter a valid product name.")
-            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
+            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories, 'commission_rate': commission_rate})
 
         if not category_id:
             messages.error(request, "Please select a product category.")
-            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
+            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories, 'commission_rate': commission_rate})
 
-        try:
-            mrp = Decimal(request.POST.get('mrp', '0').strip() or '0')
-            selling_price = Decimal(request.POST.get('selling_price', '0').strip() or '0')
-        except Exception:
-            messages.error(request, "Please enter valid numeric values for MRP and Selling Price.")
-            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
+        # Strict Pricing Rules: MRP > Selling Price > Product Cost
+        is_valid_pricing, price_err, cleaned_prices = validate_pricing_rules(
+            request.POST.get('mrp'),
+            request.POST.get('selling_price'),
+            request.POST.get('product_cost')
+        )
+        if not is_valid_pricing:
+            messages.error(request, price_err)
+            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories, 'commission_rate': commission_rate})
 
-        if mrp <= 0 or selling_price <= 0:
-            messages.error(request, "MRP and Selling Price must be positive amounts.")
-            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
-
-        if selling_price > mrp:
-            messages.error(request, "Selling price cannot exceed Maximum Retail Price (MRP).")
-            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
+        mrp, selling_price, product_cost = cleaned_prices
 
         try:
             initial_stock = int(request.POST.get('initial_stock', '10').strip() or '10')
             low_stock_threshold = int(request.POST.get('low_stock_threshold', '5').strip() or '5')
-            min_purchase_quantity = int(request.POST.get('min_purchase_quantity', '1').strip() or '1')
-            quantity_step = int(request.POST.get('quantity_step', '1').strip() or '1')
         except Exception:
-            messages.error(request, "Please enter valid integer values for stock quantities and purchase increments.")
-            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
+            messages.error(request, "Please enter valid integer values for stock quantities.")
+            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories, 'commission_rate': commission_rate})
 
         if initial_stock < 0 or low_stock_threshold <= 0:
             messages.error(request, "Initial stock cannot be negative, and low-stock threshold must be at least 1.")
-            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
+            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories, 'commission_rate': commission_rate})
 
-        if min_purchase_quantity < 1 or quantity_step < 1:
-            messages.error(request, "Minimum purchase quantity and increment step must be at least 1.")
-            return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
+        min_purchase_quantity = 1
+        quantity_step = 1
 
         if not sku or Product.objects.filter(sku=sku).exists():
             clean_name = slugify(name)[:6].upper() or 'PROD'
@@ -216,15 +212,7 @@ def seller_product_add(request):
         if subcategory_id:
             subcategory = SubCategory.objects.filter(id=subcategory_id, category_id=category_id).first()
 
-        max_order_limit_input = request.POST.get('max_quantity_per_order', '').strip()
         max_quantity_per_order = None
-        if max_order_limit_input:
-            try:
-                val = int(max_order_limit_input)
-                if val > 0:
-                    max_quantity_per_order = val
-            except (ValueError, TypeError):
-                pass
 
         try:
             with transaction.atomic():
@@ -238,6 +226,7 @@ def seller_product_add(request):
                     description=description,
                     mrp=mrp,
                     selling_price=selling_price,
+                    product_cost=product_cost,
                     unit=unit,
                     unit_value=unit_value or '1 unit',
                     min_purchase_quantity=min_purchase_quantity,
@@ -250,7 +239,8 @@ def seller_product_add(request):
                     nutritional_info=nutritional_info,
                     return_policy=return_policy,
                     is_active=is_active,
-                    is_approved=True,
+                    is_approved=False,
+                    approval_status=Product.ApprovalStatus.PENDING,
                     is_featured=is_featured,
                     is_best_seller=is_best_seller
                 )
@@ -281,12 +271,23 @@ def seller_product_add(request):
                         is_primary=(i == 0)
                     )
 
-                messages.success(request, f"Product '{product.name}' created and published successfully!")
+                # Create approval history entry
+                from apps.reports.models import ProductApprovalHistory
+                ProductApprovalHistory.objects.create(
+                    product=product,
+                    action='SUBMITTED',
+                    admin_user=None,
+                    reason='New product submitted by seller.',
+                    previous_status='',
+                    new_status='PENDING',
+                )
+
+                messages.success(request, f"Product '{product.name}' submitted for approval. It will be visible to customers after admin approval.")
                 return redirect('seller:product_list')
         except Exception as e:
             messages.error(request, f"Failed to save product: {str(e)}")
 
-    return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories})
+    return render(request, 'seller/product_form.html', {'categories': categories, 'subcategories': subcategories, 'commission_rate': commission_rate})
 
 
 @role_required(['SELLER'])
@@ -299,8 +300,34 @@ def seller_product_edit(request, product_id):
 
     categories = Category.objects.filter(is_active=True)
     subcategories = SubCategory.objects.filter(is_active=True)
+    commission_rate = get_seller_commission_rate(request.user)
 
     if request.method == 'POST':
+        # Strict Pricing Rules: MRP > Selling Price > Product Cost
+        # Validate pricing FIRST before altering any product attributes in memory or DB
+        is_valid_pricing, price_err, cleaned_prices = validate_pricing_rules(
+            request.POST.get('mrp'),
+            request.POST.get('selling_price'),
+            request.POST.get('product_cost')
+        )
+        if not is_valid_pricing:
+            messages.error(request, price_err)
+            product.refresh_from_db()
+            return render(request, 'seller/product_form.html', {
+                'product': product,
+                'categories': categories,
+                'subcategories': subcategories,
+                'commission_rate': commission_rate
+            })
+
+        mrp, selling_price, product_cost = cleaned_prices
+
+        # Track original values for re-approval check
+        original_values = {}
+        for field in Product.REAPPROVAL_FIELDS:
+            val = getattr(product, field)
+            original_values[field] = val.id if hasattr(val, 'id') else val
+
         product.name = request.POST.get('name', product.name).strip()
         category_id = request.POST.get('category')
         subcategory_id = request.POST.get('subcategory')
@@ -315,17 +342,9 @@ def seller_product_edit(request, product_id):
         product.brand = request.POST.get('brand', product.brand).strip()
         product.description = request.POST.get('description', product.description).strip()
         
-        try:
-            mrp = Decimal(request.POST.get('mrp', product.mrp))
-            selling_price = Decimal(request.POST.get('selling_price', product.selling_price))
-            if selling_price > mrp:
-                messages.error(request, "Selling price cannot exceed MRP.")
-                return render(request, 'seller/product_form.html', {'product': product, 'categories': categories, 'subcategories': subcategories})
-            product.mrp = mrp
-            product.selling_price = selling_price
-        except Exception:
-            messages.error(request, "Invalid price entered.")
-            return render(request, 'seller/product_form.html', {'product': product, 'categories': categories, 'subcategories': subcategories})
+        product.mrp = mrp
+        product.selling_price = selling_price
+        product.product_cost = product_cost
 
         product.unit = request.POST.get('unit', product.unit)
         if 'origin' in request.POST:
@@ -341,6 +360,32 @@ def seller_product_edit(request, product_id):
         product.is_active = 'is_active' in request.POST
         product.is_featured = 'is_featured' in request.POST
         product.is_best_seller = 'is_best_seller' in request.POST
+
+        # Check if critical fields changed on an APPROVED product → trigger re-approval
+        if product.approval_status == Product.ApprovalStatus.APPROVED:
+            reapproval_needed = False
+            changed_fields = []
+            for field in Product.REAPPROVAL_FIELDS:
+                new_val = getattr(product, field)
+                new_val = new_val.id if hasattr(new_val, 'id') else new_val
+                if str(original_values.get(field, '')) != str(new_val):
+                    reapproval_needed = True
+                    changed_fields.append(field)
+
+            if reapproval_needed:
+                product.approval_status = Product.ApprovalStatus.PENDING
+                product.is_approved = False
+                from apps.reports.models import ProductApprovalHistory
+                ProductApprovalHistory.objects.create(
+                    product=product,
+                    action='RESUBMITTED',
+                    admin_user=None,
+                    reason=f"Product resubmitted: critical fields changed ({', '.join(changed_fields)}).",
+                    previous_status='APPROVED',
+                    new_status='PENDING',
+                )
+                messages.warning(request, f"Product '{product.name}' requires re-approval because critical details were changed ({', '.join(changed_fields)}).")
+
         product.save()
 
         # Update Stock Record (Stock Inward / Inventory increase or adjustment)
@@ -353,36 +398,7 @@ def seller_product_edit(request, product_id):
             except (ValueError, TypeError):
                 pass
 
-        min_qty_input = request.POST.get('min_purchase_quantity')
-        if min_qty_input:
-            try:
-                product.min_purchase_quantity = max(1, int(min_qty_input))
-                product.save(update_fields=['min_purchase_quantity'])
-            except (ValueError, TypeError):
-                pass
 
-        step_input = request.POST.get('quantity_step')
-        if step_input:
-            try:
-                product.quantity_step = max(1, int(step_input))
-                product.save(update_fields=['quantity_step'])
-            except (ValueError, TypeError):
-                pass
-
-        max_order_limit_input = request.POST.get('max_quantity_per_order')
-        if max_order_limit_input is not None:
-            max_order_limit_input = max_order_limit_input.strip()
-            if max_order_limit_input == '' or max_order_limit_input.lower() == 'default':
-                product.max_quantity_per_order = None
-                product.save(update_fields=['max_quantity_per_order'])
-            else:
-                try:
-                    val = int(max_order_limit_input)
-                    if val > 0:
-                        product.max_quantity_per_order = val
-                        product.save(update_fields=['max_quantity_per_order'])
-                except (ValueError, TypeError):
-                    pass
 
         current_stock_input = request.POST.get('current_stock')
         stock_reason = request.POST.get('stock_reason', '').strip()
@@ -430,7 +446,7 @@ def seller_product_edit(request, product_id):
         messages.success(request, f"Product '{product.name}' updated successfully!")
         return redirect('seller:product_list')
 
-    return render(request, 'seller/product_form.html', {'product': product, 'categories': categories, 'subcategories': subcategories})
+    return render(request, 'seller/product_form.html', {'product': product, 'categories': categories, 'subcategories': subcategories, 'commission_rate': commission_rate})
 
 
 @role_required(['SELLER'])
@@ -686,6 +702,9 @@ def seller_order_detail_view(request, order_id):
                 
                 # Restore stock safely and exactly once
                 restore_stock_for_sub_order(sub_order, actor=seller, reason=f"Restored from rejected order #{order.order_id}")
+
+                from apps.reports.services import reverse_seller_profit
+                reverse_seller_profit(order, reason=f"Sub-order rejected by seller: {reason}")
                 messages.warning(request, f"Order #{order.order_id} rejected.")
 
         return redirect('seller:order_detail', order_id=order.order_id)
@@ -853,3 +872,68 @@ def seller_settings_view(request):
         return redirect('seller:settings')
 
     return render(request, 'seller/settings.html', {'profile': profile})
+
+
+@role_required(['SELLER'])
+def seller_wallet_view(request):
+    """Seller Wallet and Profit Payout Dashboard."""
+    from apps.reports.models import SellerWallet, SellerWalletTransaction, SellerPayout, OrderItemFinancialSnapshot
+    from apps.reports.services import get_or_create_seller_wallet
+
+    seller = request.user
+    wallet = get_or_create_seller_wallet(seller)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'request_payout':
+            try:
+                amount_str = request.POST.get('amount', '').strip()
+                amount = Decimal(amount_str)
+                if amount <= Decimal('0.00'):
+                    messages.error(request, "Payout amount must be greater than zero.")
+                elif amount > wallet.available_balance:
+                    messages.error(request, f"Requested amount (₹{amount}) exceeds available wallet balance (₹{wallet.available_balance}).")
+                else:
+                    payment_details = request.POST.get('payment_details', '').strip()
+                    if not payment_details:
+                        messages.error(request, "Please enter your bank account or UPI ID for payout.")
+                    else:
+                        with transaction.atomic():
+                            payout = SellerPayout.objects.create(
+                                seller=seller,
+                                wallet=wallet,
+                                amount=amount,
+                                payment_method=request.POST.get('payment_method', 'UPI'),
+                                payment_details=payment_details,
+                                status='REQUESTED',
+                            )
+                            balance_before = wallet.available_balance
+                            balance_after = balance_before - amount
+                            SellerWalletTransaction.objects.create(
+                                wallet=wallet,
+                                seller=seller,
+                                transaction_type='WITHDRAWAL_REQUEST',
+                                amount=-amount,
+                                balance_before=balance_before,
+                                balance_after=balance_after,
+                                status='PENDING',
+                                description=f"Payout request #{payout.id} submitted for ₹{amount}",
+                                idempotency_key=f"PAYOUT-REQ-{payout.id}",
+                            )
+                            wallet.available_balance = balance_after
+                            wallet.save(update_fields=['available_balance', 'updated_at'])
+                            messages.success(request, f"Payout request for ₹{amount} submitted successfully! Admin will process it.")
+            except (ValueError, TypeError):
+                messages.error(request, "Please enter a valid payout amount.")
+            return redirect('seller:wallet')
+
+    transactions = SellerWalletTransaction.objects.filter(wallet=wallet).select_related('order').order_by('-created_at')[:50]
+    payout_requests = SellerPayout.objects.filter(seller=seller).order_by('-requested_at')[:20]
+    snapshots = OrderItemFinancialSnapshot.objects.filter(seller=seller).select_related('order', 'order_item').order_by('-created_at')[:30]
+
+    return render(request, 'seller/wallet.html', {
+        'wallet': wallet,
+        'transactions': transactions,
+        'payout_requests': payout_requests,
+        'snapshots': snapshots,
+    })

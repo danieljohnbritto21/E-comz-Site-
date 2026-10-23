@@ -17,5 +17,6 @@ urlpatterns = [
     path('offers/', seller_views.seller_offers_view, name='offers'),
     path('customers/', seller_views.seller_customers_view, name='customers'),
     path('reports/', seller_views.seller_reports_view, name='reports'),
+    path('wallet/', seller_views.seller_wallet_view, name='wallet'),
     path('settings/', seller_views.seller_settings_view, name='settings'),
 ]

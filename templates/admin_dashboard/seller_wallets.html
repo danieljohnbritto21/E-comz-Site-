@@ -1,0 +1,196 @@
+{% extends 'admin_dashboard/base_admin.html' %}
+{% load static %}
+
+{% block title %}Seller Wallets & Payouts - Admin Portal{% endblock %}
+
+{% block admin_content %}
+<div>
+  
+  <div class="dashboard-header" style="margin-bottom: 1.5rem;">
+    <div>
+      <h1 class="dashboard-title">Seller Wallets & Payout Management</h1>
+      <p class="dashboard-subtitle">Monitor escrow balances, pending order earnings, lifetime credits, and approve or reject withdrawal payout requests</p>
+    </div>
+  </div>
+
+  <!-- Metric Summary Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #047857; text-transform: uppercase;">Total Available in Wallets</div>
+      <div style="font-size: 1.85rem; font-weight: 800; color: #047857; margin-top: 4px;">₹{{ total_available|floatformat:2 }}</div>
+      <div style="font-size: 0.725rem; color: #64748B; margin-top: 2px;">Merchants can withdraw anytime</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #2563EB; text-transform: uppercase;">Total Pending Earnings</div>
+      <div style="font-size: 1.85rem; font-weight: 800; color: #2563EB; margin-top: 4px;">₹{{ total_pending|floatformat:2 }}</div>
+      <div style="font-size: 0.725rem; color: #64748B; margin-top: 2px;">Awaiting delivery verification</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #7C3AED; text-transform: uppercase;">Lifetime Credited Profit</div>
+      <div style="font-size: 1.85rem; font-weight: 800; color: #7C3AED; margin-top: 4px;">₹{{ total_lifetime|floatformat:2 }}</div>
+      <div style="font-size: 0.725rem; color: #64748B; margin-top: 2px;">All-time settled seller profits</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="font-size: 0.75rem; font-weight: 700; color: #64748B; text-transform: uppercase;">Total Withdrawn</div>
+      <div style="font-size: 1.85rem; font-weight: 800; color: #1E293B; margin-top: 4px;">₹{{ total_withdrawn|floatformat:2 }}</div>
+      <div style="font-size: 0.725rem; color: #64748B; margin-top: 2px;">Disbursed to merchant accounts</div>
+    </div>
+
+  </div>
+
+  <!-- Payout Requests Section -->
+  <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+    <h3 style="font-size: 1.05rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+      <i class="fa-solid fa-money-bill-transfer" style="color: #059669;"></i> Withdrawal Payout Requests
+    </h3>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Request ID</th>
+            <th>Seller</th>
+            <th>Requested Amount</th>
+            <th>Payment Method</th>
+            <th>Payment Details / UPI</th>
+            <th>Date Requested</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in payouts %}
+            <tr>
+              <td><strong>#{{ p.id }}</strong></td>
+              <td>
+                <div style="font-weight: 700;">{{ p.seller.seller_profile.store_name|default:p.seller.username }}</div>
+                <div style="font-size: 0.72rem; color: #64748B;">@{{ p.seller.username }}</div>
+              </td>
+              <td><span style="font-weight: 800; font-size: 1rem; color: #047857;">₹{{ p.amount|floatformat:2 }}</span></td>
+              <td><span class="badge badge-secondary">{{ p.payment_method }}</span></td>
+              <td><span style="font-family: monospace; font-size: 0.82rem; background: #F1F5F9; padding: 2px 6px; border-radius: 4px;">{{ p.payment_details }}</span></td>
+              <td><div style="font-size: 0.8rem; color: #64748B;">{{ p.requested_at|date:"M d, Y H:i" }}</div></td>
+              <td>
+                {% if p.status == 'REQUESTED' %}
+                  <span class="badge" style="background: #FEF3C7; color: #B45309; font-weight: 700;">Pending Approval</span>
+                {% elif p.status == 'PAID' %}
+                  <span class="badge badge-success"><i class="fa-solid fa-check"></i> Paid</span>
+                {% elif p.status == 'REJECTED' %}
+                  <span class="badge" style="background: #FEE2E2; color: #DC2626; font-weight: 700;">Rejected</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                {% if p.status == 'REQUESTED' %}
+                  <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                    <form method="POST" style="margin: 0;">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="approve_payout">
+                      <input type="hidden" name="payout_id" value="{{ p.id }}">
+                      <button type="submit" class="btn btn-sm btn-success" style="padding: 3px 8px; font-size: 0.75rem;" title="Confirm Payout">
+                        <i class="fa-solid fa-check"></i> Approve & Disburse
+                      </button>
+                    </form>
+                    <button type="button" class="btn btn-sm" style="padding: 3px 8px; font-size: 0.75rem; background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA;" onclick="promptRejectPayout('{{ p.id }}')">
+                      <i class="fa-solid fa-xmark"></i> Reject
+                    </button>
+                  </div>
+                {% else %}
+                  <span style="font-size: 0.75rem; color: #94A3B8;">Processed</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 1.5rem; color: #94A3B8;">
+                No withdrawal payout requests submitted.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- All Seller Wallets List -->
+  <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+    <h3 style="font-size: 1.05rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+      <i class="fa-solid fa-wallet" style="color: #7C3AED;"></i> Merchant Wallets Roster
+    </h3>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Store / Seller</th>
+            <th>Commission Rate</th>
+            <th>Available Balance</th>
+            <th>Pending Earnings</th>
+            <th>Lifetime Credited</th>
+            <th>Total Withdrawn</th>
+            <th>Last Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for w in wallets %}
+            <tr>
+              <td>
+                <div style="font-weight: 700;">{{ w.seller.seller_profile.store_name|default:w.seller.username }}</div>
+                <div style="font-size: 0.72rem; color: #64748B;">Account: @{{ w.seller.username }}</div>
+              </td>
+              <td>
+                <span class="badge badge-primary" style="background: #EDE9FE; color: #6D28D9; font-weight: 700;">
+                  {{ w.seller.seller_profile.commission_rate|default:5.00 }}%
+                </span>
+              </td>
+              <td>
+                <span style="font-weight: 800; font-size: 1.05rem; color: #047857;">₹{{ w.available_balance|floatformat:2 }}</span>
+              </td>
+              <td>
+                <span style="font-weight: 700; color: #2563EB;">₹{{ w.pending_earnings|floatformat:2 }}</span>
+              </td>
+              <td>
+                <span style="color: #475569; font-weight: 600;">₹{{ w.lifetime_credited|floatformat:2 }}</span>
+              </td>
+              <td>
+                <span style="color: #64748B;">₹{{ w.total_withdrawn|floatformat:2 }}</span>
+              </td>
+              <td>
+                <div style="font-size: 0.78rem; color: #94A3B8;">{{ w.updated_at|date:"M d, Y H:i" }}</div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2rem; color: #94A3B8;">
+                No seller wallets created yet.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function promptRejectPayout(payoutId) {
+  const reason = prompt("Enter reason for rejecting this payout request:");
+  if (reason && reason.trim()) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = `
+      <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="reject_payout">
+      <input type="hidden" name="payout_id" value="${payoutId}">
+      <input type="hidden" name="reason" value="${reason.replace(/"/g, '&quot;')}">
+    `;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+</script>
+{% endblock %}

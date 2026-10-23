@@ -141,23 +141,22 @@
         {% if product.is_in_stock %}
           <div class="product-action-controls">
             <div class="quantity-control detail-qty-stepper">
-              <button type="button" class="qty-btn" onclick="stepDetailQty(-{{ product.quantity_step|default:1 }})" aria-label="Decrease quantity">-</button>
+              <button type="button" class="qty-btn" onclick="stepDetailQty(-1)" aria-label="Decrease quantity">-</button>
               <input type="number" 
                      id="detail-qty" 
-                     value="{{ product.min_purchase_quantity|default:1 }}" 
-                     min="{{ product.min_purchase_quantity|default:1 }}" 
-                     max="{{ product.actual_max_order_quantity }}" 
-                     step="{{ product.quantity_step|default:1 }}" 
+                     value="1" 
+                     min="1" 
+                     max="{{ product.current_stock_count }}" 
+                     step="1" 
                      class="qty-input"
-                     data-max="{{ product.actual_max_order_quantity }}"
+                     data-max="{{ product.current_stock_count }}"
                      data-stock="{{ product.current_stock_count }}"
-                     data-limit="{{ product.per_order_limit }}"
                      data-name="{{ product.name }}"
                      data-unit="{{ product.get_unit_label }}"
-                     data-min="{{ product.min_purchase_quantity|default:1 }}"
-                     data-step="{{ product.quantity_step|default:1 }}"
+                     data-min="1"
+                     data-step="1"
                      onchange="validateDetailQty(this)">
-              <button type="button" class="qty-btn" onclick="stepDetailQty({{ product.quantity_step|default:1 }})" aria-label="Increase quantity">+</button>
+              <button type="button" class="qty-btn" onclick="stepDetailQty(1)" aria-label="Increase quantity">+</button>
             </div>
 
             <button type="button" class="btn btn-primary btn-detail-add" id="detail-add-btn" onclick="submitDetailAddToCart({{ product.id }})">
@@ -165,15 +164,8 @@
             </button>
           </div>
           <div id="detail-qty-hint" class="product-detail-hint">
-            <div class="hint-item hint-limit">
-              <i class="fa-solid fa-bicycle"></i> Maximum <strong>{{ product.per_order_limit }} {{ product.get_unit_label }}</strong> per order (Bike delivery limit)
-            </div>
             <div class="hint-item hint-stock">
               Available Stock: <strong>{{ product.current_stock_count }} {{ product.get_unit_label }}</strong>
-              {% if product.current_stock_count < product.per_order_limit %}
-                <span class="stock-cap">(Limited to {{ product.actual_max_order_quantity }} by available stock)</span>
-              {% endif %}
-              {% if product.quantity_step > 1 %}&bull; Sold in increments of {{ product.quantity_step }} {{ product.get_unit_label }}{% endif %}
             </div>
           </div>
         {% else %}
@@ -347,18 +339,13 @@ function stepDetailQty(delta) {
   const minVal = parseInt(input.getAttribute('data-min') || '1', 10);
   const maxVal = parseInt(input.getAttribute('data-max') || '1', 10);
   const stock = parseInt(input.getAttribute('data-stock') || maxVal, 10);
-  const limit = parseInt(input.getAttribute('data-limit') || maxVal, 10);
   const unit = input.getAttribute('data-unit') || 'units';
   const name = input.getAttribute('data-name') || 'this product';
   let curVal = parseInt(input.value || minVal, 10);
   let nextVal = curVal + delta;
   if (nextVal < minVal) nextVal = minVal;
   if (nextVal > maxVal) {
-    if (stock < limit) {
-      showToast(`Cannot add more. Only ${stock} ${unit} of '${name}' available in stock.`, 'warning');
-    } else {
-      showToast(`You can order a maximum of ${limit} ${unit} of '${name}' per order.`, 'warning');
-    }
+    showToast(`Cannot add more. Only ${stock} ${unit} of '${name}' available in stock.`, 'warning');
     nextVal = maxVal;
   }
   input.value = nextVal;
@@ -369,7 +356,6 @@ function validateDetailQty(input) {
   const minVal = parseInt(input.getAttribute('data-min') || '1', 10);
   const maxVal = parseInt(input.getAttribute('data-max') || '1', 10);
   const stock = parseInt(input.getAttribute('data-stock') || maxVal, 10);
-  const limit = parseInt(input.getAttribute('data-limit') || maxVal, 10);
   const unit = input.getAttribute('data-unit') || 'units';
   const name = input.getAttribute('data-name') || 'this product';
   let val = parseInt(input.value, 10);
@@ -379,11 +365,7 @@ function validateDetailQty(input) {
     return;
   }
   if (val > maxVal) {
-    if (stock < limit) {
-      showToast(`Cannot add ${val}. Only ${stock} ${unit} of '${name}' available in stock.`, 'warning');
-    } else {
-      showToast(`You can order a maximum of ${limit} ${unit} of '${name}' per order.`, 'warning');
-    }
+    showToast(`Cannot add ${val}. Only ${stock} ${unit} of '${name}' available in stock.`, 'warning');
     input.value = maxVal;
     return;
   }

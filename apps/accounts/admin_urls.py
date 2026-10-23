@@ -15,4 +15,9 @@ urlpatterns = [
     path('categories/', admin_views.admin_categories_view, name='categories'),
     path('reports/', admin_views.admin_reports_view, name='reports'),
     path('reports/export-csv/', admin_views.export_sales_csv, name='export_csv'),
+    # New financial and config views
+    path('marketplace-config/', admin_views.admin_marketplace_config_view, name='marketplace_config'),
+    path('seller-wallets/', admin_views.admin_seller_wallets_view, name='seller_wallets'),
+    path('delivery-earnings/', admin_views.admin_delivery_earnings_view, name='delivery_earnings'),
+    path('company-pnl/', admin_views.admin_company_pnl_view, name='company_pnl'),
 ]
