@@ -118,6 +118,418 @@
 
   </div>
 
+  <!-- EXECUTIVE ORDER & PROFIT PERFORMANCE CARDS (NEW) -->
+  <div style="margin-bottom: 2rem;">
+    <div style="font-size: 0.8rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 6px;">
+      <i class="fa-solid fa-chart-line" style="color: #059669;"></i> Executive Order & Profit Performance
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem;">
+      
+      <!-- Card 1: Completed Orders -->
+      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Completed Orders</span>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #EFF6FF; color: #2563EB; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+            <i class="fa-solid fa-clipboard-check"></i>
+          </div>
+        </div>
+        <div style="font-size: 1.65rem; font-weight: 800; color: #0F172A; margin-top: 4px; font-family: monospace;">
+          {{ completed_orders_count }}
+        </div>
+        <div style="font-size: 0.72rem; color: #64748B; margin-top: 3px;">
+          Distinct fulfilled orders in period
+        </div>
+      </div>
+
+      <!-- Card 2: Total Company Profit -->
+      <div style="background: #ffffff; border: 1px solid #A7F3D0; border-radius: 12px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(5,150,105,0.06);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.72rem; font-weight: 700; color: #047857; text-transform: uppercase; letter-spacing: 0.5px;">Total Company Profit</span>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #ECFDF5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+            <i class="fa-solid fa-building-columns"></i>
+          </div>
+        </div>
+        <div style="font-size: 1.65rem; font-weight: 800; color: {% if total_completed_company_profit >= 0 %}#047857{% else %}#DC2626{% endif %}; margin-top: 4px; font-family: monospace;">
+          ₹{{ total_completed_company_profit|floatformat:2 }}
+        </div>
+        <div style="font-size: 0.72rem; color: #059669; margin-top: 3px;">
+          Sum of company profit on completed orders
+        </div>
+      </div>
+
+      <!-- Card 3: Total Seller Profit -->
+      <div style="background: #ffffff; border: 1px solid #BFDBFE; border-radius: 12px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(37,99,235,0.06);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.72rem; font-weight: 700; color: #1D4ED8; text-transform: uppercase; letter-spacing: 0.5px;">Total Seller Profit</span>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #EFF6FF; color: #2563EB; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+            <i class="fa-solid fa-store"></i>
+          </div>
+        </div>
+        <div style="font-size: 1.65rem; font-weight: 800; color: {% if total_completed_seller_profit >= 0 %}#1D4ED8{% else %}#DC2626{% endif %}; margin-top: 4px; font-family: monospace;">
+          {% if completed_orders_with_cost_count > 0 %}
+            ₹{{ total_completed_seller_profit|floatformat:2 }}
+          {% else %}
+            <span style="font-size: 1.05rem; color: #94A3B8; font-weight: 600;">No audited cost</span>
+          {% endif %}
+        </div>
+        <div style="font-size: 0.72rem; color: #64748B; margin-top: 3px;">
+          Audited profit across {{ completed_orders_with_cost_count }} order{% if completed_orders_with_cost_count != 1 %}s{% endif %}
+        </div>
+      </div>
+
+      <!-- Card 4: Avg Company Profit / Order -->
+      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Avg Company Margin</span>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #F8FAFC; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+            <i class="fa-solid fa-percent"></i>
+          </div>
+        </div>
+        <div style="font-size: 1.65rem; font-weight: 800; color: {% if avg_company_profit_per_order >= 0 %}#047857{% else %}#DC2626{% endif %}; margin-top: 4px; font-family: monospace;">
+          ₹{{ avg_company_profit_per_order|floatformat:2 }}
+        </div>
+        <div style="font-size: 0.72rem; color: #64748B; margin-top: 3px;">
+          Per completed order contribution
+        </div>
+      </div>
+
+      <!-- Card 5: Avg Seller Profit / Order -->
+      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Avg Seller Margin</span>
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: #F8FAFC; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+            <i class="fa-solid fa-coins"></i>
+          </div>
+        </div>
+        <div style="font-size: 1.65rem; font-weight: 800; color: {% if avg_seller_profit_per_order >= 0 %}#1D4ED8{% else %}#DC2626{% endif %}; margin-top: 4px; font-family: monospace;">
+          {% if completed_orders_with_cost_count > 0 %}
+            ₹{{ avg_seller_profit_per_order|floatformat:2 }}
+          {% else %}
+            <span style="font-size: 1.05rem; color: #94A3B8; font-weight: 600;">No audited cost</span>
+          {% endif %}
+        </div>
+        <div style="font-size: 0.72rem; color: #64748B; margin-top: 3px;">
+          Per order merchant return (audited)
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ORDER-WISE PROFIT BREAKDOWN TABLE SECTION -->
+  <div style="background: #ffffff; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 1.35rem; margin-bottom: 2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+    
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 style="font-size: 1.2rem; font-weight: 800; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-file-invoice-dollar" style="color: #059669;"></i> Order-wise Profit Breakdown
+        </h2>
+        <p style="font-size: 0.82rem; color: #64748B; margin: 3px 0 0 0;">
+          Dynamic order-level financial derivation: Commission, Delivery fee retention, Fleet payouts, Cashback, Company profit, and Seller profit
+        </p>
+      </div>
+
+      <!-- Order Table Search & Status Filter Form -->
+      <form method="GET" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0;">
+        <input type="hidden" name="period" value="{{ period }}">
+        {% if date_from %}<input type="hidden" name="date_from" value="{{ date_from }}">{% endif %}
+        {% if date_to %}<input type="hidden" name="date_to" value="{{ date_to }}">{% endif %}
+        
+        <input type="text" name="order_q" value="{{ order_search }}" placeholder="Search Order ID / Seller..." class="form-control" style="font-size: 0.8rem; padding: 0.35rem 0.65rem; width: 190px; border-radius: 6px;">
+        
+        <select name="order_status" class="form-select" style="font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px;">
+          <option value="">All Statuses</option>
+          <option value="DELIVERED" {% if order_status_filter == 'DELIVERED' %}selected{% endif %}>Delivered</option>
+          <option value="OUT_FOR_DELIVERY" {% if order_status_filter == 'OUT_FOR_DELIVERY' %}selected{% endif %}>Out for Delivery</option>
+          <option value="PREPARING" {% if order_status_filter == 'PREPARING' %}selected{% endif %}>Preparing</option>
+          <option value="ORDER_PLACED" {% if order_status_filter == 'ORDER_PLACED' %}selected{% endif %}>Placed</option>
+          <option value="CANCELLED" {% if order_status_filter == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+          <option value="REFUNDED" {% if order_status_filter == 'REFUNDED' %}selected{% endif %}>Refunded</option>
+        </select>
+        
+        <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">
+          <i class="fa-solid fa-filter"></i> Filter Orders
+        </button>
+        {% if order_search or order_status_filter %}
+          <a href="?period={{ period }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}" class="btn btn-sm" style="font-size: 0.8rem; color: #DC2626; text-decoration: none;">
+            Clear Filter
+          </a>
+        {% endif %}
+      </form>
+    </div>
+
+    <!-- Table Container -->
+    <div class="table-responsive">
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+        <thead>
+          <tr style="background: #F8FAFC; border-bottom: 2px solid #E2E8F0; text-align: left; color: #64748B; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;">
+            <th style="padding: 10px 12px; min-width: 165px;">Order ID & Date</th>
+            <th style="padding: 10px 12px; min-width: 100px;">Status</th>
+            <th style="padding: 10px 12px; min-width: 140px;">Seller / Store</th>
+            <th style="padding: 10px 12px; text-align: right; min-width: 95px;">Revenue</th>
+            <th style="padding: 10px 12px; text-align: right; min-width: 125px;">Product Cost</th>
+            <th style="padding: 10px 12px; text-align: right; min-width: 95px;">Commission</th>
+            <th style="padding: 10px 12px; text-align: right; min-width: 90px;">Delivery Rev</th>
+            <th style="padding: 10px 12px; text-align: right; min-width: 100px;">Expenses</th>
+            <th style="padding: 10px 12px; text-align: right; min-width: 110px; background: #F0FDF4;">Company Profit</th>
+            <th style="padding: 10px 12px; text-align: right; min-width: 105px;">Seller Payable</th>
+            <th style="padding: 10px 12px; text-align: right; min-width: 115px; background: #EFF6FF;">Seller Profit</th>
+            <th style="padding: 10px 12px; text-align: center; min-width: 90px;">Settlement</th>
+            <th style="padding: 10px 12px; text-align: center; width: 95px;">Drill-down</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in order_profit_page %}
+            <tr style="border-bottom: 1px solid #F1F5F9; transition: background 0.15s ease;">
+              
+              <!-- Order ID & Date -->
+              <td style="padding: 10px 12px; vertical-align: middle;">
+                <a href="{% url 'admin_dashboard:order_detail' row.order_id %}" style="font-weight: 700; color: #047857; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                  <span>#{{ row.order_id }}</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.65rem; color: #94A3B8;"></i>
+                </a>
+                <div style="font-size: 0.72rem; color: #64748B; margin-top: 2px;">
+                  {{ row.created_at|date:"d M Y, h:i A" }}
+                </div>
+              </td>
+
+              <!-- Status Badge -->
+              <td style="padding: 10px 12px; vertical-align: middle;">
+                <span class="badge {{ row.status_badge_class }}" style="font-size: 0.68rem; padding: 3px 7px;">
+                  {{ row.status_display }}
+                </span>
+              </td>
+
+              <!-- Seller Store -->
+              <td style="padding: 10px 12px; vertical-align: middle;">
+                <div style="font-weight: 600; color: #1E293B;">{{ row.seller_display }}</div>
+                <div style="font-size: 0.7rem; color: #94A3B8;">{{ row.items_count }} item{% if row.items_count != 1 %}s{% endif %}</div>
+              </td>
+
+              <!-- Order Revenue -->
+              <td style="padding: 10px 12px; text-align: right; vertical-align: middle; font-weight: 600; color: #0F172A; font-family: monospace;">
+                ₹{{ row.order_revenue|floatformat:2 }}
+              </td>
+
+              <!-- Seller Product Cost -->
+              <td style="padding: 10px 12px; text-align: right; vertical-align: middle;">
+                {% if row.has_cost_data and row.product_cost is not None %}
+                  <span style="font-family: monospace; color: #334155; font-weight: 600;">₹{{ row.product_cost|floatformat:2 }}</span>
+                {% else %}
+                  <span class="badge badge-warning" style="font-size: 0.68rem; padding: 2px 6px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Insufficient cost data
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- Company Commission -->
+              <td style="padding: 10px 12px; text-align: right; vertical-align: middle; font-weight: 700; color: #047857; font-family: monospace;">
+                +₹{{ row.company_commission|floatformat:2 }}
+              </td>
+
+              <!-- Delivery Revenue -->
+              <td style="padding: 10px 12px; text-align: right; vertical-align: middle; font-family: monospace; color: #334155;">
+                ₹{{ row.delivery_revenue|floatformat:2 }}
+              </td>
+
+              <!-- Company Expenses -->
+              <td style="padding: 10px 12px; text-align: right; vertical-align: middle; color: #DC2626; font-family: monospace;">
+                -₹{{ row.company_expenses|floatformat:2 }}
+              </td>
+
+              <!-- Company Profit (Highlighted Cell) -->
+              <td style="padding: 10px 12px; text-align: right; vertical-align: middle; background: #F0FDF4; font-family: monospace;">
+                <strong style="font-size: 0.95rem; color: {% if row.company_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
+                  ₹{{ row.company_profit|floatformat:2 }}
+                </strong>
+              </td>
+
+              <!-- Seller Payable -->
+              <td style="padding: 10px 12px; text-align: right; vertical-align: middle; font-weight: 700; color: #2563EB; font-family: monospace;">
+                ₹{{ row.seller_payable|floatformat:2 }}
+              </td>
+
+              <!-- Seller Profit (Highlighted Cell) -->
+              <td style="padding: 10px 12px; text-align: right; vertical-align: middle; background: #EFF6FF;">
+                {% if row.has_cost_data and row.seller_profit is not None %}
+                  <strong style="font-family: monospace; font-size: 0.95rem; color: {% if row.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
+                    ₹{{ row.seller_profit|floatformat:2 }}
+                  </strong>
+                {% else %}
+                  <span class="badge badge-warning" style="font-size: 0.68rem; padding: 2px 6px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Insufficient cost data
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- Settlement Status -->
+              <td style="padding: 10px 12px; text-align: center; vertical-align: middle;">
+                <span class="badge {% if row.settlement_status == 'SETTLED' %}badge-success{% elif row.settlement_status == 'REVERSED' %}badge-danger{% else %}badge-warning{% endif %}" style="font-size: 0.68rem; padding: 3px 6px;">
+                  {{ row.settlement_status }}
+                </span>
+              </td>
+
+              <!-- Drill-down Toggle -->
+              <td style="padding: 10px 12px; text-align: center; vertical-align: middle;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleOrderDrilldown('{{ row.order_id }}')" id="btn-toggle-{{ row.order_id }}" style="font-size: 0.72rem; padding: 3px 8px; white-space: nowrap;">
+                  <i class="fa-solid fa-chevron-down" id="icon-{{ row.order_id }}"></i> Details
+                </button>
+              </td>
+
+            </tr>
+
+            <!-- Expandable Drill-Down Row -->
+            <tr id="drilldown-{{ row.order_id }}" style="display: none; background: #F8FAFC; border-bottom: 2px solid #E2E8F0;">
+              <td colspan="13" style="padding: 1.25rem 1.5rem;">
+                
+                <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 10px; padding: 1.15rem; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                  
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem; flex-wrap: wrap; gap: 8px;">
+                    <div style="font-weight: 700; color: #0F172A; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
+                      <i class="fa-solid fa-calculator" style="color: #6366F1;"></i>
+                      <span>Financial Reconciliation & Profit Formula for Order #{{ row.order_id }}</span>
+                    </div>
+                    <a href="{% url 'admin_dashboard:order_detail' row.order_id %}" target="_blank" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 3px 8px;">
+                      <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Full Order Details
+                    </a>
+                  </div>
+
+                  <!-- 2-Column Math Equations Box -->
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                    
+                    <!-- Company Profit Derivation -->
+                    <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 14px;">
+                      <div style="font-size: 0.75rem; font-weight: 800; color: #047857; text-transform: uppercase; margin-bottom: 4px;">
+                        <i class="fa-solid fa-building-columns"></i> Company Profit Derivation
+                      </div>
+                      <div style="font-size: 0.8rem; color: #166534; line-height: 1.5;">
+                        <div>Formula: <code>(Commission + Delivery Fee) - (Rider Payout + Company Cashback)</code></div>
+                        <div style="margin-top: 4px; font-weight: 700; font-family: monospace;">
+                          (₹{{ row.company_commission|floatformat:2 }} + ₹{{ row.delivery_revenue|floatformat:2 }}) - (₹{{ row.rider_payout|floatformat:2 }} + ₹{{ row.company_cashback|floatformat:2 }}) = 
+                          <span style="font-size: 0.95rem; color: {% if row.company_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">₹{{ row.company_profit|floatformat:2 }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Seller Profit Derivation -->
+                    <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 10px 14px;">
+                      <div style="font-size: 0.75rem; font-weight: 800; color: #1D4ED8; text-transform: uppercase; margin-bottom: 4px;">
+                        <i class="fa-solid fa-store"></i> Seller Profit Derivation
+                      </div>
+                      <div style="font-size: 0.8rem; color: #1E40AF; line-height: 1.5;">
+                        <div>Formula: <code>Seller Payable - Total Product Cost</code></div>
+                        <div style="margin-top: 4px; font-weight: 700; font-family: monospace;">
+                          {% if row.has_cost_data and row.product_cost is not None %}
+                            ₹{{ row.seller_payable|floatformat:2 }} - ₹{{ row.product_cost|floatformat:2 }} = 
+                            <span style="font-size: 0.95rem; color: {% if row.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">₹{{ row.seller_profit|floatformat:2 }}</span>
+                          {% else %}
+                            <span style="color: #B45309;">Product cost was not provided by seller at listing time. Profit cannot be reliably computed.</span>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <!-- Itemized Snapshot Sub-Table -->
+                  <div style="font-size: 0.78rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 6px;">
+                    Order Item Snapshot Sub-Ledger
+                  </div>
+                  <div class="table-responsive">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; background: #ffffff;">
+                      <thead>
+                        <tr style="background: #F1F5F9; border-bottom: 1px solid #CBD5E1; color: #475569; text-align: left;">
+                          <th style="padding: 6px 8px;">Product Name</th>
+                          <th style="padding: 6px 8px; text-align: center;">Qty</th>
+                          <th style="padding: 6px 8px; text-align: right;">Unit Price</th>
+                          <th style="padding: 6px 8px; text-align: right;">Unit Cost</th>
+                          <th style="padding: 6px 8px; text-align: right;">Revenue</th>
+                          <th style="padding: 6px 8px; text-align: right;">Comm %</th>
+                          <th style="padding: 6px 8px; text-align: right;">Comm Amt</th>
+                          <th style="padding: 6px 8px; text-align: right;">Seller Payable</th>
+                          <th style="padding: 6px 8px; text-align: right;">Seller Profit</th>
+                          <th style="padding: 6px 8px; text-align: center;">Settlement</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for snap in row.snapshots %}
+                          <tr style="border-bottom: 1px solid #E2E8F0;">
+                            <td style="padding: 6px 8px; font-weight: 600; color: #1E293B;">{{ snap.product_name }}</td>
+                            <td style="padding: 6px 8px; text-align: center;">{{ snap.quantity }}</td>
+                            <td style="padding: 6px 8px; text-align: right; font-family: monospace;">₹{{ snap.unit_selling_price|floatformat:2 }}</td>
+                            <td style="padding: 6px 8px; text-align: right; font-family: monospace;">
+                              {% if snap.product_cost_per_unit is not None %}
+                                ₹{{ snap.product_cost_per_unit|floatformat:2 }}
+                              {% else %}
+                                <span style="color: #94A3B8;">—</span>
+                              {% endif %}
+                            </td>
+                            <td style="padding: 6px 8px; text-align: right; font-family: monospace; font-weight: 600;">₹{{ snap.product_revenue|floatformat:2 }}</td>
+                            <td style="padding: 6px 8px; text-align: right; font-family: monospace;">{{ snap.commission_rate }}%</td>
+                            <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #047857; font-weight: 700;">₹{{ snap.commission_amount|floatformat:2 }}</td>
+                            <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #2563EB; font-weight: 700;">₹{{ snap.seller_payable|floatformat:2 }}</td>
+                            <td style="padding: 6px 8px; text-align: right; font-family: monospace;">
+                              {% if snap.seller_profit is not None %}
+                                <strong style="color: {% if snap.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
+                                  ₹{{ snap.seller_profit|floatformat:2 }}
+                                </strong>
+                              {% else %}
+                                <span style="color: #94A3B8;">—</span>
+                              {% endif %}
+                            </td>
+                            <td style="padding: 6px 8px; text-align: center;">
+                              <span class="badge {% if snap.settlement_status == 'SETTLED' %}badge-success{% elif snap.settlement_status == 'REVERSED' %}badge-danger{% else %}badge-warning{% endif %}" style="font-size: 0.65rem;">
+                                {{ snap.settlement_status }}
+                              </span>
+                            </td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+
+                </div>
+
+              </td>
+            </tr>
+
+          {% empty %}
+            <tr>
+              <td colspan="13" style="text-align: center; padding: 2.5rem; color: #94A3B8;">
+                No orders match the selected reporting filters.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Order-wise Table Pagination Controls -->
+    {% if order_profit_page.has_other_pages %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 4px 0; border-top: 1px solid #E2E8F0; margin-top: 12px; font-size: 0.8rem; flex-wrap: wrap; gap: 8px;">
+        <span style="color: #64748B;">
+          Showing page <strong>{{ order_profit_page.number }}</strong> of <strong>{{ order_profit_page.paginator.num_pages }}</strong> (Total {{ order_profit_page.paginator.count }} orders)
+        </span>
+        <div style="display: flex; gap: 4px;">
+          {% if order_profit_page.has_previous %}
+            <a href="?order_page={{ order_profit_page.previous_page_number }}{% if period %}&period={{ period }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if order_search %}&order_q={{ order_search }}{% endif %}{% if order_status_filter %}&order_status={{ order_status_filter }}{% endif %}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
+              Previous
+            </a>
+          {% endif %}
+          <span class="btn btn-primary btn-sm" style="font-size: 0.75rem; pointer-events: none;">
+            {{ order_profit_page.number }}
+          </span>
+          {% if order_profit_page.has_next %}
+            <a href="?order_page={{ order_profit_page.next_page_number }}{% if period %}&period={{ period }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if order_search %}&order_q={{ order_search }}{% endif %}{% if order_status_filter %}&order_status={{ order_status_filter }}{% endif %}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
+              Next
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+
   <!-- SECONDARY BREAKDOWN CARDS (18 Standard KPIs Breakdown) -->
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
     
@@ -543,4 +955,25 @@
   </div>
 
 </div>
+
+<script>
+function toggleOrderDrilldown(orderId) {
+  const row = document.getElementById('drilldown-' + orderId);
+  const icon = document.getElementById('icon-' + orderId);
+  if (!row) return;
+  if (row.style.display === 'none' || row.style.display === '') {
+    row.style.display = 'table-row';
+    if (icon) {
+      icon.classList.remove('fa-chevron-down');
+      icon.classList.add('fa-chevron-up');
+    }
+  } else {
+    row.style.display = 'none';
+    if (icon) {
+      icon.classList.remove('fa-chevron-up');
+      icon.classList.add('fa-chevron-down');
+    }
+  }
+}
+</script>
 {% endblock %}

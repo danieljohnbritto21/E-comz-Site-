@@ -229,6 +229,10 @@ class OrderItem(models.Model):
     def subtotal(self):
         return self.total_price
 
+    @property
+    def unit(self):
+        return self.unit_value
+
     def __str__(self):
         return f"{self.product_name} x {self.quantity} in {self.order.order_id}"
 
@@ -242,6 +246,10 @@ class OrderStatusHistory(models.Model):
 
     class Meta:
         ordering = ['created_at']
+
+    @property
+    def notes(self):
+        return self.comment
 
     def __str__(self):
         return f"{self.order.order_id} -> {self.status} at {self.created_at}"

@@ -1,5 +1,5 @@
 import csv
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.contrib import messages
@@ -1331,6 +1331,26 @@ def admin_company_pnl_view(request):
         date_label = f"This Year ({today.year})"
 
     # 2. Orders & GMV
+    period_orders_qs = Order.objects.filter(**order_date_filter).select_related(
+        'buyer', 'delivery_assignment', 'delivery_assignment__delivery_person'
+    ).prefetch_related(
+        'items',
+        'items__seller',
+        'items__seller__seller_profile',
+        'financial_snapshots',
+        'financial_snapshots__order_item',
+        'financial_snapshots__seller',
+        'financial_snapshots__seller__seller_profile',
+        'delivery_earnings',
+        'cashback_entries',
+    ).order_by('-created_at')
+
+    # Ensure all orders in period have immutable financial snapshots
+    for ord_obj in period_orders_qs:
+        if not ord_obj.financial_snapshots.exists():
+            from apps.reports.services import create_order_financial_snapshots
+            create_order_financial_snapshots(ord_obj)
+
     period_orders = Order.objects.filter(**order_date_filter)
     delivered_orders = period_orders.filter(status=Order.Status.DELIVERED)
     total_gmv = period_orders.exclude(status__in=[Order.Status.CANCELLED, Order.Status.REFUNDED]).aggregate(
@@ -1443,7 +1463,134 @@ def admin_company_pnl_view(request):
         status='CONFIRMED'
     ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
 
-    # 10. Detailed Order/Item Financial Table
+    # 10. Order-wise Profit Breakdown & Dynamic Calculations
+    order_profit_rows = []
+    total_completed_company_profit = Decimal('0.00')
+    total_completed_seller_profit = Decimal('0.00')
+    completed_orders_with_cost_count = 0
+
+    for ord_obj in period_orders_qs:
+        snaps = list(ord_obj.financial_snapshots.all())
+
+        # Product Revenue & Costs
+        order_prod_revenue = sum(s.product_revenue for s in snaps) if snaps else ord_obj.subtotal
+        comm_amount = sum(s.commission_amount for s in snaps)
+        seller_payable = sum(s.seller_payable for s in snaps)
+
+        # Cost audit completeness
+        has_cost_data = all(s.product_cost_per_unit is not None for s in snaps) if snaps else False
+        total_product_cost = sum(s.product_cost_total for s in snaps if s.product_cost_total is not None) if has_cost_data else None
+
+        # Seller profit calculation (Revenue - Commission - Product Cost = Seller Payable - Product Cost)
+        if has_cost_data and total_product_cost is not None:
+            order_seller_profit = (seller_payable - total_product_cost).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        else:
+            order_seller_profit = None
+
+        # Delivery economics
+        del_fee = ord_obj.delivery_fee
+        del_earning = next((de for de in ord_obj.delivery_earnings.all() if de.status in ['SETTLED', 'PENDING']), None)
+        rider_payout = del_earning.earning_amount if del_earning else Decimal('0.00')
+
+        # Company-funded cashback
+        company_cb = sum(
+            cb.amount for cb in ord_obj.cashback_entries.all()
+            if cb.entry_type == 'EARNED' and cb.status == 'CONFIRMED' and cb.funding_source == 'COMPANY'
+        )
+        if not company_cb and ord_obj.status == Order.Status.DELIVERED:
+            company_cb = sum(s.cashback_total for s in snaps if s.cashback_funding == 'COMPANY')
+
+        # Company-owned product COGS & Revenue
+        company_owned_rev = sum(s.product_revenue for s in snaps if s.seller.role != User.Role.SELLER or s.seller.is_superuser)
+        company_owned_cost = sum(s.product_cost_total for s in snaps if (s.seller.role != User.Role.SELLER or s.seller.is_superuser) and s.product_cost_total is not None)
+
+        # Net Company Profit for this order
+        comp_rev = comm_amount + company_owned_rev + del_fee
+        comp_exp = rider_payout + company_cb + company_owned_cost
+        comp_profit = (comp_rev - comp_exp).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        # Store names
+        store_names = sorted(set(
+            s.seller.seller_profile.store_name if hasattr(s.seller, 'seller_profile') and s.seller.seller_profile and s.seller.seller_profile.store_name else s.seller.username
+            for s in snaps
+        ))
+        seller_display = ", ".join(store_names) if store_names else "FreshMart Direct"
+
+        # Settlement status
+        if snaps and all(s.settlement_status == 'SETTLED' for s in snaps):
+            order_settlement = 'SETTLED'
+        elif any(s.settlement_status == 'REVERSED' for s in snaps):
+            order_settlement = 'REVERSED'
+        elif any(s.settlement_status == 'CANCELLED' for s in snaps):
+            order_settlement = 'CANCELLED'
+        else:
+            order_settlement = 'PENDING'
+
+        is_completed = (ord_obj.status == Order.Status.DELIVERED)
+        if is_completed:
+            total_completed_company_profit += comp_profit
+            if order_seller_profit is not None:
+                total_completed_seller_profit += order_seller_profit
+                completed_orders_with_cost_count += 1
+
+        order_profit_rows.append({
+            'order': ord_obj,
+            'order_id': ord_obj.order_id,
+            'created_at': ord_obj.created_at,
+            'status': ord_obj.status,
+            'status_display': ord_obj.get_status_display(),
+            'status_badge_class': ord_obj.status_badge_class,
+            'is_completed': is_completed,
+            'seller_display': seller_display,
+            'order_revenue': order_prod_revenue,
+            'has_cost_data': has_cost_data,
+            'product_cost': total_product_cost,
+            'company_commission': comm_amount,
+            'delivery_revenue': del_fee,
+            'rider_payout': rider_payout,
+            'company_cashback': company_cb,
+            'company_expenses': comp_exp,
+            'company_revenue': comp_rev,
+            'company_profit': comp_profit,
+            'seller_payable': seller_payable,
+            'seller_profit': order_seller_profit,
+            'settlement_status': order_settlement,
+            'items_count': len(snaps),
+            'snapshots': snaps,
+        })
+
+    completed_orders_count = delivered_orders_count
+    avg_company_profit_per_order = (
+        (total_completed_company_profit / completed_orders_count).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if completed_orders_count > 0 else Decimal('0.00')
+    )
+    avg_seller_profit_per_order = (
+        (total_completed_seller_profit / completed_orders_with_cost_count).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if completed_orders_with_cost_count > 0 else Decimal('0.00')
+    )
+
+    # Filter and pagination for order-wise table
+    order_search = request.GET.get('order_q', '').strip()
+    order_status_filter = request.GET.get('order_status', '').strip()
+
+    filtered_order_rows = order_profit_rows
+    if order_search:
+        q_lower = order_search.lower()
+        filtered_order_rows = [
+            r for r in filtered_order_rows
+            if q_lower in r['order_id'].lower() or q_lower in r['seller_display'].lower()
+        ]
+    if order_status_filter:
+        filtered_order_rows = [
+            r for r in filtered_order_rows
+            if r['status'] == order_status_filter
+        ]
+
+    order_paginator = Paginator(filtered_order_rows, 15)
+    order_page_num = request.GET.get('order_page', 1)
+    order_profit_page = order_paginator.get_page(order_page_num)
+
+    # 11. Detailed Item-Level Financial Table
     table_snapshots = OrderItemFinancialSnapshot.objects.select_related(
         'order', 'order_item', 'seller', 'seller__seller_profile', 'order__delivery_assignment'
     ).filter(**snapshot_date_filter).order_by('-order__created_at')
@@ -1452,7 +1599,7 @@ def admin_company_pnl_view(request):
     page_number = request.GET.get('page', 1)
     pnl_items_page = paginator.get_page(page_number)
 
-    # 11. Per-Seller Summary
+    # 12. Per-Seller Summary
     seller_summaries = []
     seller_profiles = SellerProfile.objects.select_related('user').all()
     for sp in seller_profiles:
@@ -1476,7 +1623,7 @@ def admin_company_pnl_view(request):
             'pending_earnings': wallet.pending_earnings if wallet else Decimal('0.00'),
         })
 
-    # 12. Per-Delivery Driver Summary
+    # 13. Per-Delivery Driver Summary
     driver_summaries = []
     delivery_users = User.objects.filter(role=User.Role.DELIVERY, is_active=True).select_related('delivery_profile')
     for d_user in delivery_users:
@@ -1527,6 +1674,17 @@ def admin_company_pnl_view(request):
         # Order volume counts
         'total_orders_count': total_orders_count,
         'delivered_orders_count': delivered_orders_count,
+
+        # Order-Wise Dynamic Profit Metrics (New Feature)
+        'completed_orders_count': completed_orders_count,
+        'total_completed_company_profit': total_completed_company_profit,
+        'total_completed_seller_profit': total_completed_seller_profit,
+        'completed_orders_with_cost_count': completed_orders_with_cost_count,
+        'avg_company_profit_per_order': avg_company_profit_per_order,
+        'avg_seller_profit_per_order': avg_seller_profit_per_order,
+        'order_profit_page': order_profit_page,
+        'order_search': order_search,
+        'order_status_filter': order_status_filter,
 
         # Cashback attribution reconciliation
         'cashback_summary': {

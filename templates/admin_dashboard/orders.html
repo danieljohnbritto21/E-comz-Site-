@@ -304,27 +304,34 @@
 
               <!-- Assigned Driver & Quick Reassignment Form -->
               <td style="padding: 12px 14px; vertical-align: top;">
-                <form action="{% url 'admin_dashboard:assign_delivery' order.order_id %}" method="POST" style="display: flex; gap: 4px; align-items: center; margin: 0;">
+                <form action="{% url 'admin_dashboard:assign_delivery' order.order_id %}" method="POST" class="rider-quick-assign-form" style="margin: 0;">
                   {% csrf_token %}
-                  <select name="delivery_person_id" class="form-select" style="padding: 0.25rem 0.4rem; font-size: 0.78rem; width: 135px;" required>
-                    <option value="">-- Choose Rider --</option>
-                    {% for driver in delivery_agents %}
-                      <option value="{{ driver.id }}" {% if order.delivery_assignment.delivery_person.id == driver.id %}selected{% endif %}>
-                        {{ driver.get_full_name|default:driver.username }} ({{ driver.active_assignments_count|default:"0" }})
-                      </option>
-                    {% endfor %}
-                  </select>
-                  <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.3rem 0.5rem; font-size: 0.72rem;">
-                    {% if order.delivery_assignment %}Reassign{% else %}Assign{% endif %}
-                  </button>
+                  <div class="rider-ctrl-group">
+                    <div class="rider-select-box">
+                      <select name="delivery_person_id" class="rider-dropdown" required title="Select delivery fleet agent">
+                        <option value="">-- Choose Rider --</option>
+                        {% for driver in delivery_agents %}
+                          <option value="{{ driver.id }}" {% if order.delivery_assignment.delivery_person.id == driver.id %}selected{% endif %}>
+                            {{ driver.get_full_name|default:driver.username }} ({{ driver.active_assignments_count|default:"0" }})
+                          </option>
+                        {% endfor %}
+                      </select>
+                      <i class="fa-solid fa-chevron-down rider-chevron"></i>
+                    </div>
+                    <button type="submit" class="rider-action-btn" title="{% if order.delivery_assignment %}Reassign delivery rider{% else %}Assign delivery rider{% endif %}">
+                      {% if order.delivery_assignment %}Reassign{% else %}Assign{% endif %}
+                    </button>
+                  </div>
                 </form>
                 {% if order.delivery_assignment and order.delivery_assignment.delivery_person %}
-                  <div style="font-size: 0.72rem; color: #047857; margin-top: 3px;">
-                    Assigned: <strong>{{ order.delivery_assignment.delivery_person.get_full_name|default:order.delivery_assignment.delivery_person.username }}</strong>
+                  <div class="rider-status-assigned">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Assigned: <strong>{{ order.delivery_assignment.delivery_person.get_full_name|default:order.delivery_assignment.delivery_person.username }}</strong></span>
                   </div>
                 {% else %}
-                  <div style="font-size: 0.7rem; color: #D97706; margin-top: 3px;">
-                    <i class="fa-solid fa-hourglass-start"></i> Auto-dispatches on packed
+                  <div class="rider-status-unassigned">
+                    <i class="fa-regular fa-clock"></i>
+                    <span>Auto-dispatches on packed</span>
                   </div>
                 {% endif %}
               </td>
@@ -388,4 +395,108 @@
   </div>
 
 </div>
+
+<!-- Enhanced Rider Dropdown and Action Button Styles -->
+<style>
+  .rider-quick-assign-form {
+    display: block;
+  }
+  .rider-ctrl-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    vertical-align: middle;
+  }
+  .rider-select-box {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .rider-dropdown {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 32px;
+    padding: 0 24px 0 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #0F172A;
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 155px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  .rider-dropdown:focus {
+    outline: none;
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+  }
+  .rider-dropdown:hover {
+    border-color: #94A3B8;
+  }
+  .rider-chevron {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 0.65rem;
+    color: #64748B;
+  }
+  .rider-action-btn {
+    height: 32px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    background: #059669;
+    border: 1px solid #059669;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.2);
+  }
+  .rider-action-btn:hover {
+    background: #047857;
+    border-color: #047857;
+    box-shadow: 0 2px 4px rgba(4, 120, 87, 0.25);
+  }
+  .rider-action-btn:active {
+    transform: translateY(1px);
+  }
+  .rider-status-assigned {
+    font-size: 0.74rem;
+    color: #047857;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+  .rider-status-assigned i {
+    font-size: 0.72rem;
+  }
+  .rider-status-assigned strong {
+    color: #065F46;
+  }
+  .rider-status-unassigned {
+    font-size: 0.72rem;
+    color: #D97706;
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    line-height: 1.2;
+  }
+</style>
 {% endblock %}

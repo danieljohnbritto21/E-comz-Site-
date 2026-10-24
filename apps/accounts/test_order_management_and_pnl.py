@@ -277,3 +277,120 @@ class OrderManagementAndPnLTests(TestCase):
         self.assertRedirects(resp_approve, url)
         bad_product.refresh_from_db()
         self.assertNotEqual(bad_product.approval_status, Product.ApprovalStatus.APPROVED)
+
+    def test_company_pnl_order_wise_profit_and_summary_cards(self):
+        """Test order-wise company profit, seller profit, averages, and summary cards."""
+        from apps.reports.services import create_order_financial_snapshots
+
+        self.client.force_login(self.admin_user)
+        # Mark order as DELIVERED
+        self.order.status = Order.Status.DELIVERED
+        self.order.save()
+
+        # Create snapshots
+        create_order_financial_snapshots(self.order)
+
+        # Create DeliveryEarning
+        DeliveryEarning.objects.create(
+            delivery_person=self.delivery_user,
+            order=self.order,
+            assignment=self.assignment,
+            earning_amount=Decimal('20.00'),
+            delivery_fee_charged=Decimal('30.00'),
+            status='SETTLED',
+            idempotency_key=f"EARN-{self.order.order_id}"
+        )
+
+        url = reverse('admin_dashboard:company_pnl')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        # 1. Summary cards in response
+        self.assertContains(response, 'Completed Orders')
+        self.assertContains(response, 'Total Company Profit')
+        self.assertContains(response, 'Total Seller Profit')
+        self.assertContains(response, 'Avg Company Margin')
+        self.assertContains(response, 'Avg Seller Margin')
+
+        # 2. Order-wise breakdown table in response
+        self.assertContains(response, 'Order-wise Profit Breakdown')
+        self.assertContains(response, f"#{self.order.order_id}")
+        self.assertContains(response, 'Fresh Farms Store')
+
+        # 3. Exact calculations check
+        # Revenue = 240, Comm = 24, DelRev = 30, Rider = 20, Cashback = 2
+        # Company Profit = (24 + 30) - (20 + 2) = 32.00
+        # Seller Payable = 216, Cost = 160 (2 * 80)
+        # Seller Profit = 216 - 160 = 56.00
+        self.assertEqual(response.context['completed_orders_count'], 1)
+        self.assertEqual(response.context['total_completed_company_profit'], Decimal('32.00'))
+        self.assertEqual(response.context['total_completed_seller_profit'], Decimal('56.00'))
+        self.assertEqual(response.context['avg_company_profit_per_order'], Decimal('32.00'))
+        self.assertEqual(response.context['avg_seller_profit_per_order'], Decimal('56.00'))
+
+        # Check row in order_profit_page
+        row = response.context['order_profit_page'].object_list[0]
+        self.assertEqual(row['order_id'], self.order.order_id)
+        self.assertEqual(row['company_profit'], Decimal('32.00'))
+        self.assertEqual(row['seller_profit'], Decimal('56.00'))
+        self.assertTrue(row['has_cost_data'])
+        self.assertTrue(row['is_completed'])
+
+    def test_company_pnl_insufficient_cost_data_handling(self):
+        """When an order has missing product cost, seller profit displays Insufficient cost data and is not fabricated."""
+        from apps.reports.services import create_order_financial_snapshots
+
+        self.client.force_login(self.admin_user)
+
+        # Create a product without product_cost
+        no_cost_prod = Product.objects.create(
+            name='Exotic Organic Mango',
+            slug='exotic-organic-mango',
+            category=self.category,
+            seller=self.seller_user,
+            mrp=Decimal('200.00'),
+            selling_price=Decimal('180.00'),
+            product_cost=None, # Missing cost
+            sku='MANGO-001',
+            is_approved=True,
+            approval_status=Product.ApprovalStatus.APPROVED,
+            is_active=True
+        )
+
+        ord_no_cost = Order.objects.create(
+            order_id=Order.generate_order_id(),
+            buyer=self.buyer_user,
+            recipient_name='Vikram Singh',
+            recipient_phone='9811223344',
+            delivery_address_text='B-12 Palm Grove',
+            pin_code='560002',
+            payment_method=Order.PaymentMethod.UPI,
+            payment_status=Order.PaymentStatus.PAID,
+            status=Order.Status.DELIVERED,
+            subtotal=Decimal('180.00'),
+            total_amount=Decimal('210.00'),
+            delivery_fee=Decimal('30.00'),
+            cashback_earned=Decimal('0.00')
+        )
+        OrderItem.objects.create(
+            order=ord_no_cost,
+            product=no_cost_prod,
+            product_name=no_cost_prod.name,
+            seller=self.seller_user,
+            quantity=1,
+            unit_price=Decimal('180.00'),
+            total_price=Decimal('180.00'),
+            mrp=Decimal('200.00')
+        )
+        create_order_financial_snapshots(ord_no_cost)
+
+        url = reverse('admin_dashboard:company_pnl')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        # Check that the order appears in order_profit_page
+        row = next(r for r in response.context['order_profit_page'].object_list if r['order_id'] == ord_no_cost.order_id)
+        self.assertFalse(row['has_cost_data'])
+        self.assertIsNone(row['seller_profit'])
+        self.assertContains(response, 'Insufficient cost data')
+

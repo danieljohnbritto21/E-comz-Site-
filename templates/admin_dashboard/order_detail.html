@@ -5,540 +5,851 @@
 {% block title %}Order #{{ order.order_id }} Details - Admin Portal{% endblock %}
 
 {% block admin_content %}
-<div style="padding-bottom: 3rem;">
+<div class="order-detail-page">
   
-  <!-- Breadcrumb & Top Header -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-    <div>
-      <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">
-        <a href="{% url 'admin_dashboard:orders' %}" style="color: var(--color-primary-dark); text-decoration: none;">
-          <i class="fa-solid fa-arrow-left"></i> Back to Orders
-        </a>
-        <span>/</span>
-        <span>Order #{{ order.order_id }}</span>
+  <!-- Breadcrumb Navigation -->
+  <nav class="od-breadcrumb" aria-label="Breadcrumb">
+    <a href="{% url 'admin_dashboard:orders' %}" class="od-breadcrumb-link">
+      <i class="fa-solid fa-arrow-left"></i>
+      <span>Back to Orders</span>
+    </a>
+    <span class="od-breadcrumb-sep">/</span>
+    <span class="od-breadcrumb-current">Order #{{ order.order_id }}</span>
+  </nav>
+
+  <!-- Top Hero Header Bar -->
+  <div class="od-header">
+    <div class="od-header-main">
+      <div class="od-title-row">
+        <h1 class="od-title">
+          <span>Order #{{ order.order_id }}</span>
+          <button type="button" class="od-copy-btn" onclick="copyOrderId('{{ order.order_id }}')" title="Copy Order ID to clipboard">
+            <i class="fa-regular fa-copy" id="copy-icon"></i>
+            <span id="copy-tooltip">Copy ID</span>
+          </button>
+        </h1>
+        <div class="od-badges">
+          <!-- Primary Lifecycle Status Badge -->
+          <span class="od-badge od-badge-status {{ order.status_badge_class }}">
+            <span class="od-badge-dot"></span>
+            {{ order.get_status_display }}
+          </span>
+          <!-- Payment Status Badge -->
+          <span class="od-badge {% if order.payment_status == 'PAID' %}od-badge-paid{% elif order.payment_status == 'REFUNDED' %}od-badge-refunded{% elif order.payment_status == 'FAILED' %}od-badge-danger{% else %}od-badge-pending{% endif %}">
+            <i class="fa-solid {% if order.payment_status == 'PAID' %}fa-circle-check{% elif order.payment_status == 'REFUNDED' %}fa-rotate-left{% elif order.payment_status == 'FAILED' %}fa-circle-xmark{% else %}fa-clock{% endif %}"></i>
+            {{ order.get_payment_status_display }}
+          </span>
+        </div>
       </div>
-      <h1 class="dashboard-title" style="margin-bottom: 4px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-        Order #{{ order.order_id }}
-        <span class="badge {{ order.status_badge_class }}" style="font-size: 0.85rem; padding: 4px 10px;">
-          {{ order.get_status_display }}
+      <div class="od-meta-row">
+        <span class="od-meta-item">
+          <i class="fa-regular fa-calendar"></i>
+          <span>Placed on <strong>{{ order.created_at|date:"d M Y, h:i A" }}</strong></span>
         </span>
-        <span class="badge {% if order.payment_status == 'PAID' %}badge-success{% else %}badge-warning{% endif %}" style="font-size: 0.85rem; padding: 4px 10px;">
-          {{ order.get_payment_status_display }}
+        <span class="od-meta-divider">&bull;</span>
+        <span class="od-meta-item">
+          <i class="fa-regular fa-clock"></i>
+          <span>Last updated <strong>{{ order.updated_at|date:"d M Y, h:i A" }}</strong></span>
         </span>
-      </h1>
-      <p class="dashboard-subtitle" style="margin: 0;">
-        Placed on {{ order.created_at|date:"d M Y, h:i A" }} &bull; Last updated {{ order.updated_at|date:"d M Y, h:i A" }}
-      </p>
+        <span class="od-meta-divider">&bull;</span>
+        <span class="od-meta-channel">
+          <i class="fa-solid fa-store"></i> Direct Marketplace
+        </span>
+      </div>
     </div>
 
     <!-- Quick Action Bar -->
-    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-      <a href="{% url 'orders:track' order.order_id %}" target="_blank" class="btn btn-secondary btn-sm">
-        <i class="fa-solid fa-map-location-dot"></i> Live Buyer Tracking
+    <div class="od-header-actions">
+      <a href="{% url 'orders:track' order.order_id %}" target="_blank" class="od-btn od-btn-secondary" title="View customer tracking screen in new tab">
+        <i class="fa-solid fa-map-location-dot"></i>
+        <span>Live Buyer Tracking</span>
       </a>
-      <a href="{% url 'admin_dashboard:company_pnl' %}" class="btn btn-secondary btn-sm">
-        <i class="fa-solid fa-scale-balanced"></i> View Company P&L
+      <a href="{% url 'admin_dashboard:company_pnl' %}" class="od-btn od-btn-secondary" title="View company profit & loss reconciliation">
+        <i class="fa-solid fa-scale-balanced"></i>
+        <span>View Company P&L</span>
       </a>
     </div>
   </div>
 
-  <!-- Messages -->
+  <!-- Messages Alert Container -->
   {% if messages %}
-    <div style="margin-bottom: 1.25rem;">
+    <div class="od-messages-container">
       {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}" style="padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.9rem;">
-          {{ message }}
+        <div class="od-alert od-alert-{{ message.tags }}">
+          <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check{% elif message.tags == 'error' %}fa-circle-exclamation{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+          <div class="od-alert-content">{{ message }}</div>
         </div>
       {% endfor %}
     </div>
   {% endif %}
 
-  <!-- 2-Column Grid Layout -->
-  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+  <!-- Responsive 2-Column Grid Layout -->
+  <div class="od-layout-grid">
     
-    <!-- LEFT COLUMN: Items, Delivery, Audit -->
-    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <!-- LEFT MAIN COLUMN: Items, Accounting, Fleet, Timeline -->
+    <div class="od-col-main">
       
-      <!-- Order Items Card -->
-      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.75rem;">
-          <h2 style="font-size: 1.1rem; font-weight: 700; color: #1E293B; margin: 0; display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-boxes-stacked" style="color: #059669;"></i> Order Items ({{ order.items.count }})
-          </h2>
-          <span style="font-size: 0.8rem; color: #64748B;">Sub-orders: {{ order.sub_orders.count }} seller partition(s)</span>
-        </div>
-
-        <div class="table-responsive">
-          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
-            <thead>
-              <tr style="border-bottom: 1px solid #E2E8F0; background: #F8FAFC; text-align: left; color: #64748B; font-size: 0.75rem; text-transform: uppercase;">
-                <th style="padding: 8px 10px;">Item / Product</th>
-                <th style="padding: 8px 10px;">Seller Store</th>
-                <th style="padding: 8px 10px; text-align: center;">Qty</th>
-                <th style="padding: 8px 10px; text-align: right;">MRP</th>
-                <th style="padding: 8px 10px; text-align: right;">Unit Price</th>
-                <th style="padding: 8px 10px; text-align: right;">Discount</th>
-                <th style="padding: 8px 10px; text-align: right;">Subtotal</th>
-                <th style="padding: 8px 10px; text-align: right;">Cashback</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in order.items.all %}
-                <tr style="border-bottom: 1px solid #F1F5F9;">
-                  <td style="padding: 10px;">
-                    <div style="font-weight: 700; color: #1E293B;">{{ item.product_name }}</div>
-                    <div style="font-size: 0.72rem; color: #64748B;">
-                      {% if item.brand %}Brand: {{ item.brand }} &bull; {% endif %}
-                      {% if item.unit %}{{ item.unit }} &bull; {% endif %}
-                      {% if item.product and item.product.sku %}SKU: <span style="font-family: monospace;">{{ item.product.sku }}</span>{% endif %}
-                    </div>
-                  </td>
-                  <td style="padding: 10px;">
-                    <div style="font-weight: 600; color: #334155;">
-                      {{ item.seller.seller_profile.store_name|default:item.seller.username }}
-                    </div>
-                    <div style="font-size: 0.72rem; color: #64748B;">ID: {{ item.seller.account_id }}</div>
-                  </td>
-                  <td style="padding: 10px; text-align: center; font-weight: 700;">
-                    {{ item.quantity }}
-                  </td>
-                  <td style="padding: 10px; text-align: right; color: #94A3B8; text-decoration: line-through;">
-                    ₹{{ item.mrp|default:item.unit_price|floatformat:2 }}
-                  </td>
-                  <td style="padding: 10px; text-align: right; font-weight: 600; color: #1E293B;">
-                    ₹{{ item.unit_price|floatformat:2 }}
-                  </td>
-                  <td style="padding: 10px; text-align: right; color: #DC2626; font-size: 0.8rem;">
-                    {% if item.discount_amount and item.discount_amount > 0 %}
-                      -₹{{ item.discount_amount|floatformat:2 }}
-                    {% else %}
-                      —
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; text-align: right; font-weight: 800; color: #047857;">
-                    ₹{{ item.subtotal|floatformat:2 }}
-                  </td>
-                  <td style="padding: 10px; text-align: right; color: #059669; font-size: 0.8rem; font-weight: 600;">
-                    {% if item.cashback_amount and item.cashback_amount > 0 %}
-                      +₹{{ item.cashback_amount|floatformat:2 }}
-                    {% else %}
-                      —
-                    {% endif %}
-                  </td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="8" style="text-align: center; padding: 2rem; color: #94A3B8;">No items in this order.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Item-Level Financial Snapshots Audit (Restricted Financial Roles) -->
-        {% if snapshots %}
-          <div style="margin-top: 1.25rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem;">
-            <div style="font-weight: 700; font-size: 0.82rem; color: #475569; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between;">
-              <span><i class="fa-solid fa-lock" style="color: #64748B;"></i> Item Accounting Snapshots (Financial Audit)</span>
-              {% if not all_costs_recorded %}
-                <span class="badge badge-warning" style="font-size: 0.68rem;">Some product costs not recorded</span>
-              {% endif %}
+      <!-- CARD 1: Order Items & Pricing Breakdown -->
+      <div class="od-card">
+        <div class="od-card-header">
+          <div class="od-card-title-group">
+            <div class="od-card-icon od-icon-emerald">
+              <i class="fa-solid fa-boxes-stacked"></i>
             </div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+            <div>
+              <h2 class="od-card-title">Order Items</h2>
+              <span class="od-card-subtitle">{{ order.items.count }} item{% if order.items.count != 1 %}s{% endif %} in this consignment</span>
+            </div>
+          </div>
+          <span class="od-pill-subtle">
+            <i class="fa-solid fa-layer-group"></i> {{ order.sub_orders.count }} Seller Partition{% if order.sub_orders.count != 1 %}s{% endif %}
+          </span>
+        </div>
+
+        <div class="od-card-body p-0">
+          <div class="od-table-responsive">
+            <table class="od-table">
               <thead>
-                <tr style="border-bottom: 1px solid #CBD5E1; color: #64748B; text-align: left;">
-                  <th style="padding: 4px 6px;">Product</th>
-                  <th style="padding: 4px 6px; text-align: right;">Unit Cost</th>
-                  <th style="padding: 4px 6px; text-align: right;">Revenue</th>
-                  <th style="padding: 4px 6px; text-align: right;">Comm %</th>
-                  <th style="padding: 4px 6px; text-align: right;">Comm Amt</th>
-                  <th style="padding: 4px 6px; text-align: right;">Seller Payable</th>
-                  <th style="padding: 4px 6px; text-align: right;">Est. Seller Profit</th>
-                  <th style="padding: 4px 6px; text-align: center;">Settlement</th>
+                <tr>
+                  <th style="min-width: 220px;">Item / Product</th>
+                  <th style="min-width: 150px;">Seller Store</th>
+                  <th style="width: 70px; text-align: center;">Qty</th>
+                  <th style="width: 90px; text-align: right;">MRP</th>
+                  <th style="width: 95px; text-align: right;">Unit Price</th>
+                  <th style="width: 95px; text-align: right;">Discount</th>
+                  <th style="width: 105px; text-align: right;">Subtotal</th>
+                  <th style="width: 95px; text-align: right;">Cashback</th>
                 </tr>
               </thead>
               <tbody>
-                {% for snap in snapshots %}
-                  <tr style="border-bottom: 1px solid #E2E8F0;">
-                    <td style="padding: 6px;">{{ snap.product_name|truncatechars:24 }}</td>
-                    <td style="padding: 6px; text-align: right;">
-                      {% if snap.product_cost_per_unit is not None %}
-                        ₹{{ snap.product_cost_per_unit|floatformat:2 }}
+                {% for item in order.items.all %}
+                  <tr>
+                    <td>
+                      <div class="od-product-cell">
+                        <div class="od-product-thumb">
+                          {% if item.image_url %}
+                            <img src="{{ item.image_url }}" alt="{{ item.product_name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div class="od-product-thumb-fallback" style="display: none;"><i class="fa-solid fa-apple-whole"></i></div>
+                          {% else %}
+                            <div class="od-product-thumb-fallback"><i class="fa-solid fa-apple-whole"></i></div>
+                          {% endif %}
+                        </div>
+                        <div class="od-product-info">
+                          <div class="od-product-name">{{ item.product_name }}</div>
+                          <div class="od-product-tags">
+                            {% if item.brand %}
+                              <span class="od-tag"><i class="fa-solid fa-tag"></i> {{ item.brand }}</span>
+                            {% endif %}
+                            {% if item.unit or item.unit_value %}
+                              <span class="od-tag"><i class="fa-solid fa-scale-unbalanced"></i> {{ item.unit|default:item.unit_value }}</span>
+                            {% endif %}
+                            {% if item.product and item.product.sku %}
+                              <span class="od-tag od-tag-sku">SKU: {{ item.product.sku }}</span>
+                            {% endif %}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="od-seller-name">
+                        <i class="fa-solid fa-store" style="color: #64748B; font-size: 0.75rem;"></i>
+                        {{ item.seller.seller_profile.store_name|default:item.seller.username }}
+                      </div>
+                      <div class="od-seller-id">
+                        <span>ID:</span> <code>{{ item.seller.account_id }}</code>
+                      </div>
+                    </td>
+                    <td style="text-align: center;">
+                      <span class="od-qty-badge">x{{ item.quantity }}</span>
+                    </td>
+                    <td style="text-align: right;">
+                      <span class="od-mrp-price">₹{{ item.mrp|default:item.unit_price|floatformat:2 }}</span>
+                    </td>
+                    <td style="text-align: right;">
+                      <span class="od-unit-price">₹{{ item.unit_price|floatformat:2 }}</span>
+                    </td>
+                    <td style="text-align: right;">
+                      {% if item.discount_amount and item.discount_amount > 0 %}
+                        <span class="od-discount-val">-₹{{ item.discount_amount|floatformat:2 }}</span>
                       {% else %}
-                        <span style="color: #94A3B8; font-style: italic;">Not recorded</span>
+                        <span class="od-empty-val">—</span>
                       {% endif %}
                     </td>
-                    <td style="padding: 6px; text-align: right; font-weight: 600;">₹{{ snap.product_revenue|floatformat:2 }}</td>
-                    <td style="padding: 6px; text-align: right;">{{ snap.commission_rate }}%</td>
-                    <td style="padding: 6px; text-align: right; color: #047857; font-weight: 700;">₹{{ snap.commission_amount|floatformat:2 }}</td>
-                    <td style="padding: 6px; text-align: right; font-weight: 700; color: #2563EB;">₹{{ snap.seller_payable|floatformat:2 }}</td>
-                    <td style="padding: 6px; text-align: right;">
-                      {% if snap.seller_profit is not None %}
-                        <strong style="color: {% if snap.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
-                          ₹{{ snap.seller_profit|floatformat:2 }}
-                        </strong>
+                    <td style="text-align: right;">
+                      <span class="od-subtotal-val">₹{{ item.subtotal|floatformat:2 }}</span>
+                    </td>
+                    <td style="text-align: right;">
+                      {% if item.cashback_amount and item.cashback_amount > 0 %}
+                        <span class="od-cashback-badge">+₹{{ item.cashback_amount|floatformat:2 }}</span>
                       {% else %}
-                        <span style="color: #94A3B8;">—</span>
+                        <span class="od-empty-val">—</span>
                       {% endif %}
                     </td>
-                    <td style="padding: 6px; text-align: center;">
-                      <span class="badge {% if snap.settlement_status == 'SETTLED' %}badge-success{% elif snap.settlement_status == 'REVERSED' %}badge-danger{% else %}badge-warning{% endif %}" style="font-size: 0.65rem;">
-                        {{ snap.settlement_status }}
-                      </span>
-                    </td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="8" class="od-empty-state">No items found in this order.</td>
                   </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-        {% endif %}
 
+          <!-- Item-Level Financial Snapshots Audit Area -->
+          {% if snapshots %}
+            <div class="od-audit-box">
+              <div class="od-audit-box-header">
+                <div class="od-audit-title">
+                  <i class="fa-solid fa-shield-halved" style="color: #6366F1;"></i>
+                  <span>Item Accounting Snapshots (Financial Audit)</span>
+                </div>
+                <div>
+                  {% if all_costs_recorded %}
+                    <span class="od-badge od-badge-paid" style="font-size: 0.72rem; padding: 3px 8px;">
+                      <i class="fa-solid fa-circle-check"></i> Costs Verified
+                    </span>
+                  {% else %}
+                    <span class="od-badge od-badge-warning" style="font-size: 0.72rem; padding: 3px 8px;">
+                      <i class="fa-solid fa-triangle-exclamation"></i> Incomplete Cost Records
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+              
+              <div class="od-table-responsive">
+                <table class="od-audit-table">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 140px;">Product</th>
+                      <th style="text-align: right;">Unit Cost</th>
+                      <th style="text-align: right;">Revenue</th>
+                      <th style="text-align: right;">Comm %</th>
+                      <th style="text-align: right;">Comm Amt</th>
+                      <th style="text-align: right;">Seller Payable</th>
+                      <th style="text-align: right;">Est. Seller Profit</th>
+                      <th style="text-align: center;">Settlement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for snap in snapshots %}
+                      <tr>
+                        <td style="font-weight: 600; color: #1E293B;">
+                          {{ snap.product_name|truncatechars:26 }}
+                        </td>
+                        <td style="text-align: right;">
+                          {% if snap.product_cost_per_unit is not None %}
+                            <span class="od-val-mono">₹{{ snap.product_cost_per_unit|floatformat:2 }}</span>
+                          {% else %}
+                            <span class="od-val-muted">Not recorded</span>
+                          {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                          <span class="od-val-mono font-bold">₹{{ snap.product_revenue|floatformat:2 }}</span>
+                        </td>
+                        <td style="text-align: right;">
+                          <span class="od-val-mono">{{ snap.commission_rate }}%</span>
+                        </td>
+                        <td style="text-align: right;">
+                          <span class="od-val-mono od-text-green font-bold">₹{{ snap.commission_amount|floatformat:2 }}</span>
+                        </td>
+                        <td style="text-align: right;">
+                          <span class="od-val-mono od-text-blue font-bold">₹{{ snap.seller_payable|floatformat:2 }}</span>
+                        </td>
+                        <td style="text-align: right;">
+                          {% if snap.seller_profit is not None %}
+                            <span class="od-val-mono font-bold {% if snap.seller_profit >= 0 %}od-text-green{% else %}od-text-red{% endif %}">
+                              ₹{{ snap.seller_profit|floatformat:2 }}
+                            </span>
+                          {% else %}
+                            <span class="od-val-muted">—</span>
+                          {% endif %}
+                        </td>
+                        <td style="text-align: center;">
+                          <span class="od-pill-status {% if snap.settlement_status == 'SETTLED' %}od-pill-settled{% elif snap.settlement_status == 'REVERSED' %}od-pill-reversed{% else %}od-pill-pending{% endif %}">
+                            {{ snap.settlement_status }}
+                          </span>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          {% endif %}
+
+        </div>
       </div>
 
-      <!-- Delivery & Fleet Tracking Card -->
-      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.75rem;">
-          <h2 style="font-size: 1.1rem; font-weight: 700; color: #1E293B; margin: 0; display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i> Delivery & Fleet Dispatch
-          </h2>
+      <!-- CARD 2: Delivery & Fleet Dispatch -->
+      <div class="od-card">
+        <div class="od-card-header">
+          <div class="od-card-title-group">
+            <div class="od-card-icon od-icon-blue">
+              <i class="fa-solid fa-motorcycle"></i>
+            </div>
+            <div>
+              <h2 class="od-card-title">Delivery & Fleet Dispatch</h2>
+              <span class="od-card-subtitle">Last-mile assignment, store handover, and OTP verification</span>
+            </div>
+          </div>
           {% if assignment %}
-            <span class="badge badge-info" style="font-size: 0.8rem;">
-              {{ assignment.get_status_display }}
+            <span class="od-badge od-badge-info">
+              <i class="fa-solid fa-route"></i> {{ assignment.get_status_display }}
             </span>
           {% else %}
-            <span class="badge badge-warning" style="font-size: 0.8rem;">Unassigned</span>
+            <span class="od-badge od-badge-warning">
+              <i class="fa-solid fa-circle-exclamation"></i> Unassigned
+            </span>
           {% endif %}
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-          <div>
-            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase;">Assigned Driver</div>
-            {% if assignment and assignment.delivery_person %}
-              <div style="font-weight: 700; color: #1E293B; font-size: 0.95rem; margin-top: 2px;">
-                {{ assignment.delivery_person.get_full_name|default:assignment.delivery_person.username }}
+        <div class="od-card-body">
+          
+          <!-- Dispatch Operational 4-Tile Grid -->
+          <div class="od-dispatch-grid">
+            
+            <!-- Tile 1: Assigned Driver -->
+            <div class="od-info-tile">
+              <div class="od-tile-label">
+                <i class="fa-solid fa-user-shield"></i> Assigned Driver
               </div>
-              <div style="font-size: 0.78rem; color: #64748B;">
-                Phone: {{ assignment.delivery_person.phone|default:"N/A" }} &bull; ID: {{ assignment.delivery_person.account_id }}
-              </div>
-            {% else %}
-              <div style="font-weight: 600; color: #DC2626; margin-top: 2px;">No driver assigned</div>
-            {% endif %}
-          </div>
-
-          <div>
-            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase;">Delivery Slot</div>
-            <div style="font-weight: 700; color: #1E293B; font-size: 0.95rem; margin-top: 2px;">
-              {{ order.delivery_slot|default:"Standard Delivery" }}
-            </div>
-            <div style="font-size: 0.78rem; color: #64748B;">PIN Code: {{ order.pin_code }}</div>
-          </div>
-
-          <div>
-            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase;">Store Handover Verification</div>
-            <div style="font-weight: 700; color: #1E293B; font-size: 0.95rem; margin-top: 2px;">
-              {% if assignment and assignment.shop_verified %}
-                <span style="color: #047857;"><i class="fa-solid fa-circle-check"></i> Verified at {{ assignment.shop_verified_at|date:"h:i A" }}</span>
-              {% else %}
-                <span style="color: #D97706;"><i class="fa-solid fa-clock"></i> Pending Store Handover</span>
-              {% endif %}
-            </div>
-          </div>
-
-          <div>
-            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase;">Customer Delivery OTP</div>
-            <div style="font-weight: 700; font-size: 0.95rem; margin-top: 2px;">
-              {% if order.delivery_verified_at %}
-                <span style="color: #047857;"><i class="fa-solid fa-shield-check"></i> Verified at {{ order.delivery_verified_at|date:"h:i A" }}</span>
-              {% elif latest_otp %}
-                <span style="color: #2563EB;">
-                  <i class="fa-solid fa-paper-plane"></i> Sent (Attempts: {{ latest_otp.attempts }}/{{ latest_otp.max_attempts }})
-                </span>
-                <div style="font-size: 0.72rem; color: #64748B;">Expires {{ latest_otp.expires_at|date:"h:i A" }}</div>
-              {% else %}
-                <span style="color: #94A3B8;"><i class="fa-solid fa-lock"></i> Not Generated Yet</span>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-
-        <!-- Driver Assignment Form -->
-        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.85rem 1rem;">
-          <form action="{% url 'admin_dashboard:assign_delivery' order.order_id %}" method="POST" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0;">
-            {% csrf_token %}
-            <span style="font-size: 0.82rem; font-weight: 700; color: #334155;">Assign / Reassign Delivery Driver:</span>
-            <select name="delivery_person_id" class="form-select" style="padding: 0.35rem 0.6rem; font-size: 0.85rem; max-width: 260px;" required>
-              <option value="">-- Choose Agent --</option>
-              {% for driver in delivery_agents %}
-                <option value="{{ driver.id }}" {% if assignment and assignment.delivery_person.id == driver.id %}selected{% endif %}>
-                  {{ driver.get_full_name|default:driver.username }} [{{ driver.account_id }}] ({{ driver.active_assignments_count|default:"0" }} active)
-                </option>
-              {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary btn-sm">
-              <i class="fa-solid fa-check"></i> {% if assignment %}Update Assignment{% else %}Assign Driver{% endif %}
-            </button>
-          </form>
-        </div>
-
-        <!-- Delivery Attempts / Incident Log -->
-        {% if attempts %}
-          <div style="margin-top: 1rem;">
-            <div style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.4rem; text-transform: uppercase;">
-              Delivery Attempt Log
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              {% for att in attempts %}
-                <div style="font-size: 0.8rem; background: #F1F5F9; padding: 6px 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                  <span><strong>{{ att.created_at|date:"d M h:i A" }}</strong> &bull; {{ att.status }}: {{ att.proof_of_delivery|default:att.failure_reason }}</span>
-                  {% if att.cod_collected %}<span class="badge badge-success" style="font-size: 0.65rem;">COD Collected</span>{% endif %}
+              {% if assignment and assignment.delivery_person %}
+                <div class="od-tile-primary">
+                  {{ assignment.delivery_person.get_full_name|default:assignment.delivery_person.username }}
                 </div>
-              {% endfor %}
+                <div class="od-tile-sub">
+                  <span>Phone:</span>
+                  <a href="tel:{{ assignment.delivery_person.phone }}" class="od-phone-link">
+                    {{ assignment.delivery_person.phone|default:"N/A" }}
+                  </a>
+                </div>
+                <div class="od-tile-sub">
+                  <span>ID:</span> <code>{{ assignment.delivery_person.account_id }}</code>
+                </div>
+              {% else %}
+                <div class="od-tile-primary od-text-red">
+                  <i class="fa-solid fa-triangle-exclamation"></i> No driver assigned
+                </div>
+                <div class="od-tile-sub od-text-muted">Requires fleet allocation</div>
+              {% endif %}
             </div>
-          </div>
-        {% endif %}
 
+            <!-- Tile 2: Delivery Slot & Zone -->
+            <div class="od-info-tile">
+              <div class="od-tile-label">
+                <i class="fa-solid fa-calendar-day"></i> Delivery Window
+              </div>
+              <div class="od-tile-primary">
+                {{ order.delivery_slot|default:"Standard Delivery" }}
+              </div>
+              <div class="od-tile-sub">
+                <span>PIN Code:</span> <strong>{{ order.pin_code }}</strong>
+              </div>
+              <div class="od-tile-sub">
+                <span>Scheduled:</span> {{ order.delivery_date|date:"d M Y" }}
+              </div>
+            </div>
+
+            <!-- Tile 3: Store Handover Verification -->
+            <div class="od-info-tile">
+              <div class="od-tile-label">
+                <i class="fa-solid fa-box-open"></i> Store Handover
+              </div>
+              {% if assignment and assignment.shop_verified %}
+                <div class="od-tile-primary od-text-green">
+                  <i class="fa-solid fa-circle-check"></i> Handover Verified
+                </div>
+                <div class="od-tile-sub od-text-muted">
+                  Completed at {{ assignment.shop_verified_at|date:"d M, h:i A" }}
+                </div>
+              {% else %}
+                <div class="od-tile-primary od-text-amber">
+                  <i class="fa-solid fa-hourglass-half"></i> Pending Handover
+                </div>
+                <div class="od-tile-sub od-text-muted">Awaiting merchant release</div>
+              {% endif %}
+            </div>
+
+            <!-- Tile 4: Customer Delivery OTP -->
+            <div class="od-info-tile">
+              <div class="od-tile-label">
+                <i class="fa-solid fa-shield-halved"></i> Delivery OTP Status
+              </div>
+              {% if order.delivery_verified_at %}
+                <div class="od-tile-primary od-text-green">
+                  <i class="fa-solid fa-circle-check"></i> OTP Verified
+                </div>
+                <div class="od-tile-sub od-text-muted">
+                  Doorstep verified at {{ order.delivery_verified_at|date:"h:i A" }}
+                </div>
+              {% elif latest_otp %}
+                <div class="od-tile-primary od-text-blue">
+                  <i class="fa-solid fa-paper-plane"></i> OTP Active
+                </div>
+                <div class="od-tile-sub">
+                  Attempts: <strong>{{ latest_otp.attempts }}/{{ latest_otp.max_attempts }}</strong>
+                </div>
+                <div class="od-tile-sub od-text-muted">
+                  Expires {{ latest_otp.expires_at|date:"h:i A" }}
+                </div>
+              {% else %}
+                <div class="od-tile-primary od-text-muted">
+                  <i class="fa-solid fa-lock"></i> Not Generated
+                </div>
+                <div class="od-tile-sub od-text-muted">Generated upon dispatch/COD</div>
+              {% endif %}
+            </div>
+
+          </div>
+
+          <!-- Driver Assignment Inline Action Bar -->
+          <div class="od-assign-bar">
+            <div class="od-assign-title">
+              <i class="fa-solid fa-user-plus"></i>
+              <span>Assign / Reassign Delivery Driver:</span>
+            </div>
+            <form action="{% url 'admin_dashboard:assign_delivery' order.order_id %}" method="POST" class="od-assign-form">
+              {% csrf_token %}
+              <div class="od-select-wrapper">
+                <select name="delivery_person_id" class="od-select" required>
+                  <option value="">-- Choose Fleet Rider --</option>
+                  {% for driver in delivery_agents %}
+                    <option value="{{ driver.id }}" {% if assignment and assignment.delivery_person.id == driver.id %}selected{% endif %}>
+                      {{ driver.get_full_name|default:driver.username }} [{{ driver.account_id }}] &bull; {{ driver.active_assignments_count|default:"0" }} active job{% if driver.active_assignments_count != 1 %}s{% endif %}
+                    </option>
+                  {% endfor %}
+                </select>
+                <i class="fa-solid fa-chevron-down od-select-arrow"></i>
+              </div>
+              <button type="submit" class="od-btn od-btn-primary">
+                <i class="fa-solid fa-check"></i>
+                <span>{% if assignment %}Update Assignment{% else %}Assign Driver{% endif %}</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Delivery Attempt History Log -->
+          {% if attempts %}
+            <div class="od-attempts-container">
+              <div class="od-subheading">
+                <i class="fa-solid fa-clipboard-list"></i>
+                <span>Delivery Attempt Log</span>
+              </div>
+              <div class="od-attempts-list">
+                {% for att in attempts %}
+                  <div class="od-attempt-item">
+                    <div class="od-attempt-time">
+                      <i class="fa-regular fa-clock"></i>
+                      <span>{{ att.created_at|date:"d M Y, h:i A" }}</span>
+                    </div>
+                    <div class="od-attempt-status">
+                      <span class="od-pill-status {% if att.status == 'DELIVERED' or att.status == 'SUCCESS' %}od-pill-settled{% elif att.status == 'FAILED' %}od-pill-reversed{% else %}od-pill-info{% endif %}">
+                        {{ att.status }}
+                      </span>
+                    </div>
+                    <div class="od-attempt-desc">
+                      {{ att.proof_of_delivery|default:att.failure_reason|default:"Attempt logged" }}
+                    </div>
+                    {% if att.cod_collected %}
+                      <span class="od-badge od-badge-paid">
+                        <i class="fa-solid fa-money-bill-wave"></i> COD Collected
+                      </span>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+
+        </div>
       </div>
 
-      <!-- Status History & Audit Log -->
-      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <h2 style="font-size: 1.1rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
-          <i class="fa-solid fa-clock-rotate-left" style="color: #7C3AED;"></i> Order Lifecycle Audit Trail
-        </h2>
-
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-          {% for hist in status_history %}
-            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 6px 0; border-bottom: 1px solid #F8FAFC;">
-              <div style="background: #EDE9FE; color: #6D28D9; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; margin-top: 2px;">
-                <i class="fa-solid fa-check"></i>
-              </div>
-              <div style="flex: 1;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong style="color: #1E293B; font-size: 0.85rem;">{{ hist.get_status_display }}</strong>
-                  <span style="font-size: 0.75rem; color: #64748B;">{{ hist.created_at|date:"d M Y, h:i A" }}</span>
-                </div>
-                <div style="font-size: 0.8rem; color: #475569; margin-top: 2px;">{{ hist.notes|default:"Status updated" }}</div>
-                <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 1px;">
-                  Updated by: <strong>{{ hist.updated_by.get_full_name|default:hist.updated_by.username|default:"System" }}</strong>
-                </div>
-              </div>
+      <!-- CARD 3: Order Lifecycle Audit Trail -->
+      <div class="od-card">
+        <div class="od-card-header">
+          <div class="od-card-title-group">
+            <div class="od-card-icon od-icon-purple">
+              <i class="fa-solid fa-clock-rotate-left"></i>
             </div>
-          {% empty %}
-            <div style="color: #94A3B8; font-size: 0.85rem;">No history records available.</div>
-          {% endfor %}
+            <div>
+              <h2 class="od-card-title">Order Lifecycle Audit Trail</h2>
+              <span class="od-card-subtitle">Immutable timeline of status transitions and administrative updates</span>
+            </div>
+          </div>
+          <span class="od-pill-subtle">
+            {{ status_history.count }} Recorded Event{% if status_history.count != 1 %}s{% endif %}
+          </span>
+        </div>
+
+        <div class="od-card-body">
+          <div class="od-timeline">
+            {% for hist in status_history %}
+              <div class="od-timeline-item">
+                <div class="od-timeline-marker">
+                  <i class="fa-solid fa-check"></i>
+                </div>
+                <div class="od-timeline-content">
+                  <div class="od-timeline-top">
+                    <div class="od-timeline-title">
+                      {{ hist.get_status_display|default:hist.status }}
+                    </div>
+                    <div class="od-timeline-time">
+                      {{ hist.created_at|date:"d M Y, h:i A" }}
+                    </div>
+                  </div>
+                  <div class="od-timeline-notes">
+                    {{ hist.comment|default:hist.notes|default:"State updated successfully." }}
+                  </div>
+                  <div class="od-timeline-updater">
+                    <i class="fa-solid fa-user-gear"></i>
+                    <span>Updated by: <strong>{{ hist.updated_by.get_full_name|default:hist.updated_by.username|default:"System Engine" }}</strong></span>
+                  </div>
+                </div>
+              </div>
+            {% empty %}
+              <div class="od-empty-state">No status history records available for this order.</div>
+            {% endfor %}
+          </div>
         </div>
       </div>
 
     </div>
 
-    <!-- RIGHT COLUMN: Customer, Payment, Financials, Actions -->
-    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <!-- RIGHT SIDEBAR COLUMN: Customer, Payment, Financials, Admin Actions -->
+    <div class="od-col-sidebar">
       
-      <!-- Customer Information Card -->
-      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.85rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
-          <i class="fa-solid fa-user" style="color: #059669;"></i> Customer Details
-        </h3>
-        
-        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
-          <div>
-            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600;">RECIPIENT NAME</div>
-            <div style="font-weight: 700; color: #1E293B;">{{ order.recipient_name }}</div>
-          </div>
-          <div>
-            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600;">CONTACT PHONE</div>
-            <div style="font-weight: 600; color: #1E293B;">{{ order.recipient_phone }}</div>
-          </div>
-          <div>
-            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600;">BUYER ACCOUNT</div>
-            <div style="color: #334155;">
-              {% if order.buyer %}
-                {{ order.buyer.username }} <span style="font-family: monospace; font-size: 0.75rem; color: #6D28D9;">[{{ order.buyer.account_id }}]</span>
-                <div style="font-size: 0.75rem; color: #64748B;">{{ order.buyer.email }}</div>
-              {% else %}
-                <span style="color: #94A3B8;">Guest Checkout</span>
-              {% endif %}
+      <!-- SIDEBAR CARD 1: Customer Details -->
+      <div class="od-card">
+        <div class="od-card-header">
+          <div class="od-card-title-group">
+            <div class="od-card-icon od-icon-emerald">
+              <i class="fa-solid fa-user"></i>
+            </div>
+            <div>
+              <h3 class="od-card-title" style="font-size: 1rem;">Customer Details</h3>
+              <span class="od-card-subtitle">Recipient profile & shipping location</span>
             </div>
           </div>
-          <div>
-            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600;">DELIVERY ADDRESS</div>
-            <div style="color: #334155; line-height: 1.4;">{{ order.delivery_address }}</div>
-            <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">PIN: <strong>{{ order.pin_code }}</strong></div>
+        </div>
+
+        <div class="od-card-body">
+          <div class="od-kv-list">
+            
+            <div class="od-kv-item">
+              <span class="od-kv-label">RECIPIENT NAME</span>
+              <div class="od-kv-value font-bold od-text-slate">
+                <i class="fa-regular fa-user" style="color: #64748B;"></i>
+                <span>{{ order.recipient_name }}</span>
+              </div>
+            </div>
+
+            <div class="od-kv-item">
+              <span class="od-kv-label">CONTACT PHONE</span>
+              <div class="od-kv-value font-semibold">
+                <a href="tel:{{ order.recipient_phone }}" class="od-phone-link">
+                  <i class="fa-solid fa-phone" style="color: #059669;"></i>
+                  <span>{{ order.recipient_phone }}</span>
+                </a>
+              </div>
+            </div>
+
+            <div class="od-kv-item">
+              <span class="od-kv-label">BUYER ACCOUNT</span>
+              <div class="od-kv-value">
+                {% if order.buyer %}
+                  <div style="font-weight: 600; color: #1E293B;">
+                    {{ order.buyer.username }}
+                    <span class="od-tag-id">[{{ order.buyer.account_id }}]</span>
+                  </div>
+                  <div class="od-text-muted" style="font-size: 0.78rem; margin-top: 2px;">
+                    <i class="fa-regular fa-envelope"></i> {{ order.buyer.email }}
+                  </div>
+                {% else %}
+                  <span class="od-text-muted"><i class="fa-solid fa-user-ninja"></i> Guest Checkout</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="od-kv-item" style="border-bottom: none; padding-bottom: 0;">
+              <span class="od-kv-label">DELIVERY ADDRESS</span>
+              <div class="od-address-box">
+                <div class="od-address-text">
+                  <i class="fa-solid fa-location-dot" style="color: #DC2626; margin-top: 3px; flex-shrink: 0;"></i>
+                  <span>{{ order.delivery_address }}</span>
+                </div>
+                <div class="od-address-meta">
+                  <span class="od-badge-pin">PIN: {{ order.pin_code }}</span>
+                  <span class="od-tag">{{ order.address_type|default:"HOME" }}</span>
+                </div>
+              </div>
+              {% if order.delivery_instructions %}
+                <div class="od-instructions-box">
+                  <i class="fa-regular fa-message"></i>
+                  <span>"{{ order.delivery_instructions }}"</span>
+                </div>
+              {% endif %}
+            </div>
+
           </div>
         </div>
       </div>
 
-      <!-- Payment Information Card -->
-      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.85rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
-          <i class="fa-solid fa-credit-card" style="color: #2563EB;"></i> Payment Information
-        </h3>
-
-        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: #64748B;">Payment Method:</span>
-            <strong style="color: #1E293B;">{{ order.get_payment_method_display }}</strong>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: #64748B;">Payment Status:</span>
-            <span class="badge {% if order.payment_status == 'PAID' %}badge-success{% else %}badge-warning{% endif %}" style="font-size: 0.75rem;">
-              {{ order.get_payment_status_display }}
-            </span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: #64748B;">Amount Due:</span>
-            <strong style="color: #1E293B;">₹{{ order.total_amount|floatformat:2 }}</strong>
-          </div>
-          {% if order.payment_gateway_ref %}
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #64748B;">Transaction Ref:</span>
-              <span style="font-family: monospace; font-size: 0.78rem;">{{ order.payment_gateway_ref }}</span>
+      <!-- SIDEBAR CARD 2: Payment Information -->
+      <div class="od-card">
+        <div class="od-card-header">
+          <div class="od-card-title-group">
+            <div class="od-card-icon od-icon-blue">
+              <i class="fa-solid fa-credit-card"></i>
             </div>
-          {% endif %}
+            <div>
+              <h3 class="od-card-title" style="font-size: 1rem;">Payment Information</h3>
+              <span class="od-card-subtitle">Method, transaction status & collection</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="od-card-body">
+          <div class="od-kv-list">
+            
+            <div class="od-kv-row">
+              <span class="od-kv-key">Payment Method</span>
+              <span class="od-kv-val font-semibold">{{ order.get_payment_method_display }}</span>
+            </div>
+
+            <div class="od-kv-row">
+              <span class="od-kv-key">Payment Status</span>
+              <span class="od-badge {% if order.payment_status == 'PAID' %}od-badge-paid{% elif order.payment_status == 'REFUNDED' %}od-badge-refunded{% elif order.payment_status == 'FAILED' %}od-badge-danger{% else %}od-badge-pending{% endif %}">
+                {{ order.get_payment_status_display }}
+              </span>
+            </div>
+
+            <div class="od-kv-row">
+              <span class="od-kv-key">Total Amount Due</span>
+              <span class="od-kv-val font-bold font-mono" style="font-size: 1.05rem; color: #0F172A;">
+                ₹{{ order.total_amount|floatformat:2 }}
+              </span>
+            </div>
+
+            {% if order.payment_gateway_ref or order.transaction_id %}
+              <div class="od-kv-row">
+                <span class="od-kv-key">Transaction Ref</span>
+                <code class="od-ref-code">{{ order.payment_gateway_ref|default:order.transaction_id }}</code>
+              </div>
+            {% endif %}
+
+          </div>
+
+          <!-- Cash on Delivery Collection Confirmation Callout -->
           {% if assignment and assignment.cod_collected %}
-            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; padding: 6px 10px; margin-top: 4px;">
-              <div style="font-size: 0.75rem; color: #065F46; font-weight: 700;">
-                <i class="fa-solid fa-circle-check"></i> Cash Collected: ₹{{ assignment.cod_collected_amount|floatformat:2 }}
+            <div class="od-cod-confirmed-panel">
+              <div class="od-cod-title">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Cash Payment Collected</span>
               </div>
-              <div style="font-size: 0.72rem; color: #047857;">
-                Collected at: {{ assignment.cod_collected_at|date:"d M Y, h:i A" }}
+              <div class="od-cod-amount">
+                ₹{{ assignment.cod_collected_amount|floatformat:2 }}
+              </div>
+              <div class="od-cod-meta">
+                <i class="fa-regular fa-clock"></i>
+                <span>Collected: {{ assignment.cod_collected_at|date:"d M Y, h:i A" }}</span>
+              </div>
+              <div class="od-cod-rider">
+                <i class="fa-solid fa-motorcycle"></i>
+                <span>By: {{ assignment.delivery_person.get_full_name|default:assignment.delivery_person.username }}</span>
               </div>
             </div>
           {% endif %}
+
         </div>
       </div>
 
-      <!-- Financial Accounting Breakdown Card -->
-      <div style="background: #ffffff; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.85rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
-          <i class="fa-solid fa-scale-balanced" style="color: #059669;"></i> Financial Summary
-        </h3>
-
-        <!-- Buyer Payable Breakdown -->
-        <div style="margin-bottom: 1rem;">
-          <div style="font-size: 0.75rem; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Customer Payable</div>
-          <table style="width: 100%; font-size: 0.82rem; border-collapse: collapse;">
-            <tbody>
-              <tr>
-                <td style="padding: 3px 0; color: #64748B;">Product Subtotal:</td>
-                <td style="padding: 3px 0; text-align: right; font-weight: 600;">₹{{ order.subtotal|floatformat:2 }}</td>
-              </tr>
-              {% if order.discount_amount and order.discount_amount > 0 %}
-                <tr>
-                  <td style="padding: 3px 0; color: #64748B;">Coupon / Order Discounts:</td>
-                  <td style="padding: 3px 0; text-align: right; color: #DC2626;">-₹{{ order.discount_amount|floatformat:2 }}</td>
-                </tr>
-              {% endif %}
-              <tr>
-                <td style="padding: 3px 0; color: #64748B;">Delivery Fee Charged:</td>
-                <td style="padding: 3px 0; text-align: right; font-weight: 600;">₹{{ order.delivery_fee|floatformat:2 }}</td>
-              </tr>
-              {% if order.cashback_redeemed and order.cashback_redeemed > 0 %}
-                <tr>
-                  <td style="padding: 3px 0; color: #64748B;">Cashback Applied:</td>
-                  <td style="padding: 3px 0; text-align: right; color: #059669; font-weight: 700;">-₹{{ order.cashback_redeemed|floatformat:2 }}</td>
-                </tr>
-              {% endif %}
-              <tr style="border-top: 1px solid #E2E8F0; font-weight: 800; font-size: 0.95rem;">
-                <td style="padding: 6px 0; color: #1E293B;">Final Customer Payable:</td>
-                <td style="padding: 6px 0; text-align: right; color: #047857;">₹{{ order.total_amount|floatformat:2 }}</td>
-              </tr>
-              {% if order.cashback_earned and order.cashback_earned > 0 %}
-                <tr>
-                  <td style="padding: 3px 0; color: #059669; font-size: 0.75rem;">Cashback Earned (Rewarded):</td>
-                  <td style="padding: 3px 0; text-align: right; color: #059669; font-weight: 700; font-size: 0.75rem;">+₹{{ order.cashback_earned|floatformat:2 }}</td>
-                </tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Platform & Marketplace Economics -->
-        <div style="background: #F8FAFC; border-radius: 8px; padding: 10px; border: 1px solid #E2E8F0; font-size: 0.8rem;">
-          <div style="font-size: 0.72rem; color: #475569; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Marketplace Reconciliation</div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-            <span style="color: #64748B;">Platform Commission:</span>
-            <strong style="color: #047857;">+₹{{ total_commission|floatformat:2 }}</strong>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-            <span style="color: #64748B;">Seller Payable:</span>
-            <strong style="color: #2563EB;">₹{{ total_seller_payable|floatformat:2 }}</strong>
-          </div>
-          {% if all_costs_recorded and total_seller_profit is not None %}
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-              <span style="color: #64748B;">Est. Seller Profit:</span>
-              <strong style="color: #047857;">₹{{ total_seller_profit|floatformat:2 }}</strong>
+      <!-- SIDEBAR CARD 3: Financial Summary & Reconciliation -->
+      <div class="od-card">
+        <div class="od-card-header">
+          <div class="od-card-title-group">
+            <div class="od-card-icon od-icon-emerald">
+              <i class="fa-solid fa-scale-balanced"></i>
             </div>
-          {% endif %}
-          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-            <span style="color: #64748B;">Delivery Fleet Payout:</span>
-            <strong style="color: #DC2626;">-₹{{ delivery_expense|floatformat:2 }}</strong>
-          </div>
-          <div style="border-top: 1px dashed #CBD5E1; padding-top: 6px; margin-top: 6px; display: flex; justify-content: space-between; font-weight: 800;">
-            <span style="color: #1E293B;">Company Net Margin:</span>
-            <span style="color: {% if company_net_contribution >= 0 %}#047857{% else %}#DC2626{% endif %};">
-              ₹{{ company_net_contribution|floatformat:2 }}
-            </span>
+            <div>
+              <h3 class="od-card-title" style="font-size: 1rem;">Financial Summary</h3>
+              <span class="od-card-subtitle">Payable breakdown & platform economics</span>
+            </div>
           </div>
         </div>
 
-        <div style="font-size: 0.7rem; color: #94A3B8; margin-top: 6px; line-height: 1.3;">
-          * Note: Third-party product revenue belongs to sellers and is tracked as an escrow liability until settled.
-        </div>
-      </div>
-
-      <!-- Role-Protected Administrative Actions Card -->
-      <div style="background: #ffffff; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.85rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
-          <i class="fa-solid fa-bolt" style="color: #D97706;"></i> Admin Lifecycle Actions
-        </h3>
-
-        <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="od-card-body">
           
-          <!-- Confirm Order Action -->
-          {% if order.status == 'ORDER_PLACED' %}
-            <form action="{% url 'admin_dashboard:order_action' order.order_id %}" method="POST" onsubmit="return confirm('Confirm order #{{ order.order_id }}?');">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="confirm_order">
-              <button type="submit" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
-                <i class="fa-solid fa-check"></i> Confirm Order
-              </button>
-            </form>
-          {% endif %}
+          <!-- Section A: Customer Billing Breakdown -->
+          <div class="od-fin-section">
+            <div class="od-fin-header">
+              <span>Customer Billing Breakdown</span>
+            </div>
+            
+            <div class="od-fin-row">
+              <span class="od-fin-label">Product Subtotal</span>
+              <span class="od-fin-val">₹{{ order.subtotal|floatformat:2 }}</span>
+            </div>
 
-          <!-- Cancel Order Action -->
-          {% if order.status != 'DELIVERED' and order.status != 'CANCELLED' and order.status != 'REFUNDED' %}
-            <form action="{% url 'admin_dashboard:order_action' order.order_id %}" method="POST" onsubmit="return confirm('Cancel Order #{{ order.order_id }}? This will safely restore stock and reverse financial holds.');">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="cancel_order">
-              <div style="margin-bottom: 6px;">
-                <input type="text" name="reason" class="form-control" placeholder="Cancellation reason..." style="font-size: 0.8rem; padding: 0.35rem 0.6rem;">
+            {% if order.discount_amount and order.discount_amount > 0 %}
+              <div class="od-fin-row">
+                <span class="od-fin-label">Discounts / Offers</span>
+                <span class="od-fin-val od-text-red">-₹{{ order.discount_amount|floatformat:2 }}</span>
               </div>
-              <button type="submit" class="btn btn-outline-danger btn-sm" style="width: 100%; justify-content: center; color: #DC2626; border-color: #FCA5A5;">
-                <i class="fa-solid fa-ban"></i> Cancel Order
-              </button>
-            </form>
-          {% endif %}
+            {% endif %}
 
-          <!-- Refund Action -->
-          {% if order.payment_status == 'PAID' and order.status != 'REFUNDED' %}
-            <div style="border-top: 1px solid #F1F5F9; padding-top: 8px; margin-top: 4px;">
-              <form action="{% url 'admin_dashboard:order_action' order.order_id %}" method="POST" onsubmit="return confirm('Process refund for Order #{{ order.order_id }}?');">
+            <div class="od-fin-row">
+              <span class="od-fin-label">Delivery Fee Charged</span>
+              <span class="od-fin-val">₹{{ order.delivery_fee|floatformat:2 }}</span>
+            </div>
+
+            {% if order.cashback_redeemed and order.cashback_redeemed > 0 %}
+              <div class="od-fin-row">
+                <span class="od-fin-label">Cashback Applied</span>
+                <span class="od-fin-val od-text-green font-bold">-₹{{ order.cashback_redeemed|floatformat:2 }}</span>
+              </div>
+            {% endif %}
+
+            <div class="od-fin-divider"></div>
+
+            <div class="od-fin-total-row">
+              <span class="od-fin-total-label">Final Customer Payable</span>
+              <span class="od-fin-total-val">₹{{ order.total_amount|floatformat:2 }}</span>
+            </div>
+
+            {% if order.cashback_earned and order.cashback_earned > 0 %}
+              <div class="od-reward-callout">
+                <div class="od-reward-icon">
+                  <i class="fa-solid fa-gift"></i>
+                </div>
+                <div class="od-reward-text">
+                  <span>Cashback Credited: <strong>+₹{{ order.cashback_earned|floatformat:2 }}</strong></span>
+                  <div class="od-reward-sub">Rewarded to buyer's wallet upon delivery</div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Section B: Marketplace Reconciliation & Net Contribution -->
+          <div class="od-marketplace-box">
+            <div class="od-marketplace-title">
+              <i class="fa-solid fa-chart-pie"></i>
+              <span>Marketplace Reconciliation</span>
+            </div>
+
+            <div class="od-marketplace-row">
+              <span>Platform Commission:</span>
+              <strong class="od-text-green">+₹{{ total_commission|floatformat:2 }}</strong>
+            </div>
+
+            <div class="od-marketplace-row">
+              <span>Seller Payable (Gross):</span>
+              <strong class="od-text-blue">₹{{ total_seller_payable|floatformat:2 }}</strong>
+            </div>
+
+            {% if all_costs_recorded and total_seller_profit is not None %}
+              <div class="od-marketplace-row">
+                <span>Est. Seller Net Profit:</span>
+                <strong class="{% if total_seller_profit >= 0 %}od-text-green{% else %}od-text-red{% endif %}">
+                  ₹{{ total_seller_profit|floatformat:2 }}
+                </strong>
+              </div>
+            {% endif %}
+
+            <div class="od-marketplace-row">
+              <span>Delivery Fleet Payout:</span>
+              <strong class="od-text-red">-₹{{ delivery_expense|floatformat:2 }}</strong>
+            </div>
+
+            <div class="od-marketplace-divider"></div>
+
+            <div class="od-marketplace-net">
+              <span class="od-marketplace-net-label">Company Net Margin:</span>
+              <span class="od-marketplace-net-val {% if company_net_contribution >= 0 %}od-text-green{% else %}od-text-red{% endif %}">
+                ₹{{ company_net_contribution|floatformat:2 }}
+              </span>
+            </div>
+          </div>
+
+          <p class="od-fin-footnote">
+            * Note: Third-party product revenue belongs to independent sellers and is held in escrow until completed settlement.
+          </p>
+
+        </div>
+      </div>
+
+      <!-- SIDEBAR CARD 4: Administrative Actions -->
+      <div class="od-card">
+        <div class="od-card-header">
+          <div class="od-card-title-group">
+            <div class="od-card-icon od-icon-amber">
+              <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div>
+              <h3 class="od-card-title" style="font-size: 1rem;">Admin Lifecycle Actions</h3>
+              <span class="od-card-subtitle">Role-protected operational commands</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="od-card-body">
+          <div class="od-actions-stack">
+            
+            <!-- Confirm Order Action -->
+            {% if order.status == 'ORDER_PLACED' %}
+              <form action="{% url 'admin_dashboard:order_action' order.order_id %}" method="POST" onsubmit="return confirm('Confirm order #{{ order.order_id }}?');">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="process_refund">
-                <div style="margin-bottom: 6px;">
-                  <input type="text" name="reason" class="form-control" placeholder="Refund reason..." style="font-size: 0.8rem; padding: 0.35rem 0.6rem;">
-                </div>
-                <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #475569;">
-                  <input type="checkbox" name="restore_stock" id="restore_stock" value="1" checked>
-                  <label for="restore_stock" style="margin: 0; cursor: pointer;">Restore returned items to inventory</label>
-                </div>
-                <button type="submit" class="btn btn-outline-secondary btn-sm" style="width: 100%; justify-content: center; color: #6D28D9; border-color: #DDD6FE;">
-                  <i class="fa-solid fa-arrow-rotate-left"></i> Process Customer Refund
+                <input type="hidden" name="action" value="confirm_order">
+                <button type="submit" class="od-btn od-btn-primary w-full">
+                  <i class="fa-solid fa-check"></i>
+                  <span>Confirm Order</span>
                 </button>
               </form>
-            </div>
-          {% endif %}
+            {% endif %}
 
+            <!-- Cancel Order Action -->
+            {% if order.status != 'DELIVERED' and order.status != 'CANCELLED' and order.status != 'REFUNDED' %}
+              <form action="{% url 'admin_dashboard:order_action' order.order_id %}" method="POST" onsubmit="return confirm('Cancel Order #{{ order.order_id }}? This will safely restore stock and reverse financial holds.');" class="od-action-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cancel_order">
+                <div class="od-form-group">
+                  <input type="text" name="reason" class="od-input" placeholder="Cancellation reason (optional)...">
+                </div>
+                <button type="submit" class="od-btn od-btn-outline-danger w-full">
+                  <i class="fa-solid fa-ban"></i>
+                  <span>Cancel Order & Restore Stock</span>
+                </button>
+              </form>
+            {% endif %}
+
+            <!-- Refund Action -->
+            {% if order.payment_status == 'PAID' and order.status != 'REFUNDED' %}
+              <div class="od-refund-box">
+                <form action="{% url 'admin_dashboard:order_action' order.order_id %}" method="POST" onsubmit="return confirm('Process refund for Order #{{ order.order_id }}?');" class="od-action-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="process_refund">
+                  <div class="od-form-group">
+                    <input type="text" name="reason" class="od-input" placeholder="Refund reason (required)...">
+                  </div>
+                  <div class="od-checkbox-group">
+                    <input type="checkbox" name="restore_stock" id="restore_stock" value="1" checked>
+                    <label for="restore_stock">Restore returned items to inventory</label>
+                  </div>
+                  <button type="submit" class="od-btn od-btn-outline-purple w-full">
+                    <i class="fa-solid fa-arrow-rotate-left"></i>
+                    <span>Process Customer Refund</span>
+                  </button>
+                </form>
+              </div>
+            {% endif %}
+
+            {% if order.status == 'DELIVERED' and order.payment_status == 'PAID' %}
+              <div class="od-fulfilled-notice">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Order is completely fulfilled and settled. No further operational action required.</span>
+              </div>
+            {% endif %}
+
+          </div>
         </div>
       </div>
 
@@ -547,4 +858,1314 @@
   </div>
 
 </div>
+
+<!-- Scoped Styling for Order Detail Enterprise UI -->
+<style>
+  :root {
+    --od-bg-canvas: #F8FAFC;
+    --od-bg-card: #FFFFFF;
+    --od-border: #E2E8F0;
+    --od-border-subtle: #F1F5F9;
+    --od-text-dark: #0F172A;
+    --od-text-body: #334155;
+    --od-text-muted: #64748B;
+    --od-text-light: #94A3B8;
+    --od-primary: #059669;
+    --od-primary-hover: #047857;
+    --od-primary-light: #ECFDF5;
+    --od-primary-border: #A7F3D0;
+    --od-blue: #2563EB;
+    --od-blue-light: #EFF6FF;
+    --od-blue-border: #BFDBFE;
+    --od-purple: #7C3AED;
+    --od-purple-light: #F5F3FF;
+    --od-purple-border: #DDD6FE;
+    --od-amber: #D97706;
+    --od-amber-light: #FFFBEB;
+    --od-amber-border: #FDE68A;
+    --od-red: #DC2626;
+    --od-red-light: #FEF2F2;
+    --od-red-border: #FECACA;
+    --od-radius: 12px;
+    --od-radius-sm: 8px;
+    --od-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
+    --od-shadow-hover: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  }
+
+  .order-detail-page {
+    padding-bottom: 3.5rem;
+    font-family: inherit;
+    color: var(--od-text-body);
+  }
+
+  /* Breadcrumb Navigation */
+  .od-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--od-text-muted);
+    margin-bottom: 0.75rem;
+  }
+  .od-breadcrumb-link {
+    color: var(--od-text-muted);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    transition: color 0.15s ease;
+  }
+  .od-breadcrumb-link:hover {
+    color: var(--od-primary);
+  }
+  .od-breadcrumb-sep {
+    color: var(--od-text-light);
+  }
+  .od-breadcrumb-current {
+    color: var(--od-text-dark);
+    font-weight: 600;
+  }
+
+  /* Header & Action Bar */
+  .od-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+    background: var(--od-bg-card);
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--od-border);
+    border-radius: var(--od-radius);
+    box-shadow: var(--od-shadow);
+  }
+  .od-header-main {
+    flex: 1;
+    min-width: 280px;
+  }
+  .od-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .od-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--od-text-dark);
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: -0.02em;
+  }
+  .od-copy-btn {
+    background: transparent;
+    border: 1px solid var(--od-border);
+    border-radius: 6px;
+    padding: 3px 7px;
+    font-size: 0.75rem;
+    color: var(--od-text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+  }
+  .od-copy-btn:hover {
+    background: var(--od-border-subtle);
+    color: var(--od-text-dark);
+    border-color: #CBD5E1;
+  }
+  .od-badges {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .od-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.2;
+    border: 1px solid transparent;
+  }
+  .od-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .od-badge-paid {
+    background: var(--od-primary-light);
+    color: var(--od-primary-hover);
+    border-color: var(--od-primary-border);
+  }
+  .od-badge-pending {
+    background: var(--od-amber-light);
+    color: var(--od-amber);
+    border-color: var(--od-amber-border);
+  }
+  .od-badge-info {
+    background: var(--od-blue-light);
+    color: var(--od-blue);
+    border-color: var(--od-blue-border);
+  }
+  .od-badge-refunded {
+    background: var(--od-purple-light);
+    color: var(--od-purple);
+    border-color: var(--od-purple-border);
+  }
+  .od-badge-danger {
+    background: var(--od-red-light);
+    color: var(--od-red);
+    border-color: var(--od-red-border);
+  }
+  .od-badge-status.badge-delivered {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: #A7F3D0;
+  }
+  .od-badge-status.badge-placed {
+    background: #EFF6FF;
+    color: #1D4ED8;
+    border-color: #BFDBFE;
+  }
+  .od-badge-status.badge-confirmed {
+    background: #F0FDF4;
+    color: #15803D;
+    border-color: #BBF7D0;
+  }
+  .od-badge-status.badge-out {
+    background: #F3E8FF;
+    color: #6B21A8;
+    border-color: #E9D5FF;
+  }
+  .od-badge-status.badge-cancelled {
+    background: #FEF2F2;
+    color: #B91C1C;
+    border-color: #FECACA;
+  }
+
+  .od-meta-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--od-text-muted);
+  }
+  .od-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .od-meta-divider {
+    color: var(--od-text-light);
+  }
+  .od-meta-channel {
+    background: #F1F5F9;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* Header Buttons */
+  .od-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .od-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0.5rem 0.95rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: var(--od-radius-sm);
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .od-btn-primary {
+    background: var(--od-primary);
+    color: #ffffff;
+    border-color: var(--od-primary);
+  }
+  .od-btn-primary:hover {
+    background: var(--od-primary-hover);
+    border-color: var(--od-primary-hover);
+    box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
+  }
+  .od-btn-secondary {
+    background: #ffffff;
+    color: var(--od-text-dark);
+    border-color: var(--od-border);
+  }
+  .od-btn-secondary:hover {
+    background: #F8FAFC;
+    border-color: #CBD5E1;
+    color: var(--od-primary);
+  }
+  .od-btn-outline-danger {
+    background: #ffffff;
+    color: var(--od-red);
+    border-color: var(--od-red-border);
+  }
+  .od-btn-outline-danger:hover {
+    background: var(--od-red-light);
+    border-color: var(--od-red);
+  }
+  .od-btn-outline-purple {
+    background: #ffffff;
+    color: var(--od-purple);
+    border-color: var(--od-purple-border);
+  }
+  .od-btn-outline-purple:hover {
+    background: var(--od-purple-light);
+    border-color: var(--od-purple);
+  }
+  .w-full {
+    width: 100%;
+  }
+
+  /* Messages Alerts */
+  .od-messages-container {
+    margin-bottom: 1.25rem;
+  }
+  .od-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.85rem 1.1rem;
+    border-radius: var(--od-radius-sm);
+    margin-bottom: 0.5rem;
+    font-size: 0.88rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+  .od-alert-success {
+    background: var(--od-primary-light);
+    color: #065F46;
+    border-color: var(--od-primary-border);
+  }
+  .od-alert-error, .od-alert-danger {
+    background: var(--od-red-light);
+    color: #991B1B;
+    border-color: var(--od-red-border);
+  }
+  .od-alert-warning {
+    background: var(--od-amber-light);
+    color: #92400E;
+    border-color: var(--od-amber-border);
+  }
+  .od-alert-info {
+    background: var(--od-blue-light);
+    color: #1E40AF;
+    border-color: var(--od-blue-border);
+  }
+
+  /* 2-Column Responsive Grid */
+  .od-layout-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(320px, 1.1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 1024px) {
+    .od-layout-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .od-col-main, .od-col-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Card Component */
+  .od-card {
+    background: var(--od-bg-card);
+    border: 1px solid var(--od-border);
+    border-radius: var(--od-radius);
+    box-shadow: var(--od-shadow);
+    overflow: hidden;
+  }
+  .od-card-header {
+    padding: 1.15rem 1.35rem;
+    border-bottom: 1px solid var(--od-border-subtle);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #ffffff;
+    gap: 1rem;
+  }
+  .od-card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .od-card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+  .od-icon-emerald {
+    background: var(--od-primary-light);
+    color: var(--od-primary);
+  }
+  .od-icon-blue {
+    background: var(--od-blue-light);
+    color: var(--od-blue);
+  }
+  .od-icon-purple {
+    background: var(--od-purple-light);
+    color: var(--od-purple);
+  }
+  .od-icon-amber {
+    background: var(--od-amber-light);
+    color: var(--od-amber);
+  }
+  .od-card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--od-text-dark);
+    margin: 0;
+    line-height: 1.25;
+  }
+  .od-card-subtitle {
+    font-size: 0.78rem;
+    color: var(--od-text-muted);
+    display: block;
+    margin-top: 2px;
+  }
+  .od-pill-subtle {
+    font-size: 0.75rem;
+    color: #475569;
+    background: #F1F5F9;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .od-card-body {
+    padding: 1.25rem 1.35rem;
+  }
+  .od-card-body.p-0 {
+    padding: 0;
+  }
+
+  /* Responsive Table */
+  .od-table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .od-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    text-align: left;
+  }
+  .od-table thead tr {
+    background: #F8FAFC;
+    border-bottom: 1px solid var(--od-border);
+  }
+  .od-table th {
+    padding: 10px 14px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--od-text-muted);
+    white-space: nowrap;
+  }
+  .od-table tbody tr {
+    border-bottom: 1px solid var(--od-border-subtle);
+    transition: background 0.1s ease;
+  }
+  .od-table tbody tr:hover {
+    background: #FBFDFE;
+  }
+  .od-table td {
+    padding: 12px 14px;
+    vertical-align: middle;
+  }
+
+  /* Product Cell */
+  .od-product-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .od-product-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--od-border);
+    overflow: hidden;
+    background: #F8FAFC;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .od-product-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .od-product-thumb-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94A3B8;
+    font-size: 1.1rem;
+    background: #F1F5F9;
+  }
+  .od-product-info {
+    min-width: 0;
+  }
+  .od-product-name {
+    font-weight: 700;
+    color: var(--od-text-dark);
+    line-height: 1.3;
+    margin-bottom: 3px;
+  }
+  .od-product-tags {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .od-tag {
+    font-size: 0.7rem;
+    background: #F1F5F9;
+    color: #475569;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .od-tag-sku {
+    font-family: monospace;
+    font-size: 0.68rem;
+    background: #EDE9FE;
+    color: #6D28D9;
+  }
+  .od-tag-id {
+    font-family: monospace;
+    font-size: 0.72rem;
+    background: #EDE9FE;
+    color: #6D28D9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-left: 4px;
+  }
+  .od-seller-name {
+    font-weight: 600;
+    color: #334155;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .od-seller-id {
+    font-size: 0.72rem;
+    color: var(--od-text-muted);
+    margin-top: 2px;
+  }
+  .od-seller-id code {
+    font-family: monospace;
+    color: #475569;
+  }
+  .od-qty-badge {
+    background: #F1F5F9;
+    color: #1E293B;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+  }
+  .od-mrp-price {
+    color: #94A3B8;
+    text-decoration: line-through;
+    font-size: 0.8rem;
+  }
+  .od-unit-price {
+    font-weight: 600;
+    color: #1E293B;
+  }
+  .od-discount-val {
+    color: var(--od-red);
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .od-subtotal-val {
+    font-weight: 800;
+    color: #047857;
+    font-size: 0.92rem;
+  }
+  .od-cashback-badge {
+    color: var(--od-primary);
+    background: var(--od-primary-light);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .od-empty-val {
+    color: #CBD5E1;
+  }
+  .od-empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--od-text-light);
+    font-size: 0.9rem;
+  }
+
+  /* Accounting Audit Sub-Card */
+  .od-audit-box {
+    margin: 1.25rem;
+    background: #F8FAFC;
+    border: 1px solid var(--od-border);
+    border-radius: var(--od-radius-sm);
+    padding: 1rem 1.15rem;
+  }
+  .od-audit-box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .od-audit-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .od-audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+  .od-audit-table th {
+    padding: 6px 8px;
+    font-weight: 700;
+    color: #64748B;
+    border-bottom: 1px solid #CBD5E1;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+  }
+  .od-audit-table td {
+    padding: 8px;
+    border-bottom: 1px solid #E2E8F0;
+    vertical-align: middle;
+  }
+  .od-val-mono {
+    font-family: monospace;
+    font-size: 0.82rem;
+  }
+  .od-val-muted {
+    color: #94A3B8;
+    font-style: italic;
+  }
+  .od-text-green {
+    color: #047857;
+  }
+  .od-text-blue {
+    color: #2563EB;
+  }
+  .od-text-red {
+    color: #DC2626;
+  }
+  .od-text-amber {
+    color: #D97706;
+  }
+  .od-text-slate {
+    color: #0F172A;
+  }
+  .od-text-muted {
+    color: #64748B;
+  }
+  .font-bold {
+    font-weight: 700;
+  }
+  .font-semibold {
+    font-weight: 600;
+  }
+  .font-mono {
+    font-family: monospace;
+  }
+  .od-pill-status {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+  }
+  .od-pill-settled {
+    background: #ECFDF5;
+    color: #047857;
+  }
+  .od-pill-reversed {
+    background: #FEF2F2;
+    color: #DC2626;
+  }
+  .od-pill-pending {
+    background: #FFFBEB;
+    color: #D97706;
+  }
+  .od-pill-info {
+    background: #EFF6FF;
+    color: #2563EB;
+  }
+
+  /* Fleet Dispatch Grid */
+  .od-dispatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .od-info-tile {
+    background: #F8FAFC;
+    border: 1px solid var(--od-border);
+    border-radius: var(--od-radius-sm);
+    padding: 0.9rem 1rem;
+  }
+  .od-tile-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--od-text-muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .od-tile-primary {
+    font-weight: 700;
+    color: var(--od-text-dark);
+    font-size: 0.95rem;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .od-tile-sub {
+    font-size: 0.78rem;
+    color: var(--od-text-muted);
+    margin-top: 3px;
+  }
+  .od-tile-sub code {
+    font-family: monospace;
+    color: #475569;
+  }
+  .od-phone-link {
+    color: var(--od-primary);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .od-phone-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Driver Assignment Form Bar */
+  .od-assign-bar {
+    background: #F8FAFC;
+    border: 1px solid var(--od-border);
+    border-radius: var(--od-radius-sm);
+    padding: 0.9rem 1.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .od-assign-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .od-assign-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 0;
+  }
+  .od-select-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+  .od-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: #ffffff;
+    border: 1px solid var(--od-border);
+    border-radius: 6px;
+    padding: 0.45rem 2rem 0.45rem 0.75rem;
+    font-size: 0.85rem;
+    color: #1E293B;
+    font-family: inherit;
+    cursor: pointer;
+    min-width: 250px;
+    max-width: 320px;
+  }
+  .od-select:focus {
+    outline: none;
+    border-color: var(--od-primary);
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
+  }
+  .od-select-arrow {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 0.7rem;
+    color: #64748B;
+  }
+
+  /* Delivery Attempt History List */
+  .od-attempts-container {
+    margin-top: 1.25rem;
+    border-top: 1px solid var(--od-border-subtle);
+    padding-top: 1rem;
+  }
+  .od-subheading {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #475569;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .od-attempts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .od-attempt-item {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.82rem;
+  }
+  .od-attempt-time {
+    color: #64748B;
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 130px;
+  }
+  .od-attempt-desc {
+    flex: 1;
+    color: #334155;
+    min-width: 160px;
+  }
+
+  /* Timeline */
+  .od-timeline {
+    position: relative;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  .od-timeline::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 8px;
+    width: 2px;
+    background: #E2E8F0;
+  }
+  .od-timeline-item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .od-timeline-marker {
+    position: absolute;
+    left: -20px;
+    top: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #EDE9FE;
+    color: #6D28D9;
+    border: 2px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    box-shadow: 0 0 0 2px #E2E8F0;
+    z-index: 1;
+  }
+  .od-timeline-content {
+    flex: 1;
+    background: #F8FAFC;
+    border: 1px solid var(--od-border);
+    border-radius: var(--od-radius-sm);
+    padding: 0.75rem 1rem;
+  }
+  .od-timeline-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .od-timeline-title {
+    font-weight: 700;
+    color: var(--od-text-dark);
+    font-size: 0.88rem;
+  }
+  .od-timeline-time {
+    font-size: 0.75rem;
+    color: var(--od-text-muted);
+  }
+  .od-timeline-notes {
+    font-size: 0.82rem;
+    color: #475569;
+    margin-top: 3px;
+    line-height: 1.35;
+  }
+  .od-timeline-updater {
+    font-size: 0.72rem;
+    color: var(--od-text-light);
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .od-timeline-updater strong {
+    color: #64748B;
+  }
+
+  /* Sidebar KV Layout */
+  .od-kv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .od-kv-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--od-border-subtle);
+  }
+  .od-kv-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--od-text-muted);
+    letter-spacing: 0.5px;
+  }
+  .od-kv-value {
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .od-kv-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--od-border-subtle);
+    font-size: 0.85rem;
+  }
+  .od-kv-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .od-kv-key {
+    color: var(--od-text-muted);
+  }
+  .od-kv-val {
+    color: var(--od-text-dark);
+  }
+  .od-ref-code {
+    font-family: monospace;
+    font-size: 0.75rem;
+    background: #F1F5F9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #334155;
+    word-break: break-all;
+  }
+
+  .od-address-box {
+    margin-top: 4px;
+    background: #F8FAFC;
+    border: 1px solid var(--od-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .od-address-text {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #334155;
+  }
+  .od-address-meta {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .od-badge-pin {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #047857;
+    background: #ECFDF5;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .od-instructions-box {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: #64748B;
+    background: #FFFBEB;
+    border: 1px dashed #FDE68A;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* COD Confirmed Panel */
+  .od-cod-confirmed-panel {
+    margin-top: 0.85rem;
+    background: #ECFDF5;
+    border: 1px solid #A7F3D0;
+    border-radius: var(--od-radius-sm);
+    padding: 0.75rem 1rem;
+  }
+  .od-cod-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #065F46;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+  }
+  .od-cod-amount {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #047857;
+    font-family: monospace;
+    margin: 3px 0;
+  }
+  .od-cod-meta, .od-cod-rider {
+    font-size: 0.75rem;
+    color: #047857;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+  }
+
+  /* Financial Summary Breakdown */
+  .od-fin-section {
+    margin-bottom: 1.15rem;
+  }
+  .od-fin-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--od-text-muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .od-fin-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 0.85rem;
+  }
+  .od-fin-label {
+    color: var(--od-text-muted);
+  }
+  .od-fin-val {
+    font-weight: 600;
+    color: #1E293B;
+    font-family: monospace;
+  }
+  .od-fin-divider {
+    height: 1px;
+    background: var(--od-border);
+    margin: 8px 0;
+  }
+  .od-fin-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+  .od-fin-total-label {
+    color: var(--od-text-dark);
+  }
+  .od-fin-total-val {
+    color: #047857;
+    font-family: monospace;
+  }
+  .od-reward-callout {
+    margin-top: 8px;
+    background: #ECFDF5;
+    border: 1px solid #A7F3D0;
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .od-reward-icon {
+    color: #059669;
+    font-size: 0.95rem;
+  }
+  .od-reward-text {
+    font-size: 0.78rem;
+    color: #065F46;
+  }
+  .od-reward-sub {
+    font-size: 0.68rem;
+    color: #047857;
+  }
+
+  /* Marketplace Box */
+  .od-marketplace-box {
+    background: #F8FAFC;
+    border: 1px solid var(--od-border);
+    border-radius: var(--od-radius-sm);
+    padding: 0.85rem 1rem;
+    font-size: 0.82rem;
+  }
+  .od-marketplace-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #475569;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .od-marketplace-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    color: #64748B;
+  }
+  .od-marketplace-row strong {
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+  .od-marketplace-divider {
+    border-top: 1px dashed #CBD5E1;
+    margin: 6px 0;
+  }
+  .od-marketplace-net {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 2px;
+    font-weight: 800;
+    font-size: 0.95rem;
+  }
+  .od-marketplace-net-label {
+    color: var(--od-text-dark);
+  }
+  .od-marketplace-net-val {
+    font-family: monospace;
+  }
+  .od-fin-footnote {
+    font-size: 0.7rem;
+    color: var(--od-text-light);
+    margin: 8px 0 0 0;
+    line-height: 1.35;
+  }
+
+  /* Admin Actions Form Stack */
+  .od-actions-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .od-action-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+  }
+  .od-form-group {
+    margin-bottom: 2px;
+  }
+  .od-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.82rem;
+    border: 1px solid var(--od-border);
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  .od-input:focus {
+    outline: none;
+    border-color: var(--od-primary);
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
+  }
+  .od-checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: #475569;
+    margin-bottom: 4px;
+  }
+  .od-checkbox-group input {
+    cursor: pointer;
+  }
+  .od-checkbox-group label {
+    margin: 0;
+    cursor: pointer;
+  }
+  .od-refund-box {
+    border-top: 1px solid var(--od-border-subtle);
+    padding-top: 10px;
+  }
+  .od-fulfilled-notice {
+    background: #ECFDF5;
+    border: 1px solid #A7F3D0;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+    color: #065F46;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.3;
+  }
+
+  /* Mobile responsiveness */
+  @media (max-width: 640px) {
+    .od-header {
+      padding: 1rem;
+    }
+    .od-title {
+      font-size: 1.25rem;
+    }
+    .od-card-header {
+      padding: 1rem;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .od-card-body {
+      padding: 1rem;
+    }
+    .od-assign-bar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .od-select {
+      max-width: 100%;
+      width: 100%;
+    }
+    .od-assign-form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .od-assign-form .od-btn {
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Copy Order ID Script -->
+<script>
+  function copyOrderId(text) {
+    navigator.clipboard.writeText(text).then(function() {
+      const tooltip = document.getElementById('copy-tooltip');
+      const icon = document.getElementById('copy-icon');
+      if (tooltip) tooltip.innerText = 'Copied!';
+      if (icon) {
+        icon.classList.remove('fa-copy');
+        icon.classList.add('fa-check');
+      }
+      setTimeout(function() {
+        if (tooltip) tooltip.innerText = 'Copy ID';
+        if (icon) {
+          icon.classList.remove('fa-check');
+          icon.classList.add('fa-copy');
+        }
+      }, 2000);
+    });
+  }
+</script>
 {% endblock %}

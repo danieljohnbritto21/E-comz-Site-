@@ -4,68 +4,86 @@
 {% block title %}Delivery Fleet - Admin Portal{% endblock %}
 
 {% block admin_content %}
-<div>
+<div class="delivery-fleet-page">
   
-  <div class="dashboard-header">
+  <!-- Dashboard Top Header Bar -->
+  <div class="dashboard-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
     <div>
       <h1 class="dashboard-title">Delivery Fleet Operations</h1>
       <p class="dashboard-subtitle">Manage dedicated delivery agents, vehicle fleet, and provision authorized courier accounts</p>
     </div>
-    <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('add-driver-card').scrollIntoView({behavior: 'smooth'})">
-      <i class="fa-solid fa-plus"></i> Provision New Driver Account
+    <button type="button" class="btn btn-primary btn-sm" id="btn-open-provision-modal" onclick="openProvisionModal()" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; padding: 0.5rem 1rem; border-radius: 8px;">
+      <i class="fa-solid fa-plus"></i>
+      <span>Provision New Driver Account</span>
     </button>
   </div>
 
+  <!-- Messages Toast / Alerts Container -->
+  {% if messages %}
+    <div class="fleet-messages-container" style="margin-bottom: 1.25rem;">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(0,0,0,0.06);">
+          <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check" style="color: #059669;{% elif message.tags == 'error' or message.tags == 'danger' %}fa-circle-exclamation" style="color: #DC2626;{% else %}fa-circle-info" style="color: #2563EB;{% endif %} font-size: 1.05rem;"></i>
+          <div>{{ message }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   <!-- Delivery Personnel Table -->
-  <div class="table-card" style="margin-bottom: 2.5rem;">
+  <div class="table-card" style="margin-bottom: 2.5rem; background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); overflow: hidden;">
     <div class="table-responsive">
-      <table class="data-table">
+      <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
         <thead>
-          <tr>
-            <th>Agent Name</th>
-            <th>Vehicle & License</th>
-            <th>Phone</th>
-            <th>Fleet Status</th>
-            <th>Deliveries Completed</th>
-            <th>Account Created</th>
+          <tr style="background: #F8FAFC; border-bottom: 1px solid #E2E8F0; text-align: left; color: #64748B; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+            <th style="padding: 12px 16px;">Agent Name</th>
+            <th style="padding: 12px 16px;">Vehicle & License</th>
+            <th style="padding: 12px 16px;">Phone</th>
+            <th style="padding: 12px 16px;">Fleet Status</th>
+            <th style="padding: 12px 16px;">Deliveries Completed</th>
+            <th style="padding: 12px 16px;">Account Created</th>
           </tr>
         </thead>
         <tbody>
           {% for driver in drivers %}
-            <tr>
-              <td>
+            <tr style="border-bottom: 1px solid #F1F5F9; transition: background 0.15s ease;">
+              <td style="padding: 14px 16px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="font-weight: 700;">{{ driver.user.get_full_name|default:driver.user.username }}</span>
-                  <span class="badge badge-secondary" style="font-family: monospace; font-size: 0.72rem; padding: 2px 6px;">{{ driver.driver_account_id }}</span>
+                  <span style="font-weight: 700; color: #0F172A;">{{ driver.user.get_full_name|default:driver.user.username }}</span>
+                  <span class="badge badge-secondary" style="font-family: monospace; font-size: 0.72rem; padding: 2px 6px; background: #EDE9FE; color: #6D28D9; border-radius: 4px;">{{ driver.driver_account_id }}</span>
                 </div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">@{{ driver.user.username }}</div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">@{{ driver.user.username }}</div>
               </td>
-              <td>
-                <div style="font-weight: 600;">{{ driver.get_vehicle_type_display }}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ driver.vehicle_number|default:"No plate registered" }}</div>
+              <td style="padding: 14px 16px;">
+                <div style="font-weight: 600; color: #1E293B;">{{ driver.get_vehicle_type_display }}</div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">{{ driver.vehicle_number|default:"No plate registered" }}</div>
               </td>
-              <td>
-                <a href="tel:{{ driver.user.phone_number }}" style="font-weight: 600; color: var(--color-primary-dark);">
-                  {{ driver.user.phone_number|default:"-" }}
+              <td style="padding: 14px 16px;">
+                <a href="tel:{{ driver.user.phone_number }}" style="font-weight: 600; color: #059669; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+                  <i class="fa-solid fa-phone" style="font-size: 0.75rem;"></i>
+                  <span>{{ driver.user.phone_number|default:"-" }}</span>
                 </a>
               </td>
-              <td>
+              <td style="padding: 14px 16px;">
                 <span class="badge 
                   {% if driver.current_status == 'AVAILABLE' %}badge-success
                   {% elif driver.current_status == 'ON_DELIVERY' %}badge-warning
-                  {% else %}badge-secondary{% endif %}">
+                  {% else %}badge-secondary{% endif %}" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 9999px;">
                   {{ driver.get_current_status_display }}
                 </span>
               </td>
-              <td>
-                <strong style="color: #047857; font-size: 1.05rem;">{{ driver.total_deliveries_completed }} orders</strong>
+              <td style="padding: 14px 16px;">
+                <strong style="color: #047857; font-size: 1.05rem; font-family: monospace;">{{ driver.total_deliveries_completed }}</strong>
+                <span style="font-size: 0.78rem; color: #64748B; margin-left: 2px;">orders</span>
               </td>
-              <td style="font-size: 0.8rem; color: var(--text-muted);">{{ driver.created_at|date:"d M Y" }}</td>
+              <td style="padding: 14px 16px; font-size: 0.8rem; color: #64748B;">{{ driver.created_at|date:"d M Y" }}</td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                No delivery agents registered yet. Provision an account below!
+              <td colspan="6" style="text-align: center; padding: 3rem 1rem; color: #94A3B8;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem; color: #CBD5E1;"><i class="fa-solid fa-motorcycle"></i></div>
+                <div style="font-weight: 600; color: #64748B; font-size: 0.95rem;">No delivery agents registered yet.</div>
+                <div style="font-size: 0.82rem; color: #94A3B8; margin-top: 4px;">Click "+ Provision New Driver Account" above to create your first driver account.</div>
               </td>
             </tr>
           {% endfor %}
@@ -74,63 +92,523 @@
     </div>
   </div>
 
-  <!-- Provision Delivery Agent Form -->
-  <div class="form-card" id="add-driver-card" style="max-width: 760px;">
-    <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
-      <i class="fa-solid fa-user-plus" style="color: var(--color-primary-dark);"></i> Provision New Delivery Agent Account
-    </h3>
-
-    <form method="POST">
-      {% csrf_token %}
+  <!-- PROVISION NEW DRIVER ACCOUNT MODAL POPUP -->
+  <div id="provisionDriverModal" class="modal-backdrop-custom" role="dialog" aria-modal="true" aria-labelledby="provision-modal-title" style="display: none;">
+    <div class="modal-dialog-custom" onclick="event.stopPropagation()">
       
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">First Name *</label>
-          <input type="text" name="first_name" class="form-control" placeholder="Agent First Name" required>
+      <!-- Modal Header -->
+      <div class="modal-header-custom">
+        <div class="modal-title-group">
+          <div class="modal-icon-container">
+            <i class="fa-solid fa-user-plus"></i>
+          </div>
+          <div>
+            <h2 id="provision-modal-title" class="modal-title-custom">Provision New Delivery Agent Account</h2>
+            <p class="modal-subtitle-custom">Create and authorize a new delivery agent.</p>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Last Name</label>
-          <input type="text" name="last_name" class="form-control" placeholder="Last Name">
-        </div>
+        <button type="button" class="modal-close-btn" onclick="closeProvisionModal()" aria-label="Close modal">&times;</button>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Login Username *</label>
-          <input type="text" name="username" class="form-control" placeholder="e.g. driver_rajesh" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Mobile Phone Number *</label>
-          <input type="text" name="phone_number" class="form-control" placeholder="+91 98765 00000" required>
-        </div>
-      </div>
+      <!-- Modal Body Form -->
+      <form method="POST" id="provisionDriverForm" onsubmit="handleDriverFormSubmit(event)">
+        {% csrf_token %}
+        
+        <div class="modal-body-custom">
+          
+          <!-- In-Modal Alert if error occurred on POST -->
+          {% if messages and request.method == 'POST' %}
+            <div class="modal-messages">
+              {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}" style="padding: 0.65rem 0.9rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(0,0,0,0.06);">
+                  <i class="fa-solid fa-circle-exclamation" style="color: #DC2626;"></i>
+                  <div style="color: #991B1B; font-weight: 500;">{{ message }}</div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
 
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Vehicle Type</label>
-          <select name="vehicle_type" class="form-select">
-            <option value="BIKE">Motorcycle / Bike</option>
-            <option value="SCOOTER">Scooter</option>
-            <option value="BICYCLE">Bicycle</option>
-            <option value="VAN">Delivery Van</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Vehicle Registration Number</label>
-          <input type="text" name="vehicle_number" class="form-control" placeholder="e.g. DL 01 AB 1234">
-        </div>
-      </div>
+          <div class="form-grid-2col">
+            
+            <!-- First Name -->
+            <div class="form-field-custom">
+              <label class="form-label-custom" for="driver-first-name">
+                First Name <span class="required-star">*</span>
+              </label>
+              <input type="text" id="driver-first-name" name="first_name" class="form-input-custom" placeholder="Agent First Name" value="{{ request.POST.first_name|default:'' }}" required>
+            </div>
 
-      <div class="form-group">
-        <label class="form-label">Password *</label>
-        <input type="password" name="password" class="form-control" placeholder="Create temporary driver password" required>
-      </div>
+            <!-- Last Name -->
+            <div class="form-field-custom">
+              <label class="form-label-custom" for="driver-last-name">
+                Last Name
+              </label>
+              <input type="text" id="driver-last-name" name="last_name" class="form-input-custom" placeholder="Last Name" value="{{ request.POST.last_name|default:'' }}">
+            </div>
 
-      <button type="submit" class="btn btn-primary btn-lg" style="margin-top: 0.5rem;">
-        <i class="fa-solid fa-motorcycle"></i> Authorize & Create Delivery Account
-      </button>
-    </form>
+            <!-- Login Username -->
+            <div class="form-field-custom">
+              <label class="form-label-custom" for="driver-username">
+                Login Username <span class="required-star">*</span>
+              </label>
+              <div class="input-with-prefix">
+                <span class="prefix-badge">@</span>
+                <input type="text" id="driver-username" name="username" class="form-input-custom with-prefix" placeholder="e.g. driver_rajesh" value="{{ request.POST.username|default:'' }}" required autocomplete="off">
+              </div>
+            </div>
+
+            <!-- Mobile Phone Number -->
+            <div class="form-field-custom">
+              <label class="form-label-custom" for="driver-phone">
+                Mobile Phone Number <span class="required-star">*</span>
+              </label>
+              <input type="tel" id="driver-phone" name="phone_number" class="form-input-custom" placeholder="+91 98765 00000" value="{{ request.POST.phone_number|default:'' }}" required>
+            </div>
+
+            <!-- Vehicle Type -->
+            <div class="form-field-custom">
+              <label class="form-label-custom" for="driver-vehicle-type">
+                Vehicle Type
+              </label>
+              <div class="select-wrapper-custom">
+                <select id="driver-vehicle-type" name="vehicle_type" class="form-select-custom">
+                  <option value="BIKE" {% if request.POST.vehicle_type == 'BIKE' or not request.POST.vehicle_type %}selected{% endif %}>Motorcycle / Bike</option>
+                  <option value="SCOOTER" {% if request.POST.vehicle_type == 'SCOOTER' %}selected{% endif %}>Scooter</option>
+                  <option value="BICYCLE" {% if request.POST.vehicle_type == 'BICYCLE' %}selected{% endif %}>Bicycle</option>
+                  <option value="VAN" {% if request.POST.vehicle_type == 'VAN' %}selected{% endif %}>Delivery Van</option>
+                </select>
+                <i class="fa-solid fa-chevron-down select-chevron"></i>
+              </div>
+            </div>
+
+            <!-- Vehicle Registration Number -->
+            <div class="form-field-custom">
+              <label class="form-label-custom" for="driver-vehicle-number">
+                Vehicle Registration Number
+              </label>
+              <input type="text" id="driver-vehicle-number" name="vehicle_number" class="form-input-custom" placeholder="e.g. DL 01 AB 1234" value="{{ request.POST.vehicle_number|default:'' }}">
+            </div>
+
+          </div>
+
+          <!-- Password (Full Width) -->
+          <div class="form-field-custom" style="margin-top: 1rem;">
+            <label class="form-label-custom" for="driver-password">
+              Password <span class="required-star">*</span>
+            </label>
+            <div class="password-wrapper-custom">
+              <input type="password" id="driver-password" name="password" class="form-input-custom" placeholder="Create temporary driver password" required autocomplete="new-password">
+              <button type="button" class="btn-toggle-pwd" onclick="togglePasswordVisibility('driver-password', this)" tabindex="-1" aria-label="Toggle password visibility">
+                <i class="fa-regular fa-eye"></i>
+              </button>
+            </div>
+            <div class="field-hint">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>Agent can change their password after signing into the fleet portal.</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer-custom">
+          <button type="button" class="btn btn-secondary modal-btn-cancel" onclick="closeProvisionModal()">
+            Cancel
+          </button>
+          <button type="submit" id="btn-submit-driver" class="btn btn-primary modal-btn-submit">
+            <i class="fa-solid fa-motorcycle"></i>
+            <span id="submit-btn-text">Authorize & Create Delivery Account</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
   </div>
 
 </div>
+
+<!-- Scoped Modal Styling -->
+<style>
+  /* Modal Backdrop Overlay */
+  .modal-backdrop-custom {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .modal-backdrop-custom.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Modal Dialog Window */
+  .modal-dialog-custom {
+    background: #FFFFFF;
+    border-radius: 14px;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.08);
+    width: 100%;
+    max-width: 700px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: scale(0.96) translateY(8px);
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .modal-backdrop-custom.active .modal-dialog-custom {
+    transform: scale(1) translateY(0);
+  }
+
+  /* Modal Header */
+  .modal-header-custom {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #E2E8F0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    background: #FFFFFF;
+    gap: 1rem;
+  }
+  .modal-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .modal-icon-container {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: #ECFDF5;
+    color: #059669;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.1);
+  }
+  .modal-title-custom {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #0F172A;
+    margin: 0;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+  .modal-subtitle-custom {
+    font-size: 0.82rem;
+    color: #64748B;
+    margin: 3px 0 0 0;
+  }
+  .modal-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: #94A3B8;
+    cursor: pointer;
+    padding: 0 4px;
+    border-radius: 6px;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .modal-close-btn:hover {
+    color: #0F172A;
+    background: #F1F5F9;
+  }
+
+  /* Modal Body */
+  .modal-body-custom {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  /* 2-Column Form Grid */
+  .form-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.1rem 1.25rem;
+  }
+  @media (max-width: 640px) {
+    .form-grid-2col {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+  }
+
+  .form-field-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .form-label-custom {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #334155;
+    margin: 0;
+  }
+  .required-star {
+    color: #DC2626;
+  }
+  .form-input-custom {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.88rem;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    color: #0F172A;
+    background: #FFFFFF;
+    font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .form-input-custom:focus {
+    outline: none;
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+  }
+
+  /* Input with prefix (@ username) */
+  .input-with-prefix {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .prefix-badge {
+    position: absolute;
+    left: 10px;
+    color: #94A3B8;
+    font-weight: 700;
+    font-size: 0.9rem;
+    pointer-events: none;
+  }
+  .form-input-custom.with-prefix {
+    padding-left: 28px;
+  }
+
+  /* Custom Select with chevron */
+  .select-wrapper-custom {
+    position: relative;
+    width: 100%;
+  }
+  .form-select-custom {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    box-sizing: border-box;
+    padding: 0.55rem 2rem 0.55rem 0.8rem;
+    font-size: 0.88rem;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    color: #0F172A;
+    background: #FFFFFF;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .form-select-custom:focus {
+    outline: none;
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+  }
+  .select-chevron {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 0.72rem;
+    color: #64748B;
+  }
+
+  /* Password Toggle */
+  .password-wrapper-custom {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .password-wrapper-custom input {
+    padding-right: 38px;
+  }
+  .btn-toggle-pwd {
+    position: absolute;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: #94A3B8;
+    cursor: pointer;
+    font-size: 0.95rem;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-toggle-pwd:hover {
+    color: #334155;
+  }
+  .field-hint {
+    font-size: 0.75rem;
+    color: #64748B;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 3px;
+  }
+
+  /* Modal Footer */
+  .modal-footer-custom {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #E2E8F0;
+    background: #F8FAFC;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+  }
+  .modal-btn-cancel {
+    padding: 0.55rem 1.15rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid #CBD5E1;
+    background: #FFFFFF;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .modal-btn-cancel:hover {
+    background: #F1F5F9;
+    color: #0F172A;
+  }
+  .modal-btn-submit {
+    padding: 0.55rem 1.35rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    background: #059669;
+    border: 1px solid #059669;
+    color: #FFFFFF;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.2);
+  }
+  .modal-btn-submit:hover:not(:disabled) {
+    background: #047857;
+    border-color: #047857;
+    box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3);
+  }
+  .modal-btn-submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+</style>
+
+<!-- Modal Controller JavaScript -->
+<script>
+  let isSubmitting = false;
+
+  function openProvisionModal() {
+    const modal = document.getElementById('provisionDriverModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+      modal.classList.add('active');
+    });
+    document.body.style.overflow = 'hidden';
+    
+    // Autofocus first name
+    setTimeout(() => {
+      const firstInput = document.getElementById('driver-first-name');
+      if (firstInput) firstInput.focus();
+    }, 100);
+  }
+
+  function closeProvisionModal() {
+    if (isSubmitting) return; // Prevent closing while network request in flight
+    const modal = document.getElementById('provisionDriverModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    setTimeout(() => {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+      const triggerBtn = document.getElementById('btn-open-provision-modal');
+      if (triggerBtn) triggerBtn.focus();
+    }, 200);
+  }
+
+  function togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (icon) {
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      }
+    } else {
+      input.type = 'password';
+      if (icon) {
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+  }
+
+  function handleDriverFormSubmit(e) {
+    if (isSubmitting) {
+      e.preventDefault();
+      return false;
+    }
+    isSubmitting = true;
+    const submitBtn = document.getElementById('btn-submit-driver');
+    const btnText = document.getElementById('submit-btn-text');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      if (btnText) {
+        btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authorizing & Provisioning...';
+      }
+    }
+    return true;
+  }
+
+  // Close modal when pressing Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      const modal = document.getElementById('provisionDriverModal');
+      if (modal && modal.classList.contains('active')) {
+        closeProvisionModal();
+      }
+    }
+  });
+
+  // Close modal when clicking backdrop outside dialog
+  document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('provisionDriverModal');
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          closeProvisionModal();
+        }
+      });
+    }
+
+    // Auto-open modal if there are error messages from a previous failed POST
+    {% if request.method == 'POST' and messages %}
+      openProvisionModal();
+    {% endif %}
+  });
+</script>
 {% endblock %}
