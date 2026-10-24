@@ -229,3 +229,51 @@ class OrderManagementAndPnLTests(TestCase):
         self.assertEqual(res3.status_code, 302)
         res4 = self.client.get(reverse('admin_dashboard:company_pnl'))
         self.assertEqual(res4.status_code, 302)
+
+    def test_admin_can_reject_product_with_invalid_pricing(self):
+        """Admin can reject a product that has invalid pricing (e.g. selling_price <= product_cost)."""
+        self.client.force_login(self.admin_user)
+
+        # Simulate a product submitted with selling_price <= product_cost
+        bad_product = Product.objects.create(
+            name='Bad Price Item',
+            slug='bad-price-item',
+            category=self.category,
+            seller=self.seller_user,
+            mrp=Decimal('100.00'),
+            selling_price=Decimal('50.00'),
+            product_cost=Decimal('40.00'),
+            sku='BAD-001',
+            is_approved=False,
+            approval_status=Product.ApprovalStatus.PENDING,
+            is_active=False
+        )
+        # Directly update product in DB to simulate invalid pricing (selling_price <= product_cost)
+        Product.objects.filter(id=bad_product.id).update(
+            selling_price=Decimal('50.00'),
+            product_cost=Decimal('60.00') # Cost > Selling price
+        )
+        bad_product.refresh_from_db()
+
+        # Admin rejects this bad product
+        url = reverse('admin_dashboard:products')
+        response = self.client.post(url, {
+            'action': 'reject_product',
+            'product_id': bad_product.id,
+            'rejection_reason': 'Selling price ₹50 is lower than cost price ₹60.'
+        })
+        self.assertRedirects(response, url)
+
+        bad_product.refresh_from_db()
+        self.assertEqual(bad_product.approval_status, Product.ApprovalStatus.REJECTED)
+        self.assertFalse(bad_product.is_approved)
+        self.assertIn('lower than cost', bad_product.rejection_reason)
+
+        # Admin trying to approve bad product should be rejected gracefully
+        resp_approve = self.client.post(url, {
+            'action': 'approve_product',
+            'product_id': bad_product.id,
+        })
+        self.assertRedirects(resp_approve, url)
+        bad_product.refresh_from_db()
+        self.assertNotEqual(bad_product.approval_status, Product.ApprovalStatus.APPROVED)

@@ -839,64 +839,91 @@ def admin_products_view(request):
                     messages.error(request, "Please enter a valid whole number for maximum quantity per order.")
             return redirect(request.get_full_path())
         elif action == 'approve_product':
-            from apps.reports.models import ProductApprovalHistory
-            prev = prod.approval_status
-            prod.approval_status = Product.ApprovalStatus.APPROVED
-            prod.is_approved = True
-            prod.rejection_reason = ''
-            prod.save(update_fields=['approval_status', 'is_approved', 'rejection_reason', 'updated_at'])
-            ProductApprovalHistory.objects.create(
-                product=prod, action='APPROVED', admin_user=request.user,
-                reason='Approved by admin.', previous_status=prev, new_status='APPROVED'
-            )
-            Notification.send(
-                user=prod.seller, title=f"Product Approved: {prod.name}",
-                message=f"Your product '{prod.name}' has been approved and is now visible to customers.",
-                category=Notification.Category.ACCOUNT, link=f"/seller/products/edit/{prod.id}/"
-            )
-            messages.success(request, f"Product '{prod.name}' approved.")
+            try:
+                # Validate pricing before approval: approved products must satisfy MRP > Selling Price > Product Cost
+                if prod.mrp is not None and prod.selling_price is not None and prod.mrp <= prod.selling_price:
+                    messages.error(request, f"Cannot approve '{prod.name}': MRP (₹{prod.mrp}) must be greater than Selling Price (₹{prod.selling_price}).")
+                    return redirect(request.get_full_path())
+                if prod.selling_price is not None and prod.product_cost is not None and prod.selling_price <= prod.product_cost:
+                    messages.error(request, f"Cannot approve '{prod.name}': Selling Price (₹{prod.selling_price}) must be greater than Product Cost (₹{prod.product_cost}).")
+                    return redirect(request.get_full_path())
+
+                from apps.reports.models import ProductApprovalHistory
+                prev = prod.approval_status
+                prod.approval_status = Product.ApprovalStatus.APPROVED
+                prod.is_approved = True
+                prod.rejection_reason = ''
+                prod.save(update_fields=['approval_status', 'is_approved', 'rejection_reason', 'updated_at'])
+                ProductApprovalHistory.objects.create(
+                    product=prod, action='APPROVED', admin_user=request.user,
+                    reason='Approved by admin.', previous_status=prev, new_status='APPROVED'
+                )
+                Notification.send(
+                    user=prod.seller, title=f"Product Approved: {prod.name}",
+                    message=f"Your product '{prod.name}' has been approved and is now visible to customers.",
+                    category=Notification.Category.ACCOUNT, link=f"/seller/products/edit/{prod.id}/"
+                )
+                messages.success(request, f"Product '{prod.name}' approved.")
+            except Exception as e:
+                messages.error(request, f"Could not approve product: {e}")
             return redirect(request.get_full_path())
 
         elif action == 'reject_product':
-            from apps.reports.models import ProductApprovalHistory
-            reason = request.POST.get('rejection_reason', 'Rejected by admin.').strip() or 'Rejected by admin.'
-            prev = prod.approval_status
-            prod.approval_status = Product.ApprovalStatus.REJECTED
-            prod.is_approved = False
-            prod.rejection_reason = reason
-            prod.save(update_fields=['approval_status', 'is_approved', 'rejection_reason', 'updated_at'])
-            ProductApprovalHistory.objects.create(
-                product=prod, action='REJECTED', admin_user=request.user,
-                reason=reason, previous_status=prev, new_status='REJECTED'
-            )
-            Notification.send(
-                user=prod.seller, title=f"Product Rejected: {prod.name}",
-                message=f"Your product '{prod.name}' was rejected. Reason: {reason}",
-                category=Notification.Category.ACCOUNT, link=f"/seller/products/edit/{prod.id}/"
-            )
-            messages.warning(request, f"Product '{prod.name}' rejected.")
+            try:
+                from apps.reports.models import ProductApprovalHistory
+                reason = request.POST.get('rejection_reason', 'Rejected by admin.').strip() or 'Rejected by admin.'
+                prev = prod.approval_status
+                prod.approval_status = Product.ApprovalStatus.REJECTED
+                prod.is_approved = False
+                prod.is_active = False
+                prod.rejection_reason = reason
+                prod.save(update_fields=['approval_status', 'is_approved', 'is_active', 'rejection_reason', 'updated_at'])
+                ProductApprovalHistory.objects.create(
+                    product=prod, action='REJECTED', admin_user=request.user,
+                    reason=reason, previous_status=prev, new_status='REJECTED'
+                )
+                Notification.send(
+                    user=prod.seller, title=f"Product Rejected: {prod.name}",
+                    message=f"Your product '{prod.name}' was rejected. Reason: {reason}",
+                    category=Notification.Category.ACCOUNT, link=f"/seller/products/edit/{prod.id}/"
+                )
+                messages.warning(request, f"Product '{prod.name}' rejected.")
+            except Exception as e:
+                messages.error(request, f"Could not reject product: {e}")
             return redirect(request.get_full_path())
 
         elif action == 'suspend_product':
-            from apps.reports.models import ProductApprovalHistory
-            reason = request.POST.get('rejection_reason', 'Suspended by admin.').strip() or 'Suspended by admin.'
-            prev = prod.approval_status
-            prod.approval_status = Product.ApprovalStatus.SUSPENDED
-            prod.is_approved = False
-            prod.rejection_reason = reason
-            prod.save(update_fields=['approval_status', 'is_approved', 'rejection_reason', 'updated_at'])
-            ProductApprovalHistory.objects.create(
-                product=prod, action='SUSPENDED', admin_user=request.user,
-                reason=reason, previous_status=prev, new_status='SUSPENDED'
-            )
-            messages.warning(request, f"Product '{prod.name}' suspended.")
+            try:
+                from apps.reports.models import ProductApprovalHistory
+                reason = request.POST.get('rejection_reason', 'Suspended by admin.').strip() or 'Suspended by admin.'
+                prev = prod.approval_status
+                prod.approval_status = Product.ApprovalStatus.SUSPENDED
+                prod.is_approved = False
+                prod.is_active = False
+                prod.rejection_reason = reason
+                prod.save(update_fields=['approval_status', 'is_approved', 'is_active', 'rejection_reason', 'updated_at'])
+                ProductApprovalHistory.objects.create(
+                    product=prod, action='SUSPENDED', admin_user=request.user,
+                    reason=reason, previous_status=prev, new_status='SUSPENDED'
+                )
+                Notification.send(
+                    user=prod.seller, title=f"Product Suspended: {prod.name}",
+                    message=f"Your product '{prod.name}' was suspended. Reason: {reason}",
+                    category=Notification.Category.ACCOUNT, link=f"/seller/products/edit/{prod.id}/"
+                )
+                messages.warning(request, f"Product '{prod.name}' suspended.")
+            except Exception as e:
+                messages.error(request, f"Could not suspend product: {e}")
             return redirect(request.get_full_path())
 
         else:
-            prod.is_active = not prod.is_active
-            prod.save(update_fields=['is_active'])
-            status_name = "Activated" if prod.is_active else "Deactivated"
-            messages.info(request, f"{prod.name} has been {status_name}.")
+            try:
+                prod.is_active = not prod.is_active
+                prod.save(update_fields=['is_active'])
+                status_name = "Activated" if prod.is_active else "Deactivated"
+                messages.info(request, f"{prod.name} has been {status_name}.")
+            except Exception as e:
+                messages.error(request, f"Could not update status: {e}")
             return redirect(request.get_full_path())
 
     all_sellers = SellerProfile.objects.select_related('user').all().order_by('store_name')

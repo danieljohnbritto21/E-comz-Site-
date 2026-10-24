@@ -175,25 +175,45 @@ class Product(models.Model):
 
     def clean(self):
         super().clean()
-        if self.mrp is not None and self.selling_price is not None:
-            if self.mrp <= Decimal('0'):
-                raise ValidationError({'mrp': 'MRP must be a positive amount greater than zero.'})
-            if self.selling_price <= Decimal('0'):
-                raise ValidationError({'selling_price': 'Selling Price must be a positive amount greater than zero.'})
-            if self.mrp <= self.selling_price:
-                raise ValidationError({'mrp': 'MRP must be greater than Selling Price.'})
-        if self.product_cost is not None:
-            if self.product_cost <= Decimal('0'):
-                raise ValidationError({'product_cost': 'Product Cost must be a positive amount greater than zero.'})
-            if self.selling_price is not None and self.selling_price <= self.product_cost:
-                raise ValidationError({'selling_price': 'Selling Price must be greater than Product Cost.'})
+        # Only enforce pricing checks on products that are active/approved/pending,
+        # but never block an administrator or system from rejecting or suspending invalid products.
+        is_rejected_or_suspended = self.approval_status in [
+            self.ApprovalStatus.REJECTED,
+            self.ApprovalStatus.SUSPENDED
+        ]
+        if not is_rejected_or_suspended:
+            if self.mrp is not None and self.selling_price is not None:
+                if self.mrp <= Decimal('0'):
+                    raise ValidationError({'mrp': 'MRP must be a positive amount greater than zero.'})
+                if self.selling_price <= Decimal('0'):
+                    raise ValidationError({'selling_price': 'Selling Price must be a positive amount greater than zero.'})
+                if self.mrp <= self.selling_price:
+                    raise ValidationError({'mrp': 'MRP must be greater than Selling Price.'})
+            if self.product_cost is not None:
+                if self.product_cost <= Decimal('0'):
+                    raise ValidationError({'product_cost': 'Product Cost must be a positive amount greater than zero.'})
+                if self.selling_price is not None and self.selling_price <= self.product_cost:
+                    raise ValidationError({'selling_price': 'Selling Price must be greater than Product Cost.'})
 
     def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        # Check if pricing fields are explicitly part of update_fields
+        pricing_fields_in_update = (
+            update_fields is None or
+            any(f in update_fields for f in ['mrp', 'selling_price', 'product_cost'])
+        )
+        is_rejected_or_suspended = self.approval_status in [
+            self.ApprovalStatus.REJECTED,
+            self.ApprovalStatus.SUSPENDED
+        ]
+
         # Strict pricing validation: MRP > Selling Price > Product Cost
-        if self.mrp is not None and self.selling_price is not None and self.mrp <= self.selling_price:
-            raise ValidationError({'mrp': 'MRP must be greater than Selling Price.'})
-        if self.selling_price is not None and self.product_cost is not None and self.selling_price <= self.product_cost:
-            raise ValidationError({'selling_price': 'Selling Price must be greater than Product Cost.'})
+        # Applied when creating/editing prices and not when rejecting/suspending invalid products
+        if pricing_fields_in_update and not is_rejected_or_suspended:
+            if self.mrp is not None and self.selling_price is not None and self.mrp <= self.selling_price:
+                raise ValidationError({'mrp': 'MRP must be greater than Selling Price.'})
+            if self.selling_price is not None and self.product_cost is not None and self.selling_price <= self.product_cost:
+                raise ValidationError({'selling_price': 'Selling Price must be greater than Product Cost.'})
 
         if not self.slug:
             base_slug = slugify(f"{self.name}-{self.seller.username}")
