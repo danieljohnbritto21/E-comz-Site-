@@ -56,6 +56,9 @@ class Order(models.Model):
         DELIVERED = 'DELIVERED', 'Delivered'
         CANCELLED = 'CANCELLED', 'Cancelled'
         FAILED_DELIVERY = 'FAILED_DELIVERY', 'Failed Delivery'
+        RETURN_REQUESTED = 'RETURN_REQUESTED', 'Return Requested'
+        RETURNED = 'RETURNED', 'Returned'
+        REFUND_PENDING = 'REFUND_PENDING', 'Refund Pending'
         REFUNDED = 'REFUNDED', 'Refunded'
 
     class PaymentMethod(models.TextChoices):
@@ -135,6 +138,9 @@ class Order(models.Model):
             self.Status.DELIVERED: 'badge-delivered',
             self.Status.CANCELLED: 'badge-cancelled',
             self.Status.FAILED_DELIVERY: 'badge-failed',
+            self.Status.RETURN_REQUESTED: 'badge-warning',
+            self.Status.RETURNED: 'badge-secondary',
+            self.Status.REFUND_PENDING: 'badge-warning',
             self.Status.REFUNDED: 'badge-refunded',
         }
         return badges.get(self.status, 'badge-secondary')

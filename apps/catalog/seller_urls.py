@@ -1,4 +1,5 @@
 from django.urls import path
+# pyrefly: ignore[missing-import]
 from apps.catalog import seller_views
 
 app_name = 'seller'

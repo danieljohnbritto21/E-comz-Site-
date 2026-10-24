@@ -237,13 +237,69 @@ def reverse_buyer_cashback(order, reason=''):
 
 
 def get_buyer_cashback_balance(buyer):
-    """Get the current available cashback balance for a buyer."""
+    """Get the current available (spendable) cashback balance for a buyer."""
     from apps.reports.models import CashbackLedger
     from django.db.models import Sum
     balance = CashbackLedger.objects.filter(
         buyer=buyer, status='CONFIRMED'
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     return max(balance, Decimal('0.00'))
+
+
+def get_buyer_cashback_details(buyer):
+    """
+    Get complete buyer cashback wallet details:
+    - available_balance: Spendable balance from confirmed settlements
+    - pending_balance: Earnings on placed/in-transit orders awaiting delivery OTP verification
+    - total_earned: Cumulative settled cashback credits
+    - total_redeemed: Cumulative cashback spent at checkout
+    - total_reversed: Cumulative reversals (due to returns/cancellations)
+    - recent_entries: Audit ledger transactions
+    """
+    from apps.reports.models import CashbackLedger, OrderItemFinancialSnapshot
+    from apps.orders.models import Order
+    from django.db.models import Sum
+
+    available_balance = get_buyer_cashback_balance(buyer)
+
+    # Pending cashback: Orders that are not yet delivered/cancelled, awaiting OTP completion
+    pending_statuses = [
+        Order.Status.ORDER_PLACED,
+        Order.Status.ORDER_CONFIRMED,
+        Order.Status.PREPARING,
+        Order.Status.PACKED,
+        Order.Status.READY_FOR_PICKUP,
+        Order.Status.OUT_FOR_DELIVERY,
+    ]
+    pending_balance = OrderItemFinancialSnapshot.objects.filter(
+        order__buyer=buyer,
+        order__status__in=pending_statuses,
+        settlement_status='PENDING'
+    ).aggregate(total=Sum('cashback_total'))['total'] or Decimal('0.00')
+
+    # Breakdown metrics from ledger
+    confirmed_entries = CashbackLedger.objects.filter(buyer=buyer, status='CONFIRMED')
+    total_earned = confirmed_entries.filter(entry_type='EARNED').aggregate(
+        total=Sum('amount'))['total'] or Decimal('0.00')
+
+    redeemed_entries = confirmed_entries.filter(entry_type='REDEEMED').aggregate(
+        total=Sum('amount'))['total'] or Decimal('0.00')
+    total_redeemed = abs(redeemed_entries)
+
+    reversed_entries = confirmed_entries.filter(entry_type='REVERSED').aggregate(
+        total=Sum('amount'))['total'] or Decimal('0.00')
+    total_reversed = abs(reversed_entries)
+
+    recent_entries = CashbackLedger.objects.filter(buyer=buyer).select_related('order').order_by('-created_at')[:15]
+
+    return {
+        'available_balance': available_balance,
+        'pending_balance': max(pending_balance, Decimal('0.00')),
+        'total_earned': total_earned,
+        'total_redeemed': total_redeemed,
+        'total_reversed': total_reversed,
+        'recent_entries': recent_entries,
+    }
 
 
 def redeem_buyer_cashback(order, amount):

@@ -132,171 +132,213 @@
   <!-- Products Table Card -->
   <div class="table-card">
     <div class="table-responsive">
-      <table class="data-table">
+      <table class="data-table admin-products-table">
         <thead>
           <tr>
-            <th>Product</th>
-            <th>Store Owner</th>
-            <th>Selling Unit</th>
-            <th>Available Stock</th>
-            <th>Configured Max / Order</th>
-            <th>Effective Max (Bike)</th>
-            <th>Approval</th>
-            <th>Visibility</th>
-            <th style="text-align: right;">Inventory & Moderation Controls</th>
+            <th class="col-product">Product</th>
+            <th class="col-seller">Store Owner</th>
+            <th class="col-unit">Selling Unit</th>
+            <th class="col-stock">Available Stock</th>
+            <th class="col-limit">Configured Max / Order</th>
+            <th class="col-effective">Effective Max (Bike)</th>
+            <th class="col-approval">Approval</th>
+            <th class="col-visibility">Visibility</th>
+            <th class="col-actions">Inventory & Moderation Controls</th>
           </tr>
         </thead>
         <tbody>
           {% for p in products %}
             <tr>
-              <td>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <img src="{{ p.primary_image_url }}" alt="{{ p.name }}" style="width: 42px; height: 42px; object-fit: contain; background: #FAFAFA; border-radius: 6px; border: 1px solid var(--bg-border);">
-                  <div>
-                    <div style="font-weight: 700;">{{ p.name }}</div>
-                    <div style="font-size: 0.72rem; color: var(--text-muted);">{{ p.unit_value }} &bull; SKU: {{ p.sku }}</div>
-                    <div style="font-size: 0.75rem; color: var(--color-primary-dark); font-weight: 700;">
-                      {{ p.selling_price|inr }}
+              <!-- 1. Product -->
+              <td class="col-product">
+                <div class="product-info-cell">
+                  <img src="{{ p.primary_image_url }}" alt="{{ p.name }}" class="product-thumb">
+                  <div class="product-details">
+                    <div class="product-name" title="{{ p.name }}">{{ p.name }}</div>
+                    <div class="product-meta">{{ p.unit_value }} &bull; SKU: {{ p.sku }}</div>
+                    <div class="product-pricing">
+                      <span class="selling-price">{{ p.selling_price|inr }}</span>
                       {% if p.product_cost %}
-                        <span style="font-size: 0.68rem; color: #64748B; font-weight: normal; margin-left: 4px;">(Cost: ₹{{ p.product_cost }})</span>
+                        <span class="cost-price">(Cost: ₹{{ p.product_cost }})</span>
                       {% endif %}
                     </div>
                   </div>
                 </div>
               </td>
-              <td>
-                <a href="{% url 'admin_dashboard:products' %}?seller_id={{ p.seller.id }}" class="badge badge-secondary" style="font-size: 0.78rem; text-decoration: none;" title="Filter products by this seller">
-                  <i class="fa-solid fa-store"></i> {{ p.seller.seller_profile.store_name|default:p.seller.username }}
+
+              <!-- 2. Store Owner -->
+              <td class="col-seller">
+                <a href="{% url 'admin_dashboard:products' %}?seller_id={{ p.seller.id }}" class="seller-store-badge" title="Filter products by {{ p.seller.seller_profile.store_name|default:p.seller.username }}">
+                  <i class="fa-solid fa-store" style="color: #7C3AED; font-size: 0.8rem;"></i>
+                  <span class="seller-name">{{ p.seller.seller_profile.store_name|default:p.seller.username }}</span>
                 </a>
               </td>
-              <td>
-                <span class="badge badge-secondary" style="font-weight: 600; text-transform: uppercase;">
+
+              <!-- 3. Selling Unit -->
+              <td class="col-unit">
+                <span class="unit-badge">
                   {{ p.get_unit_display }}
                 </span>
               </td>
-              <td>
-                <span style="font-weight: 800; font-size: 1rem; {% if p.current_stock_count <= 0 %}color: #DC2626;{% elif p.current_stock_count <= p.stock_record.low_stock_threshold %}color: #D97706;{% else %}color: #047857;{% endif %}">
-                  {{ p.current_stock_count }} {{ p.stock_unit_display }}
-                </span>
-                <div style="font-size: 0.72rem; color: var(--text-muted);">
+
+              <!-- 4. Available Stock (Fixed duplicate count bug) -->
+              <td class="col-stock">
+                <div style="font-weight: 800; font-size: 1rem; {% if p.current_stock_count <= 0 %}color: #DC2626;{% elif p.current_stock_count <= p.stock_record.low_stock_threshold %}color: #D97706;{% else %}color: #047857;{% endif %}">
+                  {{ p.stock_unit_display }}
+                </div>
+                <div style="margin-top: 3px;">
                   {% if p.current_stock_count <= 0 %}
-                    <span style="color: #DC2626; font-weight: 700;">Out of Stock</span>
+                    <span class="badge" style="background: #FEE2E2; color: #DC2626; font-weight: 700; font-size: 0.7rem; padding: 2px 7px;">Out of Stock</span>
                   {% elif p.current_stock_count <= p.stock_record.low_stock_threshold %}
-                    <span style="color: #D97706; font-weight: 700;">Low Stock</span>
+                    <span class="badge" style="background: #FEF3C7; color: #D97706; font-weight: 700; font-size: 0.7rem; padding: 2px 7px;">Low Stock</span>
                   {% else %}
-                    <span style="color: #047857;">In Stock</span>
+                    <span class="badge" style="background: #DCFCE7; color: #15803D; font-weight: 700; font-size: 0.7rem; padding: 2px 7px;">In Stock</span>
                   {% endif %}
                 </div>
               </td>
-              <td>
-                <div style="font-weight: 700; color: #1E293B;">
-                  {{ p.per_order_limit }} {{ p.get_unit_label }}
+
+              <!-- 5. Configured Max / Order -->
+              <td class="col-limit">
+                <div style="font-weight: 700; font-size: 0.95rem; color: #0F172A;">
+                  {{ p.per_order_limit }} <span style="font-size: 0.78rem; font-weight: 600; color: #64748B;">{{ p.get_unit_label }}</span>
                 </div>
-                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                <div style="margin-top: 3px;">
                   {% if p.max_quantity_per_order %}
-                    <span class="badge badge-primary" style="font-size: 0.68rem; background: #EEF2FF; color: #4338CA;">Custom Configured</span>
+                    <span class="badge" style="background: #EEF2FF; color: #4338CA; font-weight: 700; font-size: 0.68rem; padding: 2px 6px;">Custom Limit</span>
                   {% else %}
-                    <span class="badge badge-secondary" style="font-size: 0.68rem;">Unit Default (5)</span>
+                    <span class="badge" style="background: #F1F5F9; color: #64748B; font-weight: 600; font-size: 0.68rem; padding: 2px 6px;">Unit Default (5)</span>
                   {% endif %}
                 </div>
               </td>
-              <td>
+
+              <!-- 6. Effective Max (Bike) -->
+              <td class="col-effective">
                 <div style="font-weight: 800; font-size: 0.95rem; {% if p.actual_max_order_quantity <= 0 %}color: #DC2626;{% else %}color: #0284C7;{% endif %}">
-                  {{ p.actual_max_order_quantity }} {{ p.get_unit_label }}
+                  {{ p.actual_max_order_quantity }} <span style="font-size: 0.78rem; font-weight: 600; color: #64748B;">{{ p.get_unit_label }}</span>
                 </div>
-                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                <div style="margin-top: 3px;">
                   {% if p.current_stock_count <= 0 %}
-                    <span style="color: #DC2626;">Zero stock</span>
+                    <span class="badge" style="background: #FEE2E2; color: #DC2626; font-weight: 700; font-size: 0.68rem; padding: 2px 6px;">Zero stock</span>
                   {% elif p.current_stock_count < p.per_order_limit %}
-                    <span style="color: #D97706;">Stock limited ({{ p.current_stock_count }})</span>
+                    <span class="badge" style="background: #FEF3C7; color: #B45309; font-weight: 700; font-size: 0.68rem; padding: 2px 6px;">Stock limited ({{ p.current_stock_count }})</span>
                   {% else %}
-                    <span style="color: #059669;"><i class="fa-solid fa-bicycle"></i> Bike limit</span>
+                    <span class="badge" style="background: #E0F2FE; color: #0369A1; font-weight: 700; font-size: 0.68rem; padding: 2px 6px;"><i class="fa-solid fa-bicycle"></i> Bike limit</span>
                   {% endif %}
                 </div>
               </td>
-              <td>
+
+              <!-- 7. Approval -->
+              <td class="col-approval">
                 {% if p.approval_status == 'APPROVED' %}
-                  <span class="badge badge-success"><i class="fa-solid fa-check"></i> Approved</span>
+                  <span class="badge badge-success" style="font-weight: 700; font-size: 0.74rem; padding: 4px 9px;">
+                    <i class="fa-solid fa-check"></i> Approved
+                  </span>
                 {% elif p.approval_status == 'PENDING' %}
-                  <span class="badge" style="background: #FEF3C7; color: #B45309; font-weight: 700;"><i class="fa-solid fa-clock"></i> Pending Review</span>
+                  <span class="badge" style="background: #FEF3C7; color: #B45309; font-weight: 700; font-size: 0.74rem; padding: 4px 9px;">
+                    <i class="fa-solid fa-clock"></i> Pending Review
+                  </span>
                 {% elif p.approval_status == 'REJECTED' %}
-                  <span class="badge" style="background: #FEE2E2; color: #DC2626; font-weight: 700;" title="{{ p.rejection_reason }}"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>
-                  {% if p.rejection_reason %}<div style="font-size: 0.7rem; color: #DC2626; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ p.rejection_reason }}">{{ p.rejection_reason }}</div>{% endif %}
+                  <span class="badge" style="background: #FEE2E2; color: #DC2626; font-weight: 700; font-size: 0.74rem; padding: 4px 9px;" title="{{ p.rejection_reason }}">
+                    <i class="fa-solid fa-circle-xmark"></i> Rejected
+                  </span>
+                  {% if p.rejection_reason %}
+                    <div style="font-size: 0.7rem; color: #DC2626; max-width: 125px; margin: 3px auto 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ p.rejection_reason }}">
+                      {{ p.rejection_reason }}
+                    </div>
+                  {% endif %}
                 {% elif p.approval_status == 'SUSPENDED' %}
-                  <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 700;" title="{{ p.rejection_reason }}"><i class="fa-solid fa-ban"></i> Suspended</span>
-                  {% if p.rejection_reason %}<div style="font-size: 0.7rem; color: #475569; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ p.rejection_reason }}">{{ p.rejection_reason }}</div>{% endif %}
+                  <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 700; font-size: 0.74rem; padding: 4px 9px;" title="{{ p.rejection_reason }}">
+                    <i class="fa-solid fa-ban"></i> Suspended
+                  </span>
+                  {% if p.rejection_reason %}
+                    <div style="font-size: 0.7rem; color: #475569; max-width: 125px; margin: 3px auto 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ p.rejection_reason }}">
+                      {{ p.rejection_reason }}
+                    </div>
+                  {% endif %}
                 {% endif %}
               </td>
-              <td>
+
+              <!-- 8. Visibility -->
+              <td class="col-visibility">
                 {% if p.is_active %}
-                  <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Active</span>
+                  <span class="badge badge-success" style="font-weight: 700; font-size: 0.74rem; padding: 4px 9px;">
+                    <i class="fa-solid fa-circle-check"></i> Active
+                  </span>
                 {% else %}
-                  <span class="badge badge-secondary">Hidden</span>
+                  <span class="badge badge-secondary" style="font-weight: 600; font-size: 0.74rem; padding: 4px 9px;">
+                    <i class="fa-solid fa-eye-slash"></i> Hidden
+                  </span>
                 {% endif %}
               </td>
-              <td style="text-align: right;">
-                <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
-                  <!-- Product Approval Controls -->
-                  <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end;">
+
+              <!-- 9. Inventory & Moderation Controls -->
+              <td class="col-actions">
+                <div class="inventory-moderation-controls">
+
+                  <!-- Row 1: Moderation Actions -->
+                  <div class="moderation-actions">
                     {% if p.approval_status != 'APPROVED' %}
-                      <form method="POST" style="display: inline; margin: 0;">
+                      <form method="POST">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="approve_product">
                         <input type="hidden" name="product_id" value="{{ p.id }}">
-                        <button type="submit" class="btn btn-sm" style="padding: 2px 7px; font-size: 0.72rem; background: #059669; color: white; border: none; border-radius: 4px; font-weight: 700;" title="Approve Product for Storefront">
+                        <button type="submit" class="btn-mod btn-mod-approve" title="Approve Product for Storefront">
                           <i class="fa-solid fa-check"></i> Approve
                         </button>
                       </form>
                     {% endif %}
                     {% if p.approval_status != 'REJECTED' %}
-                      <button type="button" class="btn btn-sm" style="padding: 2px 7px; font-size: 0.72rem; background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 4px; font-weight: 600;" onclick="promptReject('{{ p.id }}', '{{ p.name|escapejs }}')" title="Reject Product with Reason">
+                      <button type="button" class="btn-mod btn-mod-reject" onclick="promptReject('{{ p.id }}', '{{ p.name|escapejs }}')" title="Reject Product with Reason">
                         <i class="fa-solid fa-xmark"></i> Reject
                       </button>
                     {% endif %}
                     {% if p.approval_status == 'APPROVED' %}
-                      <button type="button" class="btn btn-sm" style="padding: 2px 7px; font-size: 0.72rem; background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; border-radius: 4px; font-weight: 600;" onclick="promptSuspend('{{ p.id }}', '{{ p.name|escapejs }}')" title="Suspend Product with Reason">
+                      <button type="button" class="btn-mod btn-mod-suspend" onclick="promptSuspend('{{ p.id }}', '{{ p.name|escapejs }}')" title="Suspend Product with Reason">
                         <i class="fa-solid fa-ban"></i> Suspend
                       </button>
                     {% endif %}
                   </div>
 
-                  <!-- Stock Adjustment Form -->
-                  <form method="POST" style="display: inline-flex; align-items: center; gap: 4px; margin: 0;">
+                  <!-- Row 2: Stock Control -->
+                  <form method="POST" class="inventory-control-row">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="adjust_stock">
                     <input type="hidden" name="product_id" value="{{ p.id }}">
-                    <span style="font-size: 0.72rem; color: #64748B;">Stock:</span>
-                    <input type="number" name="new_stock" min="0" value="{{ p.current_stock_count }}" style="width: 60px; padding: 2px 6px; font-size: 0.78rem; border: 1px solid #CBD5E1; border-radius: 4px; text-align: right;" title="Set available stock quantity" required>
-                    <button type="submit" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 0.75rem;" title="Save Stock">
+                    <label class="control-label">Stock</label>
+                    <input type="number" name="new_stock" min="0" value="{{ p.current_stock_count }}" title="Set available stock quantity" required>
+                    <button type="submit" class="btn-inv-save btn-inv-save-stock" title="Save Stock Quantity">
                       <i class="fa-solid fa-floppy-disk"></i>
                     </button>
                   </form>
 
-                  <!-- Per-Order Limit Form -->
-                  <form method="POST" style="display: inline-flex; align-items: center; gap: 4px; margin: 0;">
+                  <!-- Row 3: Bike Limit Control -->
+                  <form method="POST" class="inventory-control-row">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="set_order_limit">
                     <input type="hidden" name="product_id" value="{{ p.id }}">
-                    <span style="font-size: 0.72rem; color: #64748B;"><i class="fa-solid fa-bicycle"></i> Limit:</span>
-                    <input type="number" name="max_quantity_per_order" min="1" value="{{ p.max_quantity_per_order|default:'' }}" placeholder="{{ p.per_order_limit }}" style="width: 60px; padding: 2px 6px; font-size: 0.78rem; border: 1px solid #CBD5E1; border-radius: 4px; text-align: right;" title="Custom per-order limit (blank for unit default)">
-                    <button type="submit" class="btn btn-primary btn-sm" style="padding: 2px 6px; font-size: 0.75rem;" title="Save Per-Order Limit">
+                    <label class="control-label" title="Max per-order bike delivery limit"><i class="fa-solid fa-bicycle"></i> Limit</label>
+                    <input type="number" name="max_quantity_per_order" min="1" value="{{ p.max_quantity_per_order|default:'' }}" placeholder="{{ p.per_order_limit }}" title="Custom per-order limit (blank for unit default: 5)">
+                    <button type="submit" class="btn-inv-save btn-inv-save-limit" title="Save Per-Order Limit">
                       <i class="fa-solid fa-check"></i>
                     </button>
                   </form>
 
-                  <!-- Toggle Visibility -->
-                  <form method="POST" style="display: inline-block; margin: 0;">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="toggle_status">
-                    <input type="hidden" name="product_id" value="{{ p.id }}">
-                    <button type="submit" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 0.75rem;" title="Toggle Live/Hidden">
-                      {% if p.is_active %}
-                        <i class="fa-solid fa-eye-slash" style="color: #DC2626;"></i> Hide
-                      {% else %}
-                        <i class="fa-solid fa-eye" style="color: #047857;"></i> Show
-                      {% endif %}
-                    </button>
-                  </form>
+                  <!-- Row 4: Visibility Toggle -->
+                  <div class="visibility-control">
+                    <form method="POST">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="toggle_status">
+                      <input type="hidden" name="product_id" value="{{ p.id }}">
+                      <button type="submit" class="btn-vis {% if p.is_active %}btn-vis-hide{% else %}btn-vis-show{% endif %}" title="Toggle Live / Hidden on Storefront">
+                        {% if p.is_active %}
+                          <i class="fa-solid fa-eye-slash"></i> <span>Hide Product</span>
+                        {% else %}
+                          <i class="fa-solid fa-eye"></i> <span>Show Product</span>
+                        {% endif %}
+                      </button>
+                    </form>
+                  </div>
+
                 </div>
               </td>
             </tr>

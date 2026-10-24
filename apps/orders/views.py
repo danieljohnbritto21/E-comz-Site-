@@ -281,10 +281,16 @@ def checkout_view(request):
 
         redeem_cashback_requested = request.POST.get('redeem_cashback') in ['1', 'true', 'on', 'yes']
         cashback_to_redeem = Decimal('0.00')
-        if redeem_cashback_requested and buyer_user.is_authenticated:
-            from apps.reports.services import get_buyer_cashback_balance
-            user_balance = get_buyer_cashback_balance(buyer_user)
-            cashback_to_redeem = min(user_balance, cart.subtotal)
+        if redeem_cashback_requested:
+            if buyer_user.is_authenticated:
+                from apps.reports.services import get_buyer_cashback_balance
+                user_balance = get_buyer_cashback_balance(buyer_user)
+                if user_balance <= Decimal('0.00'):
+                    messages.warning(request, "Insufficient cashback: You do not have an available cashback balance to redeem.")
+                else:
+                    cashback_to_redeem = min(user_balance, cart.subtotal)
+            else:
+                messages.warning(request, "Please log in to redeem your cashback balance.")
 
         final_payable = max(Decimal('0.00'), cart.grand_total - cashback_to_redeem)
 
@@ -624,13 +630,14 @@ def order_track_view(request, order_id):
 
 @login_required
 def order_history_view(request):
-    """Buyer order history page."""
-    from apps.reports.services import get_buyer_cashback_balance
-    orders = Order.objects.filter(buyer=request.user).prefetch_related('items').order_by('-created_at')
-    cashback_balance = get_buyer_cashback_balance(request.user)
+    """Buyer order history page with dedicated, comprehensive cashback wallet data."""
+    from apps.reports.services import get_buyer_cashback_details
+    orders = Order.objects.filter(buyer=request.user).prefetch_related('items', 'items__seller').order_by('-created_at')
+    cashback_details = get_buyer_cashback_details(request.user)
     return render(request, 'buyer/order_history.html', {
         'orders': orders,
-        'cashback_balance': cashback_balance,
+        'cashback_details': cashback_details,
+        'cashback_balance': cashback_details['available_balance'],
     })
 
 

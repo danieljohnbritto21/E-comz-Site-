@@ -71,13 +71,180 @@ def admin_dashboard_view(request):
 
 @role_required(['ADMIN'])
 def admin_orders_view(request):
-    """View and filter all platform orders with status filters and delivery assignment."""
-    orders = Order.objects.select_related('buyer', 'delivery_assignment__delivery_person').prefetch_related('sub_orders', 'items').order_by('-created_at')
-    
-    status_filter = request.GET.get('status')
-    if status_filter:
-        orders = orders.filter(status=status_filter)
+    """
+    Comprehensive marketplace order management console.
+    Supports 17 status categories/tabs with live counts, multi-field search,
+    advanced filters (seller, delivery agent, payment method/status, date range, cashback),
+    backend pagination, and delivery assignment.
+    """
+    from django.core.paginator import Paginator
 
+    all_orders = Order.objects.all()
+
+    # Live counts across all 17 supported marketplace status categories
+    status_counts = {
+        'all': all_orders.count(),
+        'pending_confirmation': all_orders.filter(status=Order.Status.ORDER_PLACED).count(),
+        'confirmed': all_orders.filter(status=Order.Status.ORDER_CONFIRMED).count(),
+        'processing': all_orders.filter(status=Order.Status.PREPARING).count(),
+        'packed_ready': all_orders.filter(status__in=[Order.Status.PACKED, Order.Status.READY_FOR_PICKUP]).count(),
+        'awaiting_assignment': all_orders.filter(
+            status__in=[Order.Status.ORDER_CONFIRMED, Order.Status.PREPARING, Order.Status.PACKED, Order.Status.READY_FOR_PICKUP]
+        ).filter(Q(delivery_assignment__isnull=True) | Q(delivery_assignment__delivery_person__isnull=True)).count(),
+        'assigned': all_orders.filter(
+            delivery_assignment__status__in=[
+                DeliveryAssignment.Status.ASSIGNED,
+                DeliveryAssignment.Status.ACCEPTED,
+                DeliveryAssignment.Status.ARRIVED_AT_STORE
+            ]
+        ).count(),
+        'out_for_delivery': all_orders.filter(status=Order.Status.OUT_FOR_DELIVERY).count(),
+        'awaiting_payment': all_orders.filter(
+            payment_method=Order.PaymentMethod.COD,
+            payment_status=Order.PaymentStatus.PENDING
+        ).exclude(status__in=[Order.Status.CANCELLED, Order.Status.REFUNDED]).count(),
+        'awaiting_otp': all_orders.filter(
+            payment_status=Order.PaymentStatus.PAID,
+            delivery_assignment__status__in=[DeliveryAssignment.Status.PICKED_UP, DeliveryAssignment.Status.OUT_FOR_DELIVERY]
+        ).exclude(status=Order.Status.DELIVERED).count(),
+        'delivered': all_orders.filter(status=Order.Status.DELIVERED).count(),
+        'cancelled': all_orders.filter(status=Order.Status.CANCELLED).count(),
+        'return_requested': all_orders.filter(status=Order.Status.RETURN_REQUESTED).count(),
+        'returned': all_orders.filter(status=Order.Status.RETURNED).count(),
+        'refund_pending': all_orders.filter(status=Order.Status.REFUND_PENDING).count(),
+        'refunded': all_orders.filter(status=Order.Status.REFUNDED).count(),
+        'delivery_failed': all_orders.filter(
+            Q(status=Order.Status.FAILED_DELIVERY) | Q(delivery_assignment__status=DeliveryAssignment.Status.FAILED)
+        ).count(),
+    }
+
+    orders = Order.objects.select_related(
+        'buyer',
+        'delivery_assignment',
+        'delivery_assignment__delivery_person'
+    ).prefetch_related(
+        'sub_orders',
+        'sub_orders__seller',
+        'sub_orders__seller__seller_profile',
+        'items',
+        'items__seller',
+        'items__seller__seller_profile',
+        'financial_snapshots'
+    ).order_by('-created_at')
+
+    # Status tab filter
+    active_tab = request.GET.get('tab', 'all')
+    if active_tab == 'pending_confirmation':
+        orders = orders.filter(status=Order.Status.ORDER_PLACED)
+    elif active_tab == 'confirmed':
+        orders = orders.filter(status=Order.Status.ORDER_CONFIRMED)
+    elif active_tab == 'processing':
+        orders = orders.filter(status=Order.Status.PREPARING)
+    elif active_tab == 'packed_ready':
+        orders = orders.filter(status__in=[Order.Status.PACKED, Order.Status.READY_FOR_PICKUP])
+    elif active_tab == 'awaiting_assignment':
+        orders = orders.filter(
+            status__in=[Order.Status.ORDER_CONFIRMED, Order.Status.PREPARING, Order.Status.PACKED, Order.Status.READY_FOR_PICKUP]
+        ).filter(Q(delivery_assignment__isnull=True) | Q(delivery_assignment__delivery_person__isnull=True))
+    elif active_tab == 'assigned':
+        orders = orders.filter(
+            delivery_assignment__status__in=[
+                DeliveryAssignment.Status.ASSIGNED,
+                DeliveryAssignment.Status.ACCEPTED,
+                DeliveryAssignment.Status.ARRIVED_AT_STORE
+            ]
+        )
+    elif active_tab == 'out_for_delivery':
+        orders = orders.filter(status=Order.Status.OUT_FOR_DELIVERY)
+    elif active_tab == 'awaiting_payment':
+        orders = orders.filter(
+            payment_method=Order.PaymentMethod.COD,
+            payment_status=Order.PaymentStatus.PENDING
+        ).exclude(status__in=[Order.Status.CANCELLED, Order.Status.REFUNDED])
+    elif active_tab == 'awaiting_otp':
+        orders = orders.filter(
+            payment_status=Order.PaymentStatus.PAID,
+            delivery_assignment__status__in=[DeliveryAssignment.Status.PICKED_UP, DeliveryAssignment.Status.OUT_FOR_DELIVERY]
+        ).exclude(status=Order.Status.DELIVERED)
+    elif active_tab == 'delivered':
+        orders = orders.filter(status=Order.Status.DELIVERED)
+    elif active_tab == 'cancelled':
+        orders = orders.filter(status=Order.Status.CANCELLED)
+    elif active_tab == 'return_requested':
+        orders = orders.filter(status=Order.Status.RETURN_REQUESTED)
+    elif active_tab == 'returned':
+        orders = orders.filter(status=Order.Status.RETURNED)
+    elif active_tab == 'refund_pending':
+        orders = orders.filter(status=Order.Status.REFUND_PENDING)
+    elif active_tab == 'refunded':
+        orders = orders.filter(status=Order.Status.REFUNDED)
+    elif active_tab == 'delivery_failed':
+        orders = orders.filter(
+            Q(status=Order.Status.FAILED_DELIVERY) | Q(delivery_assignment__status=DeliveryAssignment.Status.FAILED)
+        )
+    elif request.GET.get('status'):
+        orders = orders.filter(status=request.GET.get('status'))
+
+    # Advanced Search Query across Order ID, Customer Name/Phone/ID, Product Name, SKU, Seller Store
+    q = request.GET.get('q', '').strip()
+    if q:
+        orders = orders.filter(
+            Q(order_id__icontains=q) |
+            Q(recipient_name__icontains=q) |
+            Q(recipient_phone__icontains=q) |
+            Q(buyer__username__icontains=q) |
+            Q(items__product_name__icontains=q) |
+            Q(items__brand__icontains=q) |
+            Q(items__product__sku__icontains=q) |
+            Q(items__seller__seller_profile__store_name__icontains=q)
+        ).distinct()
+
+    # Filter by specific Seller Store
+    seller_name = request.GET.get('seller', '').strip()
+    if seller_name:
+        orders = orders.filter(items__seller__seller_profile__store_name__icontains=seller_name).distinct()
+
+    # Filter by Delivery Agent ID
+    delivery_agent_id = request.GET.get('delivery_agent', '').strip()
+    if delivery_agent_id:
+        orders = orders.filter(delivery_assignment__delivery_person_id=delivery_agent_id)
+
+    # Filter by Payment Method
+    payment_method = request.GET.get('payment_method', '').strip()
+    if payment_method:
+        orders = orders.filter(payment_method=payment_method)
+
+    # Filter by Payment Status
+    payment_status = request.GET.get('payment_status', '').strip()
+    if payment_status:
+        orders = orders.filter(payment_status=payment_status)
+
+    # Filter by Order Status dropdown
+    order_status = request.GET.get('order_status', '').strip()
+    if order_status:
+        orders = orders.filter(status=order_status)
+
+    # Filter by Date Range
+    date_from = request.GET.get('date_from', '').strip()
+    if date_from:
+        orders = orders.filter(created_at__date__gte=date_from)
+    date_to = request.GET.get('date_to', '').strip()
+    if date_to:
+        orders = orders.filter(created_at__date__lte=date_to)
+
+    # Filter by Cashback Status
+    cashback_filter = request.GET.get('cashback', '').strip()
+    if cashback_filter == 'earned':
+        orders = orders.filter(cashback_earned__gt=0)
+    elif cashback_filter == 'redeemed':
+        orders = orders.filter(cashback_redeemed__gt=0)
+
+    # Backend Pagination (20 orders per page)
+    paginator = Paginator(orders, 20)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    # Delivery agents list with active assignments count for assignment dropdowns
     delivery_agents = User.objects.filter(role=User.Role.DELIVERY, is_active=True).annotate(
         active_assignments_count=Count(
             'deliveries',
@@ -92,10 +259,197 @@ def admin_orders_view(request):
     )
 
     return render(request, 'admin_dashboard/orders.html', {
-        'orders': orders,
+        'orders': page_obj,
+        'page_obj': page_obj,
+        'status_counts': status_counts,
+        'active_tab': active_tab,
         'delivery_agents': delivery_agents,
-        'status_filter': status_filter,
+        'filters': {
+            'q': q,
+            'seller': seller_name,
+            'delivery_agent': delivery_agent_id,
+            'payment_method': payment_method,
+            'payment_status': payment_status,
+            'order_status': order_status,
+            'date_from': date_from,
+            'date_to': date_to,
+            'cashback': cashback_filter,
+            'status': request.GET.get('status', ''),
+        }
     })
+
+
+@role_required(['ADMIN'])
+def admin_order_detail_view(request, order_id):
+    """
+    Dedicated comprehensive order details view for marketplace administrators.
+    Displays:
+    - Customer details (name, phone, address, placement time)
+    - Product breakdown (MRP, unit selling price, discount, subtotal, cost price snapshot, cashback)
+    - Payment breakdown (method, status, transaction ref, collected amount, collection audit trail)
+    - Delivery breakdown (assigned rider, status, slot, OTP status, proof of delivery, failure attempts)
+    - Financial accounting summary (GMV, commission, seller payable, seller profit, delivery earnings, company revenue)
+    - Role-protected action triggers (Confirm, Dispatch, Cancel, Refund)
+    """
+    order = get_object_or_404(
+        Order.objects.select_related(
+            'buyer',
+            'delivery_assignment',
+            'delivery_assignment__delivery_person'
+        ).prefetch_related(
+            'items',
+            'items__seller',
+            'items__seller__seller_profile',
+            'items__product',
+            'items__financial_snapshot',
+            'sub_orders',
+            'sub_orders__seller',
+            'sub_orders__seller__seller_profile',
+            'status_history',
+            'status_history__updated_by',
+            'delivery_otps',
+            'delivery_assignment__attempts'
+        ),
+        order_id=order_id
+    )
+
+    assignment = getattr(order, 'delivery_assignment', None)
+    latest_otp = order.delivery_otps.order_by('-created_at').first()
+    attempts = assignment.attempts.all() if assignment else []
+    status_history = order.status_history.select_related('updated_by').order_by('created_at')
+
+    # Financial summary calculation
+    snapshots = list(order.financial_snapshots.all())
+    total_commission = sum(s.commission_amount for s in snapshots)
+    total_seller_payable = sum(s.seller_payable for s in snapshots)
+    total_seller_profit = sum(s.seller_profit for s in snapshots if s.seller_profit is not None)
+    all_costs_recorded = all(s.product_cost_per_unit is not None for s in snapshots) if snapshots else False
+
+    delivery_earning = order.delivery_earnings.filter(status__in=['SETTLED', 'PENDING']).first()
+    delivery_expense = delivery_earning.earning_amount if delivery_earning else Decimal('0.00')
+
+    company_revenue = total_commission + order.delivery_fee
+    company_expenses = delivery_expense + order.cashback_earned
+    company_net_contribution = company_revenue - company_expenses
+
+    delivery_agents = User.objects.filter(role=User.Role.DELIVERY, is_active=True).annotate(
+        active_assignments_count=Count(
+            'deliveries',
+            filter=Q(deliveries__status__in=[
+                DeliveryAssignment.Status.ASSIGNED,
+                DeliveryAssignment.Status.ACCEPTED,
+                DeliveryAssignment.Status.ARRIVED_AT_STORE,
+                DeliveryAssignment.Status.PICKED_UP,
+                DeliveryAssignment.Status.OUT_FOR_DELIVERY
+            ])
+        )
+    )
+
+    return render(request, 'admin_dashboard/order_detail.html', {
+        'order': order,
+        'assignment': assignment,
+        'latest_otp': latest_otp,
+        'attempts': attempts,
+        'status_history': status_history,
+        'snapshots': snapshots,
+        'total_commission': total_commission,
+        'total_seller_payable': total_seller_payable,
+        'total_seller_profit': total_seller_profit,
+        'all_costs_recorded': all_costs_recorded,
+        'delivery_expense': delivery_expense,
+        'company_revenue': company_revenue,
+        'company_expenses': company_expenses,
+        'company_net_contribution': company_net_contribution,
+        'delivery_agents': delivery_agents,
+    })
+
+
+@role_required(['ADMIN'])
+def admin_order_action_view(request, order_id):
+    """Role-protected administrator order lifecycle and financial actions."""
+    if request.method != 'POST':
+        return redirect('admin_dashboard:order_detail', order_id=order_id)
+
+    order = get_object_or_404(Order, order_id=order_id)
+    action = request.POST.get('action')
+
+    if action == 'confirm_order':
+        if order.status == Order.Status.ORDER_PLACED:
+            with transaction.atomic():
+                order.status = Order.Status.ORDER_CONFIRMED
+                order.save(update_fields=['status', 'updated_at'])
+                order.add_status_history(Order.Status.ORDER_CONFIRMED, request.user, "Confirmed by platform administrator.")
+                messages.success(request, f"Order #{order.order_id} confirmed.")
+        else:
+            messages.warning(request, f"Cannot confirm order in status {order.get_status_display()}.")
+
+    elif action == 'cancel_order':
+        if order.status in [Order.Status.DELIVERED, Order.Status.CANCELLED, Order.Status.REFUNDED]:
+            messages.error(request, f"Order #{order.order_id} is in status {order.get_status_display()} and cannot be cancelled.")
+        else:
+            reason = request.POST.get('reason', '').strip() or "Cancelled by platform administrator."
+            with transaction.atomic():
+                locked_order = Order.objects.select_for_update().get(id=order.id)
+                locked_order.status = Order.Status.CANCELLED
+                locked_order.save(update_fields=['status', 'updated_at'])
+
+                # Restore inventory safely
+                from apps.inventory.services import restore_stock_for_order
+                restore_stock_for_order(locked_order, actor=request.user, reason=f"Admin cancelled: {reason}")
+
+                # Financial reversals
+                from apps.reports.services import (
+                    restore_redeemed_cashback,
+                    reverse_seller_profit,
+                    reverse_buyer_cashback,
+                    reverse_delivery_earning,
+                )
+                restore_redeemed_cashback(locked_order, reason=reason)
+                reverse_seller_profit(locked_order, reason=reason)
+                reverse_buyer_cashback(locked_order, reason=reason)
+                reverse_delivery_earning(locked_order)
+
+                locked_order.add_status_history(Order.Status.CANCELLED, request.user, f"Admin cancelled: {reason}")
+                locked_order.sub_orders.update(status=SellerSubOrder.Status.CANCELLED, stock_restored=True)
+
+                if hasattr(locked_order, 'delivery_assignment'):
+                    locked_order.delivery_assignment.status = DeliveryAssignment.Status.CANCELLED
+                    locked_order.delivery_assignment.save(update_fields=['status', 'updated_at'])
+
+                messages.success(request, f"Order #{order.order_id} cancelled and inventory/financials safely restored.")
+
+    elif action == 'process_refund':
+        if order.status in [Order.Status.CANCELLED, Order.Status.REFUNDED]:
+            messages.info(request, f"Order #{order.order_id} is already {order.get_status_display()}.")
+        else:
+            reason = request.POST.get('reason', '').strip() or "Refund processed by platform administrator."
+            with transaction.atomic():
+                locked_order = Order.objects.select_for_update().get(id=order.id)
+                locked_order.status = Order.Status.REFUNDED
+                locked_order.payment_status = Order.PaymentStatus.REFUNDED
+                locked_order.save(update_fields=['status', 'payment_status', 'updated_at'])
+
+                # Restore stock if items were physically returned
+                restore_stock = request.POST.get('restore_stock') in ['1', 'true', 'on', 'yes']
+                if restore_stock:
+                    from apps.inventory.services import restore_stock_for_order
+                    restore_stock_for_order(locked_order, actor=request.user, reason=f"Admin refund return: {reason}")
+
+                from apps.reports.services import (
+                    restore_redeemed_cashback,
+                    reverse_seller_profit,
+                    reverse_buyer_cashback,
+                    reverse_delivery_earning,
+                )
+                restore_redeemed_cashback(locked_order, reason=reason)
+                reverse_seller_profit(locked_order, reason=reason)
+                reverse_buyer_cashback(locked_order, reason=reason)
+                reverse_delivery_earning(locked_order)
+
+                locked_order.add_status_history(Order.Status.REFUNDED, request.user, f"Refund completed: {reason}")
+                messages.success(request, f"Refund successfully recorded for Order #{order.order_id}.")
+
+    return redirect('admin_dashboard:order_detail', order_id=order.order_id)
 
 
 @role_required(['ADMIN'])
@@ -879,92 +1233,288 @@ def admin_delivery_earnings_view(request):
 @role_required(['ADMIN'])
 def admin_company_pnl_view(request):
     """
-    Company Profit & Loss dashboard.
-    Revenue = commission + delivery fee charged to customers.
-    Expenses = delivery person earnings + company-funded cashback.
-    Seller wallet balances and delivery liabilities are NOT company profit.
+    Comprehensive dynamic Company Profit & Loss and Marketplace Accounting Dashboard.
+    Supports:
+    - Global Date Filtering: All Time, Today, This Month, This Year, Custom Date Range
+    - 18 Standard Financial Summary KPIs with explicit formula tracking
+    - Third-party merchant commission vs Company-owned inventory separation
+    - Delivery economics (fees collected vs fleet payouts)
+    - Multi-source cashback attribution (Company vs Seller funded)
+    - Full item-level marketplace pricing and financial audit table
+    - Escrow liability isolation (Seller wallets, pending earnings, buyer wallet liability)
     """
     from apps.reports.models import (
         OrderItemFinancialSnapshot, DeliveryEarning, CashbackLedger,
         SellerWallet, MarketplaceConfig
     )
+    from django.core.paginator import Paginator
 
     config = MarketplaceConfig.get_config()
-
-    # Date filtering
-    period = request.GET.get('period', 'all')
     today = timezone.now().date()
-    date_filter = {}
-    if period == 'today':
-        date_filter = {'created_at__date': today}
-    elif period == 'month':
-        date_filter = {'created_at__date__gte': today.replace(day=1)}
-    elif period == 'year':
-        date_filter = {'created_at__date__year': today.year}
 
-    # ---- REVENUE ----
-    # 1. Commission earned
-    settled_snapshots = OrderItemFinancialSnapshot.objects.filter(
-        settlement_status='SETTLED', **date_filter
-    )
-    total_commission = settled_snapshots.aggregate(
+    # 1. Global Date Filters
+    period = request.GET.get('period', 'all')
+    date_from_str = request.GET.get('date_from', '').strip()
+    date_to_str = request.GET.get('date_to', '').strip()
+
+    order_date_filter = {}
+    snapshot_date_filter = {}
+    delivery_date_filter = {}
+    cashback_date_filter = {}
+    refund_date_filter = {}
+
+    date_label = "All Time"
+
+    if date_from_str or date_to_str:
+        period = 'custom'
+        if date_from_str:
+            order_date_filter['created_at__date__gte'] = date_from_str
+            snapshot_date_filter['created_at__date__gte'] = date_from_str
+            delivery_date_filter['created_at__date__gte'] = date_from_str
+            cashback_date_filter['created_at__date__gte'] = date_from_str
+            refund_date_filter['created_at__date__gte'] = date_from_str
+        if date_to_str:
+            order_date_filter['created_at__date__lte'] = date_to_str
+            snapshot_date_filter['created_at__date__lte'] = date_to_str
+            delivery_date_filter['created_at__date__lte'] = date_to_str
+            cashback_date_filter['created_at__date__lte'] = date_to_str
+            refund_date_filter['created_at__date__lte'] = date_to_str
+        date_label = f"Custom ({date_from_str or 'Earliest'} to {date_to_str or 'Latest'})"
+    elif period == 'today':
+        order_date_filter = {'created_at__date': today}
+        snapshot_date_filter = {'created_at__date': today}
+        delivery_date_filter = {'created_at__date': today}
+        cashback_date_filter = {'created_at__date': today}
+        refund_date_filter = {'created_at__date': today}
+        date_label = f"Today ({today.strftime('%d %b %Y')})"
+    elif period == 'month':
+        month_start = today.replace(day=1)
+        order_date_filter = {'created_at__date__gte': month_start}
+        snapshot_date_filter = {'created_at__date__gte': month_start}
+        delivery_date_filter = {'created_at__date__gte': month_start}
+        cashback_date_filter = {'created_at__date__gte': month_start}
+        refund_date_filter = {'created_at__date__gte': month_start}
+        date_label = f"This Month ({today.strftime('%B %Y')})"
+    elif period == 'year':
+        order_date_filter = {'created_at__date__year': today.year}
+        snapshot_date_filter = {'created_at__date__year': today.year}
+        delivery_date_filter = {'created_at__date__year': today.year}
+        cashback_date_filter = {'created_at__date__year': today.year}
+        refund_date_filter = {'created_at__date__year': today.year}
+        date_label = f"This Year ({today.year})"
+
+    # 2. Orders & GMV
+    period_orders = Order.objects.filter(**order_date_filter)
+    delivered_orders = period_orders.filter(status=Order.Status.DELIVERED)
+    total_gmv = period_orders.exclude(status__in=[Order.Status.CANCELLED, Order.Status.REFUNDED]).aggregate(
+        t=Sum('total_amount'))['t'] or Decimal('0.00')
+
+    total_orders_count = period_orders.count()
+    delivered_orders_count = delivered_orders.count()
+
+    # 3. Product Sales & Customer Discounts
+    period_snapshots = OrderItemFinancialSnapshot.objects.filter(**snapshot_date_filter)
+    total_customer_product_sales = period_snapshots.aggregate(
+        t=Sum('product_revenue'))['t'] or Decimal('0.00')
+    total_customer_discounts = period_snapshots.aggregate(
+        t=Sum('discount_amount'))['t'] or Decimal('0.00')
+
+    # 4. Third-Party Marketplace Commission vs Company-Owned Product Revenue
+    # Company products: seller is ADMIN role or superuser
+    settled_snapshots = period_snapshots.filter(settlement_status='SETTLED')
+    
+    # 3rd-party marketplace commission
+    third_party_settled = settled_snapshots.filter(seller__role=User.Role.SELLER)
+    marketplace_commission_revenue = third_party_settled.aggregate(
         t=Sum('commission_amount'))['t'] or Decimal('0.00')
 
-    # 2. Delivery fees collected from customers (order level)
-    delivered_orders = Order.objects.filter(status='DELIVERED', **date_filter)
-    total_delivery_fees = delivered_orders.aggregate(
+    # Company-owned product sales & COGS (No artificial commission charged)
+    company_owned_settled = settled_snapshots.filter(Q(seller__role=User.Role.ADMIN) | Q(seller__is_superuser=True))
+    company_owned_revenue = company_owned_settled.aggregate(
+        t=Sum('product_revenue'))['t'] or Decimal('0.00')
+    company_owned_cogs = company_owned_settled.filter(product_cost_total__isnull=False).aggregate(
+        t=Sum('product_cost_total'))['t'] or Decimal('0.00')
+
+    # 5. Delivery Economics
+    delivery_fees_charged = delivered_orders.aggregate(
         t=Sum('delivery_fee'))['t'] or Decimal('0.00')
 
-    total_revenue = total_commission + total_delivery_fees
+    delivery_settled_earnings = DeliveryEarning.objects.filter(
+        status='SETTLED', **delivery_date_filter
+    )
+    delivery_payout_expenses = delivery_settled_earnings.aggregate(
+        t=Sum('earning_amount'))['t'] or Decimal('0.00')
+    company_delivery_margin = delivery_fees_charged - delivery_payout_expenses
 
-    # ---- EXPENSES ----
-    # 1. Delivery person earnings (what we pay delivery partners)
-    delivery_earnings_filter = {'status': 'SETTLED'}
-    if date_filter:
-        delivery_earnings_filter.update(date_filter)
-    total_delivery_expenses = DeliveryEarning.objects.filter(
-        **delivery_earnings_filter
-    ).aggregate(t=Sum('earning_amount'))['t'] or Decimal('0.00')
-
-    # 2. Company-funded cashback
-    cashback_filter = {'entry_type': 'EARNED', 'status': 'CONFIRMED', 'funding_source': 'COMPANY'}
-    if date_filter:
-        cashback_filter.update(date_filter)
-    total_cashback_expense = CashbackLedger.objects.filter(
-        **cashback_filter
+    # 6. Cashback Accounting & Multi-source Attribution
+    cashback_entries = CashbackLedger.objects.filter(**cashback_date_filter)
+    
+    # Company-funded cashback recognized as expense
+    company_cashback_expense = cashback_entries.filter(
+        entry_type='EARNED', status='CONFIRMED', funding_source='COMPANY'
     ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
 
-    total_expenses = total_delivery_expenses + total_cashback_expense
+    seller_funded_cashback = cashback_entries.filter(
+        entry_type='EARNED', status='CONFIRMED', funding_source='SELLER'
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
 
-    # ---- PROFIT ----
-    company_profit = total_revenue - total_expenses
+    total_cashback_earned = cashback_entries.filter(
+        entry_type='EARNED', status='CONFIRMED'
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
 
-    # ---- LIABILITIES (NOT profit) ----
-    total_seller_wallet_balance = SellerWallet.objects.aggregate(
+    total_cashback_redeemed = abs(cashback_entries.filter(
+        entry_type='REDEEMED', status='CONFIRMED'
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00'))
+
+    total_cashback_reversed = abs(cashback_entries.filter(
+        entry_type='REVERSED', status='CONFIRMED'
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00'))
+
+    pending_cashback_total = OrderItemFinancialSnapshot.objects.filter(
+        settlement_status='PENDING',
+        order__status__in=[
+            Order.Status.ORDER_PLACED, Order.Status.ORDER_CONFIRMED,
+            Order.Status.PREPARING, Order.Status.PACKED, Order.Status.READY_FOR_PICKUP,
+            Order.Status.OUT_FOR_DELIVERY
+        ]
+    ).aggregate(t=Sum('cashback_total'))['t'] or Decimal('0.00')
+
+    # 7. Gateway fees, Operating Expenses, and Refunds
+    gateway_fees = Decimal('0.00')
+    other_operating_expenses = Decimal('0.00')
+    refunds_returns = period_orders.filter(status=Order.Status.REFUNDED).aggregate(
+        t=Sum('total_amount'))['t'] or Decimal('0.00')
+
+    # 8. Net Company Profit Calculation Formula
+    company_revenue_total = marketplace_commission_revenue + company_owned_revenue + delivery_fees_charged
+    company_expenses_total = (
+        delivery_payout_expenses +
+        company_cashback_expense +
+        company_owned_cogs +
+        refunds_returns +
+        gateway_fees +
+        other_operating_expenses
+    )
+    net_company_profit = company_revenue_total - company_expenses_total
+
+    # 9. Liabilities & Escrow (CRITICAL: NOT company profit)
+    pending_seller_liabilities = OrderItemFinancialSnapshot.objects.filter(
+        settlement_status='PENDING'
+    ).aggregate(t=Sum('seller_payable'))['t'] or Decimal('0.00')
+
+    available_seller_wallet_balances = SellerWallet.objects.aggregate(
         t=Sum('available_balance'))['t'] or Decimal('0.00')
-    total_seller_pending = SellerWallet.objects.aggregate(
+
+    pending_seller_earnings = SellerWallet.objects.aggregate(
         t=Sum('pending_earnings'))['t'] or Decimal('0.00')
-    total_delivery_unsettled = DeliveryEarning.objects.filter(
+
+    unsettled_delivery_earnings = DeliveryEarning.objects.filter(
         status='PENDING'
     ).aggregate(t=Sum('earning_amount'))['t'] or Decimal('0.00')
 
-    # Order metrics
-    total_orders = delivered_orders.count()
-    total_gmv = delivered_orders.aggregate(t=Sum('total_amount'))['t'] or Decimal('0.00')
+    customer_cashback_liability = CashbackLedger.objects.filter(
+        status='CONFIRMED'
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    # 10. Detailed Order/Item Financial Table
+    table_snapshots = OrderItemFinancialSnapshot.objects.select_related(
+        'order', 'order_item', 'seller', 'seller__seller_profile', 'order__delivery_assignment'
+    ).filter(**snapshot_date_filter).order_by('-order__created_at')
+
+    paginator = Paginator(table_snapshots, 25)
+    page_number = request.GET.get('page', 1)
+    pnl_items_page = paginator.get_page(page_number)
+
+    # 11. Per-Seller Summary
+    seller_summaries = []
+    seller_profiles = SellerProfile.objects.select_related('user').all()
+    for sp in seller_profiles:
+        s_user = sp.user
+        s_snaps = settled_snapshots.filter(seller=s_user)
+        s_gross = s_snaps.aggregate(t=Sum('product_revenue'))['t'] or Decimal('0.00')
+        s_comm = s_snaps.aggregate(t=Sum('commission_amount'))['t'] or Decimal('0.00')
+        s_payable = s_snaps.aggregate(t=Sum('seller_payable'))['t'] or Decimal('0.00')
+        s_cogs = s_snaps.filter(product_cost_total__isnull=False).aggregate(t=Sum('product_cost_total'))['t']
+        s_profit = s_snaps.filter(seller_profit__isnull=False).aggregate(t=Sum('seller_profit'))['t']
+        wallet = getattr(s_user, 'seller_wallet', None)
+        seller_summaries.append({
+            'seller': s_user,
+            'store_name': sp.store_name,
+            'gross_sales': s_gross,
+            'commission_paid': s_comm,
+            'seller_payable': s_payable,
+            'cost_recorded': s_cogs,
+            'estimated_profit': s_profit,
+            'available_balance': wallet.available_balance if wallet else Decimal('0.00'),
+            'pending_earnings': wallet.pending_earnings if wallet else Decimal('0.00'),
+        })
+
+    # 12. Per-Delivery Driver Summary
+    driver_summaries = []
+    delivery_users = User.objects.filter(role=User.Role.DELIVERY, is_active=True).select_related('delivery_profile')
+    for d_user in delivery_users:
+        d_earnings = DeliveryEarning.objects.filter(delivery_person=d_user, **delivery_date_filter)
+        settled_amt = d_earnings.filter(status='SETTLED').aggregate(t=Sum('earning_amount'))['t'] or Decimal('0.00')
+        pending_amt = d_earnings.filter(status='PENDING').aggregate(t=Sum('earning_amount'))['t'] or Decimal('0.00')
+        driver_summaries.append({
+            'driver': d_user,
+            'profile': getattr(d_user, 'delivery_profile', None),
+            'settled_earnings': settled_amt,
+            'pending_earnings': pending_amt,
+            'total_earnings': settled_amt + pending_amt,
+        })
 
     return render(request, 'admin_dashboard/company_pnl.html', {
         'config': config,
         'period': period,
-        'total_commission': total_commission,
-        'total_delivery_fees': total_delivery_fees,
-        'total_revenue': total_revenue,
-        'total_delivery_expenses': total_delivery_expenses,
-        'total_cashback_expense': total_cashback_expense,
-        'total_expenses': total_expenses,
-        'company_profit': company_profit,
-        'total_seller_wallet_balance': total_seller_wallet_balance,
-        'total_seller_pending': total_seller_pending,
-        'total_delivery_unsettled': total_delivery_unsettled,
-        'total_orders': total_orders,
+        'date_from': date_from_str,
+        'date_to': date_to_str,
+        'date_label': date_label,
+
+        # 18 Standard Financial KPI Metrics
         'total_gmv': total_gmv,
+        'total_customer_product_sales': total_customer_product_sales,
+        'total_customer_discounts': total_customer_discounts,
+        'marketplace_commission_revenue': marketplace_commission_revenue,
+        'company_owned_revenue': company_owned_revenue,
+        'company_owned_cogs': company_owned_cogs,
+        'delivery_fees_charged': delivery_fees_charged,
+        'delivery_payout_expenses': delivery_payout_expenses,
+        'company_cashback_expense': company_cashback_expense,
+        'gateway_fees': gateway_fees,
+        'other_operating_expenses': other_operating_expenses,
+        'refunds_returns': refunds_returns,
+        'net_company_profit': net_company_profit,
+        'pending_seller_liabilities': pending_seller_liabilities,
+        'available_seller_wallet_balances': available_seller_wallet_balances,
+        'pending_seller_earnings': pending_seller_earnings,
+        'unsettled_delivery_earnings': unsettled_delivery_earnings,
+        'customer_cashback_liability': max(customer_cashback_liability, Decimal('0.00')),
+
+        # Intermediate totals for formula explanation
+        'company_revenue_total': company_revenue_total,
+        'company_expenses_total': company_expenses_total,
+        'company_delivery_margin': company_delivery_margin,
+        'seller_funded_cashback': seller_funded_cashback,
+
+        # Order volume counts
+        'total_orders_count': total_orders_count,
+        'delivered_orders_count': delivered_orders_count,
+
+        # Cashback attribution reconciliation
+        'cashback_summary': {
+            'earned': total_cashback_earned,
+            'company_funded': company_cashback_expense,
+            'seller_funded': seller_funded_cashback,
+            'pending': pending_cashback_total,
+            'redeemed': total_cashback_redeemed,
+            'reversed': total_cashback_reversed,
+        },
+
+        # Detailed item ledger table
+        'pnl_items_page': pnl_items_page,
+
+        # Sub-ledgers
+        'seller_summaries': seller_summaries,
+        'driver_summaries': driver_summaries,
     })

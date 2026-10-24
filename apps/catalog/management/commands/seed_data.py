@@ -189,7 +189,7 @@ class Command(BaseCommand):
                     'brand': "Lay's",
                     'unit_value': '52 g packet',
                     'unit': 'packets',
-                    'mrp': Decimal('20.00'),
+                    'mrp': Decimal('25.00'),
                     'selling_price': Decimal('20.00'),
                     'stock': 100,
                     'low_stock': 20,

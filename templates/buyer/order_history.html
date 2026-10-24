@@ -11,13 +11,34 @@
       <h1 style="font-size: 1.75rem; font-weight: 800;">My Orders</h1>
       <p class="text-muted" style="font-size: 0.9rem;">Track shipments, review past orders, or reorder essentials</p>
     </div>
-    <div style="display: flex; align-items: center; gap: 1rem;">
-      <!-- Cashback Balance Card -->
-      <div style="background: #ECFDF5; border: 1.5px solid #A7F3D0; border-radius: var(--radius-md); padding: 8px 16px; display: flex; align-items: center; gap: 10px;">
-        <i class="fa-solid fa-coins" style="color: #059669; font-size: 1.25rem;"></i>
-        <div>
-          <div style="font-size: 0.72rem; color: #065F46; font-weight: 700; text-transform: uppercase;">Cashback Balance</div>
-          <div style="font-size: 1.15rem; font-weight: 900; color: #047857;">₹{{ cashback_balance|floatformat:2 }}</div>
+    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+      <!-- Dedicated Cashback Wallet Card -->
+      <div style="background: #ffffff; border: 1.5px solid #A7F3D0; border-radius: var(--radius-lg); padding: 10px 18px; display: flex; align-items: center; gap: 16px; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.08);">
+        <div style="background: #ECFDF5; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+          <i class="fa-solid fa-wallet" style="color: #059669; font-size: 1.35rem;"></i>
+        </div>
+        
+        <!-- Available (Spendable) Balance -->
+        <div style="border-right: 1px solid #E5E7EB; padding-right: 14px;">
+          <div style="font-size: 0.72rem; color: #065F46; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Cashback Available</div>
+          <div style="font-size: 1.35rem; font-weight: 900; color: #047857; line-height: 1.2;">₹{{ cashback_details.available_balance|floatformat:2 }}</div>
+          <span style="font-size: 0.7rem; color: #059669; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> Ready to spend</span>
+        </div>
+
+        <!-- Pending Balance -->
+        <div style="border-right: 1px solid #E5E7EB; padding-right: 14px;">
+          <div style="font-size: 0.72rem; color: #92400E; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Pending Cashback</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: #D97706; line-height: 1.2;">₹{{ cashback_details.pending_balance|floatformat:2 }}</div>
+          <span style="font-size: 0.7rem; color: #B45309; font-weight: 600;"><i class="fa-solid fa-hourglass-half"></i> On delivery</span>
+        </div>
+
+        <!-- Lifetime Audit Breakdown -->
+        <div style="display: flex; flex-direction: column; gap: 3px; font-size: 0.74rem; color: #4B5563;">
+          <div><strong style="color: #059669;">Earned:</strong> ₹{{ cashback_details.total_earned|floatformat:2 }}</div>
+          <div><strong style="color: #2563EB;">Redeemed:</strong> ₹{{ cashback_details.total_redeemed|floatformat:2 }}</div>
+          {% if cashback_details.total_reversed > 0 %}
+            <div><strong style="color: #DC2626;">Reversed:</strong> ₹{{ cashback_details.total_reversed|floatformat:2 }}</div>
+          {% endif %}
         </div>
       </div>
 

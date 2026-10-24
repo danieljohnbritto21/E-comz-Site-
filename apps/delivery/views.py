@@ -175,7 +175,7 @@ def delivery_order_detail(request, assignment_id):
                 messages.info(request, f"Order #{order.order_id} is Out for Delivery.")
             return redirect('delivery:order_detail', assignment_id=assignment.id)
 
-        # 5. Confirm Cash on Delivery Collection
+        # 5. Confirm Cash on Delivery Collection & Auto-Trigger Delivery OTP
         elif action == 'collect_cod':
             if order.payment_method != Order.PaymentMethod.COD:
                 messages.error(request, "This order is not a Cash on Delivery order.")
@@ -184,6 +184,18 @@ def delivery_order_detail(request, assignment_id):
             if assignment.cod_collected or order.payment_status == Order.PaymentStatus.PAID:
                 messages.warning(request, f"Cash of Rs. {order.total_amount} has already been collected for Order #{order.order_id}.")
                 return redirect('delivery:order_detail', assignment_id=assignment.id)
+
+            # Validate expected amount if provided in request
+            collected_amount_input = request.POST.get('collected_amount')
+            if collected_amount_input:
+                try:
+                    collected_val = Decimal(str(collected_amount_input).strip())
+                    if collected_val != order.total_amount:
+                        messages.error(request, f"Amount collected (₹{collected_val}) does not match order amount due (₹{order.total_amount}).")
+                        return redirect('delivery:order_detail', assignment_id=assignment.id)
+                except Exception:
+                    messages.error(request, "Invalid collection amount entered.")
+                    return redirect('delivery:order_detail', assignment_id=assignment.id)
 
             with transaction.atomic():
                 assignment.cod_collected = True
@@ -217,7 +229,19 @@ def delivery_order_detail(request, assignment_id):
                     link=f"/orders/track/{order.order_id}/"
                 )
 
-            messages.success(request, f"Cash on Delivery payment of Rs. {order.total_amount} recorded successfully. Delivery OTP verification is now UNLOCKED!")
+                # AUTOMATIC DELIVERY OTP GENERATION & DISPATCH
+                # Generate cryptographically secure OTP and store salted hash
+                otp_obj, raw_code = DeliveryOTP.generate(assignment, expiry_minutes=15)
+
+                # Send directly to customer's registered phone
+                sms_result = send_delivery_otp_sms(order, raw_code)
+
+            masked_phone = f"...{order.recipient_phone[-4:]}" if len(order.recipient_phone) >= 4 else order.recipient_phone
+            if sms_result and sms_result.get('success'):
+                messages.success(request, f"Payment verified. Delivery OTP sent to the customer ({masked_phone}).")
+            else:
+                err_detail = sms_result.get('error') if sms_result else 'Gateway unreachable'
+                messages.warning(request, f"Payment verified. Delivery OTP dispatch issue: {err_detail}. You can use 'Resend OTP' to retry.")
             return redirect('delivery:order_detail', assignment_id=assignment.id)
 
         # 6. Generate & Send Secure Delivery OTP to Customer
