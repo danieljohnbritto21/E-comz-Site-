@@ -149,6 +149,10 @@ class Order(models.Model):
     def is_cancellable(self):
         return self.status in [self.Status.ORDER_PLACED, self.Status.ORDER_CONFIRMED, self.Status.PREPARING]
 
+    @property
+    def delivery_address(self):
+        return self.delivery_address_text
+
     def add_status_history(self, status, user=None, comment=''):
         self.status = status
         self.save(update_fields=['status', 'updated_at'])
@@ -220,6 +224,10 @@ class OrderItem(models.Model):
     image_url = models.CharField(max_length=500, blank=True, default='')
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def subtotal(self):
+        return self.total_price
 
     def __str__(self):
         return f"{self.product_name} x {self.quantity} in {self.order.order_id}"

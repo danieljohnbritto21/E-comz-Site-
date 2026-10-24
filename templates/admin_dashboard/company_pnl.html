@@ -1,163 +1,542 @@
 {% extends 'admin_dashboard/base_admin.html' %}
 {% load static %}
+{% load catalog_tags %}
 
 {% block title %}Company Profit & Loss Statement - Admin Portal{% endblock %}
 
 {% block admin_content %}
-<div>
+<div style="padding-bottom: 3rem;">
   
+  <!-- Header & Date Range Filter Toolbar -->
   <div class="dashboard-header" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
     <div>
-      <h1 class="dashboard-title">Company Profit & Loss Statement</h1>
-      <p class="dashboard-subtitle">Real-time financial reconciliation: Platform Revenue, Delivery & Cashback Expenses, Net Company Profit, and Escrow Liabilities</p>
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">
+        <a href="{% url 'admin_dashboard:dashboard' %}" style="color: var(--color-primary-dark); text-decoration: none;">
+          <i class="fa-solid fa-arrow-left"></i> Admin Dashboard
+        </a>
+        <span>/</span>
+        <span>Financial Accounting</span>
+      </div>
+      <h1 class="dashboard-title" style="margin-bottom: 4px;">Company Profit & Loss Statement</h1>
+      <p class="dashboard-subtitle" style="margin: 0;">
+        Real-time financial reconciliation & dynamic reporting: Platform Revenue, Delivery Economics, Cashback Attribution, and Escrow Liabilities
+      </p>
     </div>
 
-    <!-- Period Filter -->
-    <div style="display: flex; gap: 6px; background: #ffffff; padding: 4px; border: 1px solid #E2E8F0; border-radius: 8px;">
-      <a href="?period=all" class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 4px 12px; font-size: 0.8rem;">All Time</a>
-      <a href="?period=today" class="btn btn-sm {% if period == 'today' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 4px 12px; font-size: 0.8rem;">Today</a>
-      <a href="?period=month" class="btn btn-sm {% if period == 'month' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 4px 12px; font-size: 0.8rem;">This Month</a>
-      <a href="?period=year" class="btn btn-sm {% if period == 'year' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 4px 12px; font-size: 0.8rem;">This Year</a>
+    <!-- Date Period Toolbar -->
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+      <div style="display: flex; gap: 4px; background: #ffffff; padding: 4px; border: 1px solid #E2E8F0; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+        <a href="?period=all" class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 4px 10px; font-size: 0.8rem;">All Time</a>
+        <a href="?period=today" class="btn btn-sm {% if period == 'today' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 4px 10px; font-size: 0.8rem;">Today</a>
+        <a href="?period=month" class="btn btn-sm {% if period == 'month' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 4px 10px; font-size: 0.8rem;">This Month</a>
+        <a href="?period=year" class="btn btn-sm {% if period == 'year' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 4px 10px; font-size: 0.8rem;">This Year</a>
+      </div>
+
+      <!-- Custom Date Range Form -->
+      <form method="GET" style="display: flex; gap: 6px; align-items: center; margin: 0;">
+        <input type="date" name="date_from" value="{{ date_from }}" class="form-control" style="padding: 3px 6px; font-size: 0.78rem; width: 125px;">
+        <span style="font-size: 0.75rem; color: #64748B;">to</span>
+        <input type="date" name="date_to" value="{{ date_to }}" class="form-control" style="padding: 3px 6px; font-size: 0.78rem; width: 125px;">
+        <button type="submit" class="btn btn-primary btn-sm" style="padding: 4px 8px; font-size: 0.78rem;">
+          <i class="fa-solid fa-calendar-check"></i> Filter
+        </button>
+      </form>
     </div>
   </div>
 
-  <!-- Primary P&L Summary Cards -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+  <!-- Active Filter Window Banner -->
+  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 14px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #334155;">
+      <i class="fa-solid fa-clock-rotate-left" style="color: #059669;"></i>
+      <span>Reporting Window: <strong>{{ date_label }}</strong></span>
+      <span style="color: #94A3B8;">&bull;</span>
+      <span>Fulfilled Orders: <strong>{{ delivered_orders_count }}</strong> / {{ total_orders_count }} total orders</span>
+    </div>
+    <div style="font-size: 0.78rem; color: #64748B;">
+      * Commission Rate: <strong>{{ config.commission_percentage|default:"10.0" }}%</strong> &bull; Cashback Rate: <strong>₹{{ config.cashback_per_item|default:"1.00" }}/unit</strong>
+    </div>
+  </div>
+
+  <!-- TOP 4 CORE FINANCIAL KPIs -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.25rem; margin-bottom: 1.75rem;">
     
-    <!-- Total Revenue Card -->
-    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+    <!-- Total Marketplace GMV -->
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 0.75rem; font-weight: 700; color: #047857; text-transform: uppercase;">Total Platform Revenue</span>
+        <span style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Marketplace GMV</span>
+        <i class="fa-solid fa-basket-shopping" style="color: #7C3AED; font-size: 1.1rem;"></i>
+      </div>
+      <div style="font-size: 1.85rem; font-weight: 800; color: #1E293B; margin-top: 6px;">₹{{ total_gmv|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">
+        Gross merchandise volume before cancellations
+      </div>
+    </div>
+
+    <!-- Platform Revenue -->
+    <div style="background: #ffffff; border: 1px solid #A7F3D0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 2px 6px rgba(5,150,105,0.06);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.75rem; font-weight: 800; color: #047857; text-transform: uppercase; letter-spacing: 0.5px;">Platform Revenue</span>
         <i class="fa-solid fa-arrow-trend-up" style="color: #059669; font-size: 1.1rem;"></i>
       </div>
-      <div style="font-size: 1.85rem; font-weight: 800; color: #047857; margin-top: 6px;">₹{{ total_revenue|floatformat:2 }}</div>
-      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">
-        Commission (₹{{ total_commission|floatformat:2 }}) + Delivery Fees (₹{{ total_delivery_fees|floatformat:2 }})
+      <div style="font-size: 1.85rem; font-weight: 800; color: #047857; margin-top: 6px;">₹{{ company_revenue_total|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #059669; margin-top: 4px;">
+        Commissions (₹{{ marketplace_commission_revenue|floatformat:2 }}) + Delivery (₹{{ delivery_fees_charged|floatformat:2 }})
       </div>
     </div>
 
-    <!-- Total Expenses Card -->
-    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+    <!-- Platform Expenses -->
+    <div style="background: #ffffff; border: 1px solid #FECACA; border-radius: 12px; padding: 1.25rem; box-shadow: 0 2px 6px rgba(220,38,38,0.06);">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 0.75rem; font-weight: 700; color: #DC2626; text-transform: uppercase;">Platform Expenses</span>
+        <span style="font-size: 0.75rem; font-weight: 800; color: #DC2626; text-transform: uppercase; letter-spacing: 0.5px;">Platform Expenses</span>
         <i class="fa-solid fa-arrow-trend-down" style="color: #DC2626; font-size: 1.1rem;"></i>
       </div>
-      <div style="font-size: 1.85rem; font-weight: 800; color: #DC2626; margin-top: 6px;">₹{{ total_expenses|floatformat:2 }}</div>
-      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">
-        Rider Payouts (₹{{ total_delivery_expenses|floatformat:2 }}) + Cashback (₹{{ total_cashback_expense|floatformat:2 }})
+      <div style="font-size: 1.85rem; font-weight: 800; color: #DC2626; margin-top: 6px;">₹{{ company_expenses_total|floatformat:2 }}</div>
+      <div style="font-size: 0.75rem; color: #DC2626; margin-top: 4px;">
+        Rider Payouts (₹{{ delivery_payout_expenses|floatformat:2 }}) + Cashback (₹{{ company_cashback_expense|floatformat:2 }})
       </div>
     </div>
 
-    <!-- Net Company Profit Card -->
-    <div style="background: #ffffff; border: 2px solid {% if company_profit >= 0 %}#10B981{% else %}#EF4444{% endif %}; border-radius: 14px; padding: 1.25rem; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+    <!-- Net Company Profit -->
+    <div style="background: #ffffff; border: 2px solid {% if net_company_profit >= 0 %}#10B981{% else %}#EF4444{% endif %}; border-radius: 12px; padding: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
       <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 0.75rem; font-weight: 800; color: {% if company_profit >= 0 %}#047857{% else %}#DC2626{% endif %}; text-transform: uppercase;">
+        <span style="font-size: 0.75rem; font-weight: 800; color: {% if net_company_profit >= 0 %}#047857{% else %}#DC2626{% endif %}; text-transform: uppercase; letter-spacing: 0.5px;">
           Net Company Profit
         </span>
-        <i class="fa-solid fa-scale-balanced" style="color: {% if company_profit >= 0 %}#059669{% else %}#DC2626{% endif %}; font-size: 1.1rem;"></i>
+        <i class="fa-solid fa-scale-balanced" style="color: {% if net_company_profit >= 0 %}#059669{% else %}#DC2626{% endif %}; font-size: 1.2rem;"></i>
       </div>
-      <div style="font-size: 2rem; font-weight: 900; color: {% if company_profit >= 0 %}#047857{% else %}#DC2626{% endif %}; margin-top: 6px;">
-        ₹{{ company_profit|floatformat:2 }}
+      <div style="font-size: 2rem; font-weight: 900; color: {% if net_company_profit >= 0 %}#047857{% else %}#DC2626{% endif %}; margin-top: 6px;">
+        ₹{{ net_company_profit|floatformat:2 }}
       </div>
-      <div style="font-size: 0.75rem; font-weight: 600; color: {% if company_profit >= 0 %}#059669{% else %}#DC2626{% endif %}; margin-top: 4px;">
-        {% if company_profit >= 0 %}Profitable Platform Operations{% else %}Net Deficit for Selected Window{% endif %}
+      <div style="font-size: 0.75rem; font-weight: 600; color: {% if net_company_profit >= 0 %}#059669{% else %}#DC2626{% endif %}; margin-top: 4px;">
+        {% if net_company_profit >= 0 %}
+          <i class="fa-solid fa-circle-check"></i> Profitable Operations
+        {% else %}
+          <i class="fa-solid fa-circle-exclamation"></i> Operating Net Deficit
+        {% endif %}
       </div>
-    </div>
-
-    <!-- Delivered GMV Card -->
-    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 0.75rem; font-weight: 700; color: #7C3AED; text-transform: uppercase;">Delivered GMV</span>
-        <i class="fa-solid fa-receipt" style="color: #7C3AED; font-size: 1.1rem;"></i>
-      </div>
-      <div style="font-size: 1.85rem; font-weight: 800; color: #7C3AED; margin-top: 6px;">₹{{ total_gmv|floatformat:2 }}</div>
-      <div style="font-size: 0.75rem; color: #64748B; margin-top: 4px;">Across {{ total_orders }} fulfilled orders</div>
     </div>
 
   </div>
 
-  <!-- Detailed Ledger Breakdown & Liabilities -->
+  <!-- SECONDARY BREAKDOWN CARDS (18 Standard KPIs Breakdown) -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Customer Product Sales</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: #1E293B; margin-top: 2px;">₹{{ total_customer_product_sales|floatformat:2 }}</div>
+    </div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Customer Discounts</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: #DC2626; margin-top: 2px;">-₹{{ total_customer_discounts|floatformat:2 }}</div>
+    </div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Marketplace Commission</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: #047857; margin-top: 2px;">+₹{{ marketplace_commission_revenue|floatformat:2 }}</div>
+    </div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Company-Owned Revenue</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: #047857; margin-top: 2px;">+₹{{ company_owned_revenue|floatformat:2 }}</div>
+    </div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Company-Owned COGS</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: #DC2626; margin-top: 2px;">-₹{{ company_owned_cogs|floatformat:2 }}</div>
+    </div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Delivery Fees Collected</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: #047857; margin-top: 2px;">+₹{{ delivery_fees_charged|floatformat:2 }}</div>
+    </div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Rider Fleet Payouts</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: #DC2626; margin-top: 2px;">-₹{{ delivery_payout_expenses|floatformat:2 }}</div>
+    </div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Company Cashback Expense</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: #DC2626; margin-top: 2px;">-₹{{ company_cashback_expense|floatformat:2 }}</div>
+    </div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Refunds & Returns</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: #DC2626; margin-top: 2px;">-₹{{ refunds_returns|floatformat:2 }}</div>
+    </div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px;">
+      <div style="font-size: 0.7rem; color: #64748B; font-weight: 700; text-transform: uppercase;">Delivery Margin</div>
+      <div style="font-size: 1.15rem; font-weight: 800; color: {% if company_delivery_margin >= 0 %}#047857{% else %}#DC2626{% endif %}; margin-top: 2px;">
+        ₹{{ company_delivery_margin|floatformat:2 }}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ESCROW LIABILITIES & BALANCE SHEET RESERVES (CRITICAL: NOT Company Profit) -->
+  <div style="background: #FEF3C7; border: 1.5px solid #F59E0B; border-radius: 12px; padding: 1.25rem; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+      <h3 style="font-size: 0.95rem; font-weight: 800; color: #92400E; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-vault"></i> Platform Escrow & Balance Sheet Liabilities
+      </h3>
+      <span style="font-size: 0.75rem; color: #B45309; font-weight: 700; background: #FDE68A; padding: 2px 8px; border-radius: 4px;">
+        Audited Liabilities &bull; NOT Recognized as Company Revenue or Profit
+      </span>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+      <div style="background: #ffffff; border-radius: 8px; padding: 10px 14px; border: 1px solid #FCD34D;">
+        <div style="font-size: 0.72rem; color: #78350F; font-weight: 700; text-transform: uppercase;">Pending Seller Liabilities</div>
+        <div style="font-size: 1.25rem; font-weight: 900; color: #92400E; margin-top: 2px;">₹{{ pending_seller_liabilities|floatformat:2 }}</div>
+        <div style="font-size: 0.7rem; color: #78350F;">Payable on completed delivery verification</div>
+      </div>
+
+      <div style="background: #ffffff; border-radius: 8px; padding: 10px 14px; border: 1px solid #FCD34D;">
+        <div style="font-size: 0.72rem; color: #78350F; font-weight: 700; text-transform: uppercase;">Available Seller Wallets</div>
+        <div style="font-size: 1.25rem; font-weight: 900; color: #92400E; margin-top: 2px;">₹{{ available_seller_wallet_balances|floatformat:2 }}</div>
+        <div style="font-size: 0.7rem; color: #78350F;">Settled funds available for seller withdrawal</div>
+      </div>
+
+      <div style="background: #ffffff; border-radius: 8px; padding: 10px 14px; border: 1px solid #FCD34D;">
+        <div style="font-size: 0.72rem; color: #78350F; font-weight: 700; text-transform: uppercase;">Pending Seller Earnings</div>
+        <div style="font-size: 1.25rem; font-weight: 900; color: #92400E; margin-top: 2px;">₹{{ pending_seller_earnings|floatformat:2 }}</div>
+        <div style="font-size: 0.7rem; color: #78350F;">In-transit orders awaiting delivery OTP</div>
+      </div>
+
+      <div style="background: #ffffff; border-radius: 8px; padding: 10px 14px; border: 1px solid #FCD34D;">
+        <div style="font-size: 0.72rem; color: #78350F; font-weight: 700; text-transform: uppercase;">Unsettled Delivery Fleet</div>
+        <div style="font-size: 1.25rem; font-weight: 900; color: #92400E; margin-top: 2px;">₹{{ unsettled_delivery_earnings|floatformat:2 }}</div>
+        <div style="font-size: 0.7rem; color: #78350F;">Rider fees pending completion</div>
+      </div>
+
+      <div style="background: #ffffff; border-radius: 8px; padding: 10px 14px; border: 1px solid #FCD34D;">
+        <div style="font-size: 0.72rem; color: #78350F; font-weight: 700; text-transform: uppercase;">Buyer Cashback Wallet Liability</div>
+        <div style="font-size: 1.25rem; font-weight: 900; color: #92400E; margin-top: 2px;">₹{{ customer_cashback_liability|floatformat:2 }}</div>
+        <div style="font-size: 0.7rem; color: #78350F;">Unspent buyer cashback held in wallets</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCOUNTING FORMULA TRANSPARENCY & CASHBACK ATTRIBUTION (2 Columns) -->
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
     
-    <!-- Revenue & Expense Breakdown Table -->
-    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-list-check" style="color: #059669;"></i> Accounting Breakdown
+    <!-- Transparent Accounting Formula Card -->
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-calculator" style="color: #059669;"></i> Dynamic Accounting Formula Reconciliation
       </h3>
 
-      <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
         <tbody>
           <tr style="border-bottom: 1px solid #F1F5F9;">
-            <td style="padding: 10px 0; color: #334155; font-weight: 600;">Marketplace Commission Earned</td>
-            <td style="padding: 10px 0; text-align: right; color: #047857; font-weight: 700;">+ ₹{{ total_commission|floatformat:2 }}</td>
+            <td style="padding: 7px 0; color: #334155;">Marketplace Commission Earned</td>
+            <td style="padding: 7px 0; text-align: right; color: #047857; font-weight: 700;">+ ₹{{ marketplace_commission_revenue|floatformat:2 }}</td>
           </tr>
           <tr style="border-bottom: 1px solid #F1F5F9;">
-            <td style="padding: 10px 0; color: #334155; font-weight: 600;">Delivery Fees Charged to Buyers</td>
-            <td style="padding: 10px 0; text-align: right; color: #047857; font-weight: 700;">+ ₹{{ total_delivery_fees|floatformat:2 }}</td>
+            <td style="padding: 7px 0; color: #334155;">Company-Owned Inventory Sales</td>
+            <td style="padding: 7px 0; text-align: right; color: #047857; font-weight: 700;">+ ₹{{ company_owned_revenue|floatformat:2 }}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #F1F5F9;">
+            <td style="padding: 7px 0; color: #334155;">Delivery Fees Charged to Buyers</td>
+            <td style="padding: 7px 0; text-align: right; color: #047857; font-weight: 700;">+ ₹{{ delivery_fees_charged|floatformat:2 }}</td>
           </tr>
           <tr style="border-bottom: 2px solid #E2E8F0; background: #F8FAFC;">
-            <td style="padding: 10px 8px; color: #0F172A; font-weight: 800;">Total Platform Revenue</td>
-            <td style="padding: 10px 8px; text-align: right; color: #047857; font-weight: 800;">₹{{ total_revenue|floatformat:2 }}</td>
+            <td style="padding: 8px 6px; font-weight: 800; color: #0F172A;">Total Platform Revenue</td>
+            <td style="padding: 8px 6px; text-align: right; color: #047857; font-weight: 800;">₹{{ company_revenue_total|floatformat:2 }}</td>
           </tr>
           <tr style="border-bottom: 1px solid #F1F5F9;">
-            <td style="padding: 10px 0; color: #334155; font-weight: 600;">Delivery Fleet Earnings Paid Out</td>
-            <td style="padding: 10px 0; text-align: right; color: #DC2626; font-weight: 700;">- ₹{{ total_delivery_expenses|floatformat:2 }}</td>
+            <td style="padding: 7px 0; color: #334155;">Delivery Fleet Payouts (Riders)</td>
+            <td style="padding: 7px 0; text-align: right; color: #DC2626; font-weight: 700;">- ₹{{ delivery_payout_expenses|floatformat:2 }}</td>
           </tr>
           <tr style="border-bottom: 1px solid #F1F5F9;">
-            <td style="padding: 10px 0; color: #334155; font-weight: 600;">Company Funded Cashback to Buyers</td>
-            <td style="padding: 10px 0; text-align: right; color: #DC2626; font-weight: 700;">- ₹{{ total_cashback_expense|floatformat:2 }}</td>
+            <td style="padding: 7px 0; color: #334155;">Company-Funded Cashback to Buyers</td>
+            <td style="padding: 7px 0; text-align: right; color: #DC2626; font-weight: 700;">- ₹{{ company_cashback_expense|floatformat:2 }}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #F1F5F9;">
+            <td style="padding: 7px 0; color: #334155;">Company-Owned COGS (Product Cost)</td>
+            <td style="padding: 7px 0; text-align: right; color: #DC2626; font-weight: 700;">- ₹{{ company_owned_cogs|floatformat:2 }}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #F1F5F9;">
+            <td style="padding: 7px 0; color: #334155;">Refunds & Returns Recognized</td>
+            <td style="padding: 7px 0; text-align: right; color: #DC2626; font-weight: 700;">- ₹{{ refunds_returns|floatformat:2 }}</td>
           </tr>
           <tr style="border-bottom: 2px solid #E2E8F0; background: #F8FAFC;">
-            <td style="padding: 10px 8px; color: #0F172A; font-weight: 800;">Total Platform Expenses</td>
-            <td style="padding: 10px 8px; text-align: right; color: #DC2626; font-weight: 800;">₹{{ total_expenses|floatformat:2 }}</td>
+            <td style="padding: 8px 6px; font-weight: 800; color: #0F172A;">Total Platform Expenses</td>
+            <td style="padding: 8px 6px; text-align: right; color: #DC2626; font-weight: 800;">₹{{ company_expenses_total|floatformat:2 }}</td>
           </tr>
-          <tr style="background: #F0FDF4;">
-            <td style="padding: 12px 8px; color: #064E3B; font-weight: 900; font-size: 1rem;">Net Company Profit</td>
-            <td style="padding: 12px 8px; text-align: right; color: #047857; font-weight: 900; font-size: 1.15rem;">₹{{ company_profit|floatformat:2 }}</td>
+          <tr style="background: {% if net_company_profit >= 0 %}#F0FDF4{% else %}#FEF2F2{% endif %};">
+            <td style="padding: 10px 6px; font-weight: 900; color: {% if net_company_profit >= 0 %}#064E3B{% else %}#7F1D1D{% endif %}; font-size: 0.95rem;">
+              Net Operating Profit / Loss
+            </td>
+            <td style="padding: 10px 6px; text-align: right; font-weight: 900; color: {% if net_company_profit >= 0 %}#047857{% else %}#DC2626{% endif %}; font-size: 1.1rem;">
+              ₹{{ net_company_profit|floatformat:2 }}
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Escrow & Liabilities Card (CRITICAL ENFORCEMENT) -->
-    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-shield-halved" style="color: #6366F1;"></i> Platform Liabilities & Escrow
+    <!-- Multi-source Cashback Attribution Card -->
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <h3 style="font-size: 0.95rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-coins" style="color: #D97706;"></i> Cashback Ledger & Funding Source Attribution
       </h3>
-      <p style="font-size: 0.78rem; color: #64748B; margin-bottom: 1.25rem;">
-        <strong>Strict Accounting Rule:</strong> Seller wallet balances and pending deliveries are held in escrow for merchants and riders and are <em>NEVER</em> company profit.
-      </p>
 
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 8px;">
-          <div>
-            <div style="font-size: 0.85rem; font-weight: 700; color: #92400E;">Available Seller Wallet Balances</div>
-            <div style="font-size: 0.72rem; color: #B45309;">Payable on seller withdrawal request</div>
-          </div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: #92400E;">₹{{ total_seller_wallet_balance|floatformat:2 }}</div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem;">
+        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+          <span style="color: #64748B;">Total Cashback Earned (Confirmed):</span>
+          <strong style="color: #059669;">₹{{ cashback_summary.earned|floatformat:2 }}</strong>
         </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #EEF2FF; border: 1px solid #E0E7FF; border-radius: 8px;">
-          <div>
-            <div style="font-size: 0.85rem; font-weight: 700; color: #3730A3;">Pending Seller Earnings</div>
-            <div style="font-size: 0.72rem; color: #4338CA;">Awaiting customer OTP delivery verification</div>
-          </div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: #3730A3;">₹{{ total_seller_pending|floatformat:2 }}</div>
+        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+          <span style="color: #64748B;">Company-Funded (Recognized Expense):</span>
+          <strong style="color: #DC2626;">₹{{ cashback_summary.company_funded|floatformat:2 }}</strong>
         </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #F1F5F9; border: 1px solid #E2E8F0; border-radius: 8px;">
-          <div>
-            <div style="font-size: 0.85rem; font-weight: 700; color: #334155;">Unsettled Delivery Fleet Earnings</div>
-            <div style="font-size: 0.72rem; color: #64748B;">Active deliveries in progress</div>
-          </div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: #334155;">₹{{ total_delivery_unsettled|floatformat:2 }}</div>
+        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+          <span style="color: #64748B;">Seller-Funded (Borne by Seller):</span>
+          <strong style="color: #2563EB;">₹{{ cashback_summary.seller_funded|floatformat:2 }}</strong>
         </div>
+        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+          <span style="color: #64748B;">Pending Cashback (Awaiting Delivery):</span>
+          <strong style="color: #D97706;">₹{{ cashback_summary.pending|floatformat:2 }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+          <span style="color: #64748B;">Cashback Redeemed at Checkout:</span>
+          <strong style="color: #475569;">₹{{ cashback_summary.redeemed|floatformat:2 }}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1F5F9;">
+          <span style="color: #64748B;">Cashback Reversed (Refunds/Cancels):</span>
+          <strong style="color: #DC2626;">₹{{ cashback_summary.reversed|floatformat:2 }}</strong>
+        </div>
+        <div style="background: #F8FAFC; border-radius: 6px; padding: 8px 10px; font-size: 0.72rem; color: #64748B; line-height: 1.4;">
+          * Note: Seller-funded cashback is deducted directly from seller proceeds and never charged to company expenses, preventing double counting.
+        </div>
+      </div>
+    </div>
 
+  </div>
+
+  <!-- MODULE 4B: COMPLETE MARKETPLACE ORDER & ITEM FINANCIAL LEDGER TABLE -->
+  <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.75rem;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin: 0; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-table-list" style="color: #059669;"></i> Item-Level Marketplace Pricing & Sales Ledger (Module 4B)
+      </h3>
+      <span style="font-size: 0.8rem; color: #64748B;">Total Records: {{ pnl_items_page.paginator.count }}</span>
+    </div>
+
+    <div class="table-responsive">
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+        <thead>
+          <tr style="background: #F8FAFC; border-bottom: 2px solid #E2E8F0; text-align: left; color: #64748B; font-size: 0.72rem; text-transform: uppercase;">
+            <th style="padding: 8px 10px;">Order / Date</th>
+            <th style="padding: 8px 10px;">Item & Seller</th>
+            <th style="padding: 8px 10px; text-align: center;">Qty</th>
+            <th style="padding: 8px 10px; text-align: right;">MRP / Unit</th>
+            <th style="padding: 8px 10px; text-align: right;">Selling Price</th>
+            <th style="padding: 8px 10px; text-align: right;">Customer Discount</th>
+            <th style="padding: 8px 10px; text-align: right;">Effective Price</th>
+            <th style="padding: 8px 10px; text-align: right;">Unit Cost</th>
+            <th style="padding: 8px 10px; text-align: right;">Line Subtotal</th>
+            <th style="padding: 8px 10px; text-align: right;">Comm Amt</th>
+            <th style="padding: 8px 10px; text-align: right;">Seller Payable</th>
+            <th style="padding: 8px 10px; text-align: right;">Seller Profit</th>
+            <th style="padding: 8px 10px; text-align: center;">Settlement</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for snap in pnl_items_page %}
+            <tr style="border-bottom: 1px solid #F1F5F9;">
+              <td style="padding: 8px 10px; vertical-align: top;">
+                <a href="{% url 'admin_dashboard:order_detail' snap.order.order_id %}" style="font-weight: 700; color: var(--color-primary-dark); text-decoration: none;">
+                  #{{ snap.order.order_id }}
+                </a>
+                <div style="font-size: 0.7rem; color: #64748B;">{{ snap.order.created_at|date:"d M Y" }}</div>
+                <span class="badge {{ snap.order.status_badge_class }}" style="font-size: 0.65rem; padding: 1px 4px;">
+                  {{ snap.order.get_status_display }}
+                </span>
+              </td>
+              <td style="padding: 8px 10px; vertical-align: top;">
+                <div style="font-weight: 700; color: #1E293B;">{{ snap.product_name }}</div>
+                <div style="font-size: 0.7rem; color: #64748B;">
+                  Store: <strong>{{ snap.seller.seller_profile.store_name|default:snap.seller.username }}</strong>
+                </div>
+              </td>
+              <td style="padding: 8px 10px; text-align: center; vertical-align: top; font-weight: 700;">
+                {{ snap.quantity }}
+              </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top; color: #94A3B8; text-decoration: line-through;">
+                ₹{{ snap.order_item.mrp|default:snap.unit_selling_price|floatformat:2 }}
+              </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top; font-weight: 600;">
+                ₹{{ snap.unit_selling_price|floatformat:2 }}
+              </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top; color: #DC2626;">
+                {% if snap.discount_amount and snap.discount_amount > 0 %}
+                  -₹{{ snap.discount_amount|floatformat:2 }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top; font-weight: 600; color: #1E293B;">
+                ₹{{ snap.unit_effective_price|floatformat:2 }}
+              </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top;">
+                {% if snap.product_cost_per_unit is not None %}
+                  ₹{{ snap.product_cost_per_unit|floatformat:2 }}
+                {% else %}
+                  <span style="color: #94A3B8; font-style: italic; font-size: 0.7rem;">Not recorded</span>
+                {% endif %}
+              </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top; font-weight: 800; color: #047857;">
+                ₹{{ snap.product_revenue|floatformat:2 }}
+              </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top; color: #047857; font-weight: 700;">
+                ₹{{ snap.commission_amount|floatformat:2 }}
+                <div style="font-size: 0.65rem; color: #64748B;">({{ snap.commission_rate }}%)</div>
+              </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top; font-weight: 700; color: #2563EB;">
+                ₹{{ snap.seller_payable|floatformat:2 }}
+              </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top;">
+                {% if snap.seller_profit is not None %}
+                  <strong style="color: {% if snap.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
+                    ₹{{ snap.seller_profit|floatformat:2 }}
+                  </strong>
+                {% else %}
+                  <span style="color: #94A3B8;">—</span>
+                {% endif %}
+              </td>
+              <td style="padding: 8px 10px; text-align: center; vertical-align: top;">
+                <span class="badge {% if snap.settlement_status == 'SETTLED' %}badge-success{% elif snap.settlement_status == 'REVERSED' %}badge-danger{% else %}badge-warning{% endif %}" style="font-size: 0.65rem;">
+                  {{ snap.settlement_status }}
+                </span>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="13" style="text-align: center; padding: 2.5rem; color: #94A3B8;">
+                No order item financial records found for this period.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PnL Items Pagination -->
+    {% if pnl_items_page.has_other_pages %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-top: 1px solid #E2E8F0; margin-top: 10px; font-size: 0.8rem;">
+        <span style="color: #64748B;">
+          Page <strong>{{ pnl_items_page.number }}</strong> of <strong>{{ pnl_items_page.paginator.num_pages }}</strong>
+        </span>
+        <div style="display: flex; gap: 4px;">
+          {% if pnl_items_page.has_previous %}
+            <a href="?page={{ pnl_items_page.previous_page_number }}{% if period %}&period={{ period }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
+              Previous
+            </a>
+          {% endif %}
+          <span class="btn btn-primary btn-sm" style="font-size: 0.75rem; pointer-events: none;">
+            {{ pnl_items_page.number }}
+          </span>
+          {% if pnl_items_page.has_next %}
+            <a href="?page={{ pnl_items_page.next_page_number }}{% if period %}&period={{ period }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
+              Next
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+
+  <!-- SUB-LEDGERS: SELLER SUMMARIES & DELIVERY FLEET SUMMARIES (2 Columns) -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+    
+    <!-- Seller Financial Summaries Table -->
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem;">
+        <h3 style="font-size: 0.95rem; font-weight: 700; color: #1E293B; margin: 0; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-store" style="color: #7C3AED;"></i> Merchant Financial Ledgers
+        </h3>
+        <a href="{% url 'admin_dashboard:seller_wallets' %}" style="font-size: 0.78rem; color: #7C3AED; font-weight: 600; text-decoration: none;">
+          All Wallets &rarr;
+        </a>
       </div>
 
-      <div style="margin-top: 1.25rem; padding: 10px; background: #F8FAFC; border-radius: 8px; font-size: 0.78rem; color: #64748B;">
-        <i class="fa-solid fa-circle-info"></i> All merchant profit settlement is executed automatically upon customer mobile OTP verification.
+      <div class="table-responsive">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+          <thead>
+            <tr style="border-bottom: 1px solid #E2E8F0; text-align: left; color: #64748B; font-size: 0.7rem; text-transform: uppercase;">
+              <th style="padding: 6px 8px;">Store / Merchant</th>
+              <th style="padding: 6px 8px; text-align: right;">Gross Sales</th>
+              <th style="padding: 6px 8px; text-align: right;">Comm Paid</th>
+              <th style="padding: 6px 8px; text-align: right;">Payable</th>
+              <th style="padding: 6px 8px; text-align: right;">Wallet Bal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in seller_summaries %}
+              <tr style="border-bottom: 1px solid #F1F5F9;">
+                <td style="padding: 8px;">
+                  <div style="font-weight: 700; color: #1E293B;">{{ s.store_name }}</div>
+                  <div style="font-size: 0.7rem; color: #64748B;">ID: {{ s.seller.account_id }}</div>
+                </td>
+                <td style="padding: 8px; text-align: right; font-weight: 600;">₹{{ s.gross_sales|floatformat:2 }}</td>
+                <td style="padding: 8px; text-align: right; color: #047857; font-weight: 700;">₹{{ s.commission_paid|floatformat:2 }}</td>
+                <td style="padding: 8px; text-align: right; color: #2563EB; font-weight: 700;">₹{{ s.seller_payable|floatformat:2 }}</td>
+                <td style="padding: 8px; text-align: right; font-weight: 800; color: #059669;">₹{{ s.available_balance|floatformat:2 }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 1.5rem; color: #94A3B8;">No merchants registered.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Delivery Fleet Earnings Summaries Table -->
+    <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem;">
+        <h3 style="font-size: 0.95rem; font-weight: 700; color: #1E293B; margin: 0; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i> Delivery Fleet Earnings Ledger
+        </h3>
+        <a href="{% url 'admin_dashboard:delivery_earnings' %}" style="font-size: 0.78rem; color: #2563EB; font-weight: 600; text-decoration: none;">
+          All Fleet Earnings &rarr;
+        </a>
+      </div>
+
+      <div class="table-responsive">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+          <thead>
+            <tr style="border-bottom: 1px solid #E2E8F0; text-align: left; color: #64748B; font-size: 0.7rem; text-transform: uppercase;">
+              <th style="padding: 6px 8px;">Driver</th>
+              <th style="padding: 6px 8px; text-align: right;">Settled</th>
+              <th style="padding: 6px 8px; text-align: right;">Pending</th>
+              <th style="padding: 6px 8px; text-align: right;">Total Paid</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in driver_summaries %}
+              <tr style="border-bottom: 1px solid #F1F5F9;">
+                <td style="padding: 8px;">
+                  <div style="font-weight: 700; color: #1E293B;">{{ d.driver.get_full_name|default:d.driver.username }}</div>
+                  <div style="font-size: 0.7rem; color: #64748B;">ID: {{ d.driver.account_id }}</div>
+                </td>
+                <td style="padding: 8px; text-align: right; color: #047857; font-weight: 700;">₹{{ d.settled_earnings|floatformat:2 }}</td>
+                <td style="padding: 8px; text-align: right; color: #D97706; font-weight: 600;">₹{{ d.pending_earnings|floatformat:2 }}</td>
+                <td style="padding: 8px; text-align: right; font-weight: 800; color: #1E293B;">₹{{ d.total_earnings|floatformat:2 }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="4" style="text-align: center; padding: 1.5rem; color: #94A3B8;">No delivery personnel registered.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
 

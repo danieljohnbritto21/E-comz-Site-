@@ -229,6 +229,18 @@ class OrderItemFinancialSnapshot(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+    @property
+    def product_name(self):
+        return self.order_item.product_name if self.order_item else ''
+
+    @property
+    def unit_selling_price(self):
+        return self.selling_price_per_unit
+
+    @property
+    def unit_effective_price(self):
+        return self.selling_price_per_unit
+
     def save(self, *args, **kwargs):
         if not self.settlement_idempotency_key:
             self.settlement_idempotency_key = f"OI-{self.order_item_id}-{uuid.uuid4().hex[:8]}"

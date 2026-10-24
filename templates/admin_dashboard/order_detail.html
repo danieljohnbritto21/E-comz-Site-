@@ -1,0 +1,550 @@
+{% extends 'admin_dashboard/base_admin.html' %}
+{% load static %}
+{% load catalog_tags %}
+
+{% block title %}Order #{{ order.order_id }} Details - Admin Portal{% endblock %}
+
+{% block admin_content %}
+<div style="padding-bottom: 3rem;">
+  
+  <!-- Breadcrumb & Top Header -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px;">
+        <a href="{% url 'admin_dashboard:orders' %}" style="color: var(--color-primary-dark); text-decoration: none;">
+          <i class="fa-solid fa-arrow-left"></i> Back to Orders
+        </a>
+        <span>/</span>
+        <span>Order #{{ order.order_id }}</span>
+      </div>
+      <h1 class="dashboard-title" style="margin-bottom: 4px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        Order #{{ order.order_id }}
+        <span class="badge {{ order.status_badge_class }}" style="font-size: 0.85rem; padding: 4px 10px;">
+          {{ order.get_status_display }}
+        </span>
+        <span class="badge {% if order.payment_status == 'PAID' %}badge-success{% else %}badge-warning{% endif %}" style="font-size: 0.85rem; padding: 4px 10px;">
+          {{ order.get_payment_status_display }}
+        </span>
+      </h1>
+      <p class="dashboard-subtitle" style="margin: 0;">
+        Placed on {{ order.created_at|date:"d M Y, h:i A" }} &bull; Last updated {{ order.updated_at|date:"d M Y, h:i A" }}
+      </p>
+    </div>
+
+    <!-- Quick Action Bar -->
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <a href="{% url 'orders:track' order.order_id %}" target="_blank" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-map-location-dot"></i> Live Buyer Tracking
+      </a>
+      <a href="{% url 'admin_dashboard:company_pnl' %}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-scale-balanced"></i> View Company P&L
+      </a>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  {% if messages %}
+    <div style="margin-bottom: 1.25rem;">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.9rem;">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- 2-Column Grid Layout -->
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+    
+    <!-- LEFT COLUMN: Items, Delivery, Audit -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+      
+      <!-- Order Items Card -->
+      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.75rem;">
+          <h2 style="font-size: 1.1rem; font-weight: 700; color: #1E293B; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-boxes-stacked" style="color: #059669;"></i> Order Items ({{ order.items.count }})
+          </h2>
+          <span style="font-size: 0.8rem; color: #64748B;">Sub-orders: {{ order.sub_orders.count }} seller partition(s)</span>
+        </div>
+
+        <div class="table-responsive">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+            <thead>
+              <tr style="border-bottom: 1px solid #E2E8F0; background: #F8FAFC; text-align: left; color: #64748B; font-size: 0.75rem; text-transform: uppercase;">
+                <th style="padding: 8px 10px;">Item / Product</th>
+                <th style="padding: 8px 10px;">Seller Store</th>
+                <th style="padding: 8px 10px; text-align: center;">Qty</th>
+                <th style="padding: 8px 10px; text-align: right;">MRP</th>
+                <th style="padding: 8px 10px; text-align: right;">Unit Price</th>
+                <th style="padding: 8px 10px; text-align: right;">Discount</th>
+                <th style="padding: 8px 10px; text-align: right;">Subtotal</th>
+                <th style="padding: 8px 10px; text-align: right;">Cashback</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in order.items.all %}
+                <tr style="border-bottom: 1px solid #F1F5F9;">
+                  <td style="padding: 10px;">
+                    <div style="font-weight: 700; color: #1E293B;">{{ item.product_name }}</div>
+                    <div style="font-size: 0.72rem; color: #64748B;">
+                      {% if item.brand %}Brand: {{ item.brand }} &bull; {% endif %}
+                      {% if item.unit %}{{ item.unit }} &bull; {% endif %}
+                      {% if item.product and item.product.sku %}SKU: <span style="font-family: monospace;">{{ item.product.sku }}</span>{% endif %}
+                    </div>
+                  </td>
+                  <td style="padding: 10px;">
+                    <div style="font-weight: 600; color: #334155;">
+                      {{ item.seller.seller_profile.store_name|default:item.seller.username }}
+                    </div>
+                    <div style="font-size: 0.72rem; color: #64748B;">ID: {{ item.seller.account_id }}</div>
+                  </td>
+                  <td style="padding: 10px; text-align: center; font-weight: 700;">
+                    {{ item.quantity }}
+                  </td>
+                  <td style="padding: 10px; text-align: right; color: #94A3B8; text-decoration: line-through;">
+                    ₹{{ item.mrp|default:item.unit_price|floatformat:2 }}
+                  </td>
+                  <td style="padding: 10px; text-align: right; font-weight: 600; color: #1E293B;">
+                    ₹{{ item.unit_price|floatformat:2 }}
+                  </td>
+                  <td style="padding: 10px; text-align: right; color: #DC2626; font-size: 0.8rem;">
+                    {% if item.discount_amount and item.discount_amount > 0 %}
+                      -₹{{ item.discount_amount|floatformat:2 }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; text-align: right; font-weight: 800; color: #047857;">
+                    ₹{{ item.subtotal|floatformat:2 }}
+                  </td>
+                  <td style="padding: 10px; text-align: right; color: #059669; font-size: 0.8rem; font-weight: 600;">
+                    {% if item.cashback_amount and item.cashback_amount > 0 %}
+                      +₹{{ item.cashback_amount|floatformat:2 }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="8" style="text-align: center; padding: 2rem; color: #94A3B8;">No items in this order.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Item-Level Financial Snapshots Audit (Restricted Financial Roles) -->
+        {% if snapshots %}
+          <div style="margin-top: 1.25rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem;">
+            <div style="font-weight: 700; font-size: 0.82rem; color: #475569; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between;">
+              <span><i class="fa-solid fa-lock" style="color: #64748B;"></i> Item Accounting Snapshots (Financial Audit)</span>
+              {% if not all_costs_recorded %}
+                <span class="badge badge-warning" style="font-size: 0.68rem;">Some product costs not recorded</span>
+              {% endif %}
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid #CBD5E1; color: #64748B; text-align: left;">
+                  <th style="padding: 4px 6px;">Product</th>
+                  <th style="padding: 4px 6px; text-align: right;">Unit Cost</th>
+                  <th style="padding: 4px 6px; text-align: right;">Revenue</th>
+                  <th style="padding: 4px 6px; text-align: right;">Comm %</th>
+                  <th style="padding: 4px 6px; text-align: right;">Comm Amt</th>
+                  <th style="padding: 4px 6px; text-align: right;">Seller Payable</th>
+                  <th style="padding: 4px 6px; text-align: right;">Est. Seller Profit</th>
+                  <th style="padding: 4px 6px; text-align: center;">Settlement</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for snap in snapshots %}
+                  <tr style="border-bottom: 1px solid #E2E8F0;">
+                    <td style="padding: 6px;">{{ snap.product_name|truncatechars:24 }}</td>
+                    <td style="padding: 6px; text-align: right;">
+                      {% if snap.product_cost_per_unit is not None %}
+                        ₹{{ snap.product_cost_per_unit|floatformat:2 }}
+                      {% else %}
+                        <span style="color: #94A3B8; font-style: italic;">Not recorded</span>
+                      {% endif %}
+                    </td>
+                    <td style="padding: 6px; text-align: right; font-weight: 600;">₹{{ snap.product_revenue|floatformat:2 }}</td>
+                    <td style="padding: 6px; text-align: right;">{{ snap.commission_rate }}%</td>
+                    <td style="padding: 6px; text-align: right; color: #047857; font-weight: 700;">₹{{ snap.commission_amount|floatformat:2 }}</td>
+                    <td style="padding: 6px; text-align: right; font-weight: 700; color: #2563EB;">₹{{ snap.seller_payable|floatformat:2 }}</td>
+                    <td style="padding: 6px; text-align: right;">
+                      {% if snap.seller_profit is not None %}
+                        <strong style="color: {% if snap.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
+                          ₹{{ snap.seller_profit|floatformat:2 }}
+                        </strong>
+                      {% else %}
+                        <span style="color: #94A3B8;">—</span>
+                      {% endif %}
+                    </td>
+                    <td style="padding: 6px; text-align: center;">
+                      <span class="badge {% if snap.settlement_status == 'SETTLED' %}badge-success{% elif snap.settlement_status == 'REVERSED' %}badge-danger{% else %}badge-warning{% endif %}" style="font-size: 0.65rem;">
+                        {{ snap.settlement_status }}
+                      </span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+
+      </div>
+
+      <!-- Delivery & Fleet Tracking Card -->
+      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.75rem;">
+          <h2 style="font-size: 1.1rem; font-weight: 700; color: #1E293B; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-motorcycle" style="color: #2563EB;"></i> Delivery & Fleet Dispatch
+          </h2>
+          {% if assignment %}
+            <span class="badge badge-info" style="font-size: 0.8rem;">
+              {{ assignment.get_status_display }}
+            </span>
+          {% else %}
+            <span class="badge badge-warning" style="font-size: 0.8rem;">Unassigned</span>
+          {% endif %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase;">Assigned Driver</div>
+            {% if assignment and assignment.delivery_person %}
+              <div style="font-weight: 700; color: #1E293B; font-size: 0.95rem; margin-top: 2px;">
+                {{ assignment.delivery_person.get_full_name|default:assignment.delivery_person.username }}
+              </div>
+              <div style="font-size: 0.78rem; color: #64748B;">
+                Phone: {{ assignment.delivery_person.phone|default:"N/A" }} &bull; ID: {{ assignment.delivery_person.account_id }}
+              </div>
+            {% else %}
+              <div style="font-weight: 600; color: #DC2626; margin-top: 2px;">No driver assigned</div>
+            {% endif %}
+          </div>
+
+          <div>
+            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase;">Delivery Slot</div>
+            <div style="font-weight: 700; color: #1E293B; font-size: 0.95rem; margin-top: 2px;">
+              {{ order.delivery_slot|default:"Standard Delivery" }}
+            </div>
+            <div style="font-size: 0.78rem; color: #64748B;">PIN Code: {{ order.pin_code }}</div>
+          </div>
+
+          <div>
+            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase;">Store Handover Verification</div>
+            <div style="font-weight: 700; color: #1E293B; font-size: 0.95rem; margin-top: 2px;">
+              {% if assignment and assignment.shop_verified %}
+                <span style="color: #047857;"><i class="fa-solid fa-circle-check"></i> Verified at {{ assignment.shop_verified_at|date:"h:i A" }}</span>
+              {% else %}
+                <span style="color: #D97706;"><i class="fa-solid fa-clock"></i> Pending Store Handover</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600; text-transform: uppercase;">Customer Delivery OTP</div>
+            <div style="font-weight: 700; font-size: 0.95rem; margin-top: 2px;">
+              {% if order.delivery_verified_at %}
+                <span style="color: #047857;"><i class="fa-solid fa-shield-check"></i> Verified at {{ order.delivery_verified_at|date:"h:i A" }}</span>
+              {% elif latest_otp %}
+                <span style="color: #2563EB;">
+                  <i class="fa-solid fa-paper-plane"></i> Sent (Attempts: {{ latest_otp.attempts }}/{{ latest_otp.max_attempts }})
+                </span>
+                <div style="font-size: 0.72rem; color: #64748B;">Expires {{ latest_otp.expires_at|date:"h:i A" }}</div>
+              {% else %}
+                <span style="color: #94A3B8;"><i class="fa-solid fa-lock"></i> Not Generated Yet</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Driver Assignment Form -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 0.85rem 1rem;">
+          <form action="{% url 'admin_dashboard:assign_delivery' order.order_id %}" method="POST" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0;">
+            {% csrf_token %}
+            <span style="font-size: 0.82rem; font-weight: 700; color: #334155;">Assign / Reassign Delivery Driver:</span>
+            <select name="delivery_person_id" class="form-select" style="padding: 0.35rem 0.6rem; font-size: 0.85rem; max-width: 260px;" required>
+              <option value="">-- Choose Agent --</option>
+              {% for driver in delivery_agents %}
+                <option value="{{ driver.id }}" {% if assignment and assignment.delivery_person.id == driver.id %}selected{% endif %}>
+                  {{ driver.get_full_name|default:driver.username }} [{{ driver.account_id }}] ({{ driver.active_assignments_count|default:"0" }} active)
+                </option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i class="fa-solid fa-check"></i> {% if assignment %}Update Assignment{% else %}Assign Driver{% endif %}
+            </button>
+          </form>
+        </div>
+
+        <!-- Delivery Attempts / Incident Log -->
+        {% if attempts %}
+          <div style="margin-top: 1rem;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #475569; margin-bottom: 0.4rem; text-transform: uppercase;">
+              Delivery Attempt Log
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              {% for att in attempts %}
+                <div style="font-size: 0.8rem; background: #F1F5F9; padding: 6px 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                  <span><strong>{{ att.created_at|date:"d M h:i A" }}</strong> &bull; {{ att.status }}: {{ att.proof_of_delivery|default:att.failure_reason }}</span>
+                  {% if att.cod_collected %}<span class="badge badge-success" style="font-size: 0.65rem;">COD Collected</span>{% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+      </div>
+
+      <!-- Status History & Audit Log -->
+      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <h2 style="font-size: 1.1rem; font-weight: 700; color: #1E293B; margin-bottom: 1rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-clock-rotate-left" style="color: #7C3AED;"></i> Order Lifecycle Audit Trail
+        </h2>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          {% for hist in status_history %}
+            <div style="display: flex; align-items: flex-start; gap: 12px; padding: 6px 0; border-bottom: 1px solid #F8FAFC;">
+              <div style="background: #EDE9FE; color: #6D28D9; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; flex-shrink: 0; margin-top: 2px;">
+                <i class="fa-solid fa-check"></i>
+              </div>
+              <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="color: #1E293B; font-size: 0.85rem;">{{ hist.get_status_display }}</strong>
+                  <span style="font-size: 0.75rem; color: #64748B;">{{ hist.created_at|date:"d M Y, h:i A" }}</span>
+                </div>
+                <div style="font-size: 0.8rem; color: #475569; margin-top: 2px;">{{ hist.notes|default:"Status updated" }}</div>
+                <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 1px;">
+                  Updated by: <strong>{{ hist.updated_by.get_full_name|default:hist.updated_by.username|default:"System" }}</strong>
+                </div>
+              </div>
+            </div>
+          {% empty %}
+            <div style="color: #94A3B8; font-size: 0.85rem;">No history records available.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: Customer, Payment, Financials, Actions -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+      
+      <!-- Customer Information Card -->
+      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.85rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-user" style="color: #059669;"></i> Customer Details
+        </h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
+          <div>
+            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600;">RECIPIENT NAME</div>
+            <div style="font-weight: 700; color: #1E293B;">{{ order.recipient_name }}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600;">CONTACT PHONE</div>
+            <div style="font-weight: 600; color: #1E293B;">{{ order.recipient_phone }}</div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600;">BUYER ACCOUNT</div>
+            <div style="color: #334155;">
+              {% if order.buyer %}
+                {{ order.buyer.username }} <span style="font-family: monospace; font-size: 0.75rem; color: #6D28D9;">[{{ order.buyer.account_id }}]</span>
+                <div style="font-size: 0.75rem; color: #64748B;">{{ order.buyer.email }}</div>
+              {% else %}
+                <span style="color: #94A3B8;">Guest Checkout</span>
+              {% endif %}
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; color: #64748B; font-weight: 600;">DELIVERY ADDRESS</div>
+            <div style="color: #334155; line-height: 1.4;">{{ order.delivery_address }}</div>
+            <div style="font-size: 0.78rem; color: #64748B; margin-top: 2px;">PIN: <strong>{{ order.pin_code }}</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Information Card -->
+      <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.85rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-credit-card" style="color: #2563EB;"></i> Payment Information
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #64748B;">Payment Method:</span>
+            <strong style="color: #1E293B;">{{ order.get_payment_method_display }}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #64748B;">Payment Status:</span>
+            <span class="badge {% if order.payment_status == 'PAID' %}badge-success{% else %}badge-warning{% endif %}" style="font-size: 0.75rem;">
+              {{ order.get_payment_status_display }}
+            </span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #64748B;">Amount Due:</span>
+            <strong style="color: #1E293B;">₹{{ order.total_amount|floatformat:2 }}</strong>
+          </div>
+          {% if order.payment_gateway_ref %}
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: #64748B;">Transaction Ref:</span>
+              <span style="font-family: monospace; font-size: 0.78rem;">{{ order.payment_gateway_ref }}</span>
+            </div>
+          {% endif %}
+          {% if assignment and assignment.cod_collected %}
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 6px; padding: 6px 10px; margin-top: 4px;">
+              <div style="font-size: 0.75rem; color: #065F46; font-weight: 700;">
+                <i class="fa-solid fa-circle-check"></i> Cash Collected: ₹{{ assignment.cod_collected_amount|floatformat:2 }}
+              </div>
+              <div style="font-size: 0.72rem; color: #047857;">
+                Collected at: {{ assignment.cod_collected_at|date:"d M Y, h:i A" }}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Financial Accounting Breakdown Card -->
+      <div style="background: #ffffff; border: 1.5px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.85rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-scale-balanced" style="color: #059669;"></i> Financial Summary
+        </h3>
+
+        <!-- Buyer Payable Breakdown -->
+        <div style="margin-bottom: 1rem;">
+          <div style="font-size: 0.75rem; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Customer Payable</div>
+          <table style="width: 100%; font-size: 0.82rem; border-collapse: collapse;">
+            <tbody>
+              <tr>
+                <td style="padding: 3px 0; color: #64748B;">Product Subtotal:</td>
+                <td style="padding: 3px 0; text-align: right; font-weight: 600;">₹{{ order.subtotal|floatformat:2 }}</td>
+              </tr>
+              {% if order.discount_amount and order.discount_amount > 0 %}
+                <tr>
+                  <td style="padding: 3px 0; color: #64748B;">Coupon / Order Discounts:</td>
+                  <td style="padding: 3px 0; text-align: right; color: #DC2626;">-₹{{ order.discount_amount|floatformat:2 }}</td>
+                </tr>
+              {% endif %}
+              <tr>
+                <td style="padding: 3px 0; color: #64748B;">Delivery Fee Charged:</td>
+                <td style="padding: 3px 0; text-align: right; font-weight: 600;">₹{{ order.delivery_fee|floatformat:2 }}</td>
+              </tr>
+              {% if order.cashback_redeemed and order.cashback_redeemed > 0 %}
+                <tr>
+                  <td style="padding: 3px 0; color: #64748B;">Cashback Applied:</td>
+                  <td style="padding: 3px 0; text-align: right; color: #059669; font-weight: 700;">-₹{{ order.cashback_redeemed|floatformat:2 }}</td>
+                </tr>
+              {% endif %}
+              <tr style="border-top: 1px solid #E2E8F0; font-weight: 800; font-size: 0.95rem;">
+                <td style="padding: 6px 0; color: #1E293B;">Final Customer Payable:</td>
+                <td style="padding: 6px 0; text-align: right; color: #047857;">₹{{ order.total_amount|floatformat:2 }}</td>
+              </tr>
+              {% if order.cashback_earned and order.cashback_earned > 0 %}
+                <tr>
+                  <td style="padding: 3px 0; color: #059669; font-size: 0.75rem;">Cashback Earned (Rewarded):</td>
+                  <td style="padding: 3px 0; text-align: right; color: #059669; font-weight: 700; font-size: 0.75rem;">+₹{{ order.cashback_earned|floatformat:2 }}</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Platform & Marketplace Economics -->
+        <div style="background: #F8FAFC; border-radius: 8px; padding: 10px; border: 1px solid #E2E8F0; font-size: 0.8rem;">
+          <div style="font-size: 0.72rem; color: #475569; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Marketplace Reconciliation</div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="color: #64748B;">Platform Commission:</span>
+            <strong style="color: #047857;">+₹{{ total_commission|floatformat:2 }}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="color: #64748B;">Seller Payable:</span>
+            <strong style="color: #2563EB;">₹{{ total_seller_payable|floatformat:2 }}</strong>
+          </div>
+          {% if all_costs_recorded and total_seller_profit is not None %}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: #64748B;">Est. Seller Profit:</span>
+              <strong style="color: #047857;">₹{{ total_seller_profit|floatformat:2 }}</strong>
+            </div>
+          {% endif %}
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="color: #64748B;">Delivery Fleet Payout:</span>
+            <strong style="color: #DC2626;">-₹{{ delivery_expense|floatformat:2 }}</strong>
+          </div>
+          <div style="border-top: 1px dashed #CBD5E1; padding-top: 6px; margin-top: 6px; display: flex; justify-content: space-between; font-weight: 800;">
+            <span style="color: #1E293B;">Company Net Margin:</span>
+            <span style="color: {% if company_net_contribution >= 0 %}#047857{% else %}#DC2626{% endif %};">
+              ₹{{ company_net_contribution|floatformat:2 }}
+            </span>
+          </div>
+        </div>
+
+        <div style="font-size: 0.7rem; color: #94A3B8; margin-top: 6px; line-height: 1.3;">
+          * Note: Third-party product revenue belongs to sellers and is tracked as an escrow liability until settled.
+        </div>
+      </div>
+
+      <!-- Role-Protected Administrative Actions Card -->
+      <div style="background: #ffffff; border: 1.5px solid #CBD5E1; border-radius: 12px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.85rem; border-bottom: 1px solid #F1F5F9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-bolt" style="color: #D97706;"></i> Admin Lifecycle Actions
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          
+          <!-- Confirm Order Action -->
+          {% if order.status == 'ORDER_PLACED' %}
+            <form action="{% url 'admin_dashboard:order_action' order.order_id %}" method="POST" onsubmit="return confirm('Confirm order #{{ order.order_id }}?');">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="confirm_order">
+              <button type="submit" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+                <i class="fa-solid fa-check"></i> Confirm Order
+              </button>
+            </form>
+          {% endif %}
+
+          <!-- Cancel Order Action -->
+          {% if order.status != 'DELIVERED' and order.status != 'CANCELLED' and order.status != 'REFUNDED' %}
+            <form action="{% url 'admin_dashboard:order_action' order.order_id %}" method="POST" onsubmit="return confirm('Cancel Order #{{ order.order_id }}? This will safely restore stock and reverse financial holds.');">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="cancel_order">
+              <div style="margin-bottom: 6px;">
+                <input type="text" name="reason" class="form-control" placeholder="Cancellation reason..." style="font-size: 0.8rem; padding: 0.35rem 0.6rem;">
+              </div>
+              <button type="submit" class="btn btn-outline-danger btn-sm" style="width: 100%; justify-content: center; color: #DC2626; border-color: #FCA5A5;">
+                <i class="fa-solid fa-ban"></i> Cancel Order
+              </button>
+            </form>
+          {% endif %}
+
+          <!-- Refund Action -->
+          {% if order.payment_status == 'PAID' and order.status != 'REFUNDED' %}
+            <div style="border-top: 1px solid #F1F5F9; padding-top: 8px; margin-top: 4px;">
+              <form action="{% url 'admin_dashboard:order_action' order.order_id %}" method="POST" onsubmit="return confirm('Process refund for Order #{{ order.order_id }}?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="process_refund">
+                <div style="margin-bottom: 6px;">
+                  <input type="text" name="reason" class="form-control" placeholder="Refund reason..." style="font-size: 0.8rem; padding: 0.35rem 0.6rem;">
+                </div>
+                <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #475569;">
+                  <input type="checkbox" name="restore_stock" id="restore_stock" value="1" checked>
+                  <label for="restore_stock" style="margin: 0; cursor: pointer;">Restore returned items to inventory</label>
+                </div>
+                <button type="submit" class="btn btn-outline-secondary btn-sm" style="width: 100%; justify-content: center; color: #6D28D9; border-color: #DDD6FE;">
+                  <i class="fa-solid fa-arrow-rotate-left"></i> Process Customer Refund
+                </button>
+              </form>
+            </div>
+          {% endif %}
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

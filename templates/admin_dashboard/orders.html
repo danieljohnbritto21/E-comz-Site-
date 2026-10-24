@@ -1,15 +1,17 @@
 {% extends 'admin_dashboard/base_admin.html' %}
 {% load static %}
+{% load catalog_tags %}
 
-{% block title %}All Orders & Dispatch - Admin Portal{% endblock %}
+{% block title %}Marketplace Order Management & Dispatch - Admin Portal{% endblock %}
 
 {% block admin_content %}
-<div>
+<div style="padding-bottom: 3rem;">
   
-  <div class="dashboard-header">
+  <!-- Dashboard Header -->
+  <div class="dashboard-header" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
     <div>
-      <h1 class="dashboard-title">Platform Orders & Dispatch Control</h1>
-      <p class="dashboard-subtitle">Monitor orders across all seller sub-orders, assign delivery agents, and review live statuses</p>
+      <h1 class="dashboard-title">Marketplace Order Management & Dispatch</h1>
+      <p class="dashboard-subtitle">Complete end-to-end order lifecycle control: multi-vendor partitions, rider assignments, payment collection, and OTP verification</p>
     </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
       <a href="{% url 'admin_dashboard:auto_assign_all' %}" class="btn btn-primary btn-sm" style="font-weight: 700;">
@@ -21,118 +23,368 @@
     </div>
   </div>
 
-  <!-- Status Filter Pills -->
-  <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 1rem; margin-bottom: 1.5rem;">
-    <a href="{% url 'admin_dashboard:orders' %}" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-secondary{% endif %}">
-      All Orders
+  <!-- Messages -->
+  {% if messages %}
+    <div style="margin-bottom: 1rem;">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}" style="padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 0.5rem; font-size: 0.9rem;">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Order Status Category Tabs with Live Live Counts -->
+  <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 0.75rem; margin-bottom: 1.25rem; scrollbar-width: thin;">
+    <a href="{% url 'admin_dashboard:orders' %}?tab=all" class="btn btn-sm {% if active_tab == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>All Orders</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.all }}</span>
     </a>
-    <a href="?status=ORDER_PLACED" class="btn btn-sm {% if status_filter == 'ORDER_PLACED' %}btn-primary{% else %}btn-secondary{% endif %}">
-      Placed
+    <a href="{% url 'admin_dashboard:orders' %}?tab=placed" class="btn btn-sm {% if active_tab == 'placed' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Placed</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.ORDER_PLACED }}</span>
     </a>
-    <a href="?status=ORDER_CONFIRMED" class="btn btn-sm {% if status_filter == 'ORDER_CONFIRMED' %}btn-primary{% else %}btn-secondary{% endif %}">
-      Confirmed
+    <a href="{% url 'admin_dashboard:orders' %}?tab=confirmed" class="btn btn-sm {% if active_tab == 'confirmed' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Confirmed</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.ORDER_CONFIRMED }}</span>
     </a>
-    <a href="?status=PREPARING" class="btn btn-sm {% if status_filter == 'PREPARING' %}btn-primary{% else %}btn-secondary{% endif %}">
-      Preparing Produce
+    <a href="{% url 'admin_dashboard:orders' %}?tab=preparing" class="btn btn-sm {% if active_tab == 'preparing' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Preparing</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.PREPARING }}</span>
     </a>
-    <a href="?status=PACKED" class="btn btn-sm {% if status_filter == 'PACKED' %}btn-primary{% else %}btn-secondary{% endif %}">
-      Packed
+    <a href="{% url 'admin_dashboard:orders' %}?tab=packed" class="btn btn-sm {% if active_tab == 'packed' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Packed</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.packed }}</span>
     </a>
-    <a href="?status=READY_FOR_PICKUP" class="btn btn-sm {% if status_filter == 'READY_FOR_PICKUP' %}btn-primary{% else %}btn-secondary{% endif %}">
-      Ready for Dispatch
+    <a href="{% url 'admin_dashboard:orders' %}?tab=awaiting_assignment" class="btn btn-sm {% if active_tab == 'awaiting_assignment' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Awaiting Rider</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.awaiting_assignment }}</span>
     </a>
-    <a href="?status=OUT_FOR_DELIVERY" class="btn btn-sm {% if status_filter == 'OUT_FOR_DELIVERY' %}btn-primary{% else %}btn-secondary{% endif %}">
-      Out for Delivery
+    <a href="{% url 'admin_dashboard:orders' %}?tab=assigned_delivery" class="btn btn-sm {% if active_tab == 'assigned_delivery' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Assigned</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.assigned_delivery }}</span>
     </a>
-    <a href="?status=DELIVERED" class="btn btn-sm {% if status_filter == 'DELIVERED' %}btn-primary{% else %}btn-secondary{% endif %}">
-      Delivered
+    <a href="{% url 'admin_dashboard:orders' %}?tab=out_for_delivery" class="btn btn-sm {% if active_tab == 'out_for_delivery' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Out for Delivery</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.out_for_delivery }}</span>
+    </a>
+    <a href="{% url 'admin_dashboard:orders' %}?tab=awaiting_payment" class="btn btn-sm {% if active_tab == 'awaiting_payment' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Awaiting Payment</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.awaiting_payment }}</span>
+    </a>
+    <a href="{% url 'admin_dashboard:orders' %}?tab=awaiting_otp" class="btn btn-sm {% if active_tab == 'awaiting_otp' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Awaiting OTP</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.awaiting_otp }}</span>
+    </a>
+    <a href="{% url 'admin_dashboard:orders' %}?tab=delivered" class="btn btn-sm {% if active_tab == 'delivered' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Delivered</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.delivered }}</span>
+    </a>
+    <a href="{% url 'admin_dashboard:orders' %}?tab=cancelled" class="btn btn-sm {% if active_tab == 'cancelled' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Cancelled</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.cancelled }}</span>
+    </a>
+    <a href="{% url 'admin_dashboard:orders' %}?tab=return_requested" class="btn btn-sm {% if active_tab == 'return_requested' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Return Requested</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.return_requested }}</span>
+    </a>
+    <a href="{% url 'admin_dashboard:orders' %}?tab=returned" class="btn btn-sm {% if active_tab == 'returned' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Returned</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.returned }}</span>
+    </a>
+    <a href="{% url 'admin_dashboard:orders' %}?tab=refund_pending" class="btn btn-sm {% if active_tab == 'refund_pending' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Refund Pending</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.refund_pending }}</span>
+    </a>
+    <a href="{% url 'admin_dashboard:orders' %}?tab=refunded" class="btn btn-sm {% if active_tab == 'refunded' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Refunded</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.refunded }}</span>
+    </a>
+    <a href="{% url 'admin_dashboard:orders' %}?tab=delivery_failed" class="btn btn-sm {% if active_tab == 'delivery_failed' %}btn-primary{% else %}btn-secondary{% endif %}" style="white-space: nowrap; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+      <span>Delivery Issues</span>
+      <span class="badge" style="background: rgba(0,0,0,0.12); padding: 2px 6px; font-size: 0.7rem; border-radius: 10px;">{{ status_counts.delivery_failed }}</span>
     </a>
   </div>
 
-  <div class="table-card">
+  <!-- Advanced Backend Search & Filter Card -->
+  <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+    <form method="GET" action="{% url 'admin_dashboard:orders' %}">
+      {% if active_tab and active_tab != 'all' %}
+        <input type="hidden" name="tab" value="{{ active_tab }}">
+      {% endif %}
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
+        <!-- Keyword Search -->
+        <div style="grid-column: span 2;">
+          <label style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase;">Search Query</label>
+          <div style="position: relative;">
+            <input type="text" name="q" value="{{ filters.q }}" class="form-control" placeholder="Order ID, Customer Name/Phone, Product, SKU, Store..." style="font-size: 0.85rem; padding-left: 2rem;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: #94A3B8; font-size: 0.85rem;"></i>
+          </div>
+        </div>
+
+        <!-- Seller Store Filter -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase;">Seller Store</label>
+          <input type="text" name="seller" value="{{ filters.seller }}" class="form-control" placeholder="Store name..." style="font-size: 0.85rem;">
+        </div>
+
+        <!-- Delivery Agent Filter -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase;">Delivery Agent</label>
+          <select name="delivery_agent" class="form-select" style="font-size: 0.85rem;">
+            <option value="">All Delivery Agents</option>
+            {% for driver in delivery_agents %}
+              <option value="{{ driver.id }}" {% if filters.delivery_agent == driver.id|stringformat:"s" %}selected{% endif %}>
+                {{ driver.get_full_name|default:driver.username }} [{{ driver.account_id }}]
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Payment Method -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase;">Payment Method</label>
+          <select name="payment_method" class="form-select" style="font-size: 0.85rem;">
+            <option value="">All Methods</option>
+            <option value="COD" {% if filters.payment_method == 'COD' %}selected{% endif %}>Cash on Delivery (COD)</option>
+            <option value="ONLINE" {% if filters.payment_method == 'ONLINE' %}selected{% endif %}>Online Payment / UPI</option>
+          </select>
+        </div>
+
+        <!-- Payment Status -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase;">Payment Status</label>
+          <select name="payment_status" class="form-select" style="font-size: 0.85rem;">
+            <option value="">All Payment Statuses</option>
+            <option value="PAID" {% if filters.payment_status == 'PAID' %}selected{% endif %}>Paid</option>
+            <option value="PENDING" {% if filters.payment_status == 'PENDING' %}selected{% endif %}>Pending</option>
+            <option value="REFUNDED" {% if filters.payment_status == 'REFUNDED' %}selected{% endif %}>Refunded</option>
+          </select>
+        </div>
+
+        <!-- Date Range From -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase;">Date From</label>
+          <input type="date" name="date_from" value="{{ filters.date_from }}" class="form-control" style="font-size: 0.85rem;">
+        </div>
+
+        <!-- Date Range To -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase;">Date To</label>
+          <input type="date" name="date_to" value="{{ filters.date_to }}" class="form-control" style="font-size: 0.85rem;">
+        </div>
+
+        <!-- Cashback Filter -->
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase;">Cashback Status</label>
+          <select name="cashback" class="form-select" style="font-size: 0.85rem;">
+            <option value="">All Orders</option>
+            <option value="earned" {% if filters.cashback == 'earned' %}selected{% endif %}>Cashback Earned (> ₹0)</option>
+            <option value="redeemed" {% if filters.cashback == 'redeemed' %}selected{% endif %}>Cashback Redeemed (> ₹0)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center; border-top: 1px solid #F1F5F9; padding-top: 10px;">
+        <a href="{% url 'admin_dashboard:orders' %}" class="btn btn-secondary btn-sm" style="font-size: 0.85rem;">
+          <i class="fa-solid fa-rotate-left"></i> Reset Filters
+        </a>
+        <button type="submit" class="btn btn-primary btn-sm" style="font-size: 0.85rem;">
+          <i class="fa-solid fa-filter"></i> Apply Filters
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Orders Table Card -->
+  <div class="table-card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); overflow: hidden;">
     <div class="table-responsive">
-      <table class="data-table">
+      <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
         <thead>
-          <tr>
-            <th>Order Ref</th>
-            <th>Customer</th>
-            <th>Delivery Slot & Pin</th>
-            <th>Amount</th>
-            <th>Payment</th>
-            <th>Current Status</th>
-            <th>Assign Delivery Driver</th>
-            <th style="text-align: right;">Action</th>
+          <tr style="background: #F8FAFC; border-bottom: 2px solid #E2E8F0; text-align: left; color: #64748B; font-size: 0.75rem; text-transform: uppercase;">
+            <th style="padding: 12px 14px;">Order Ref & Date</th>
+            <th style="padding: 12px 14px;">Customer</th>
+            <th style="padding: 12px 14px;">Items & Stores</th>
+            <th style="padding: 12px 14px; text-align: right;">Amount & Financials</th>
+            <th style="padding: 12px 14px;">Payment</th>
+            <th style="padding: 12px 14px;">Status</th>
+            <th style="padding: 12px 14px;">Assigned Driver</th>
+            <th style="padding: 12px 14px; text-align: right;">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for order in orders %}
-            <tr>
-              <td>
-                <strong style="color: var(--text-main);">#{{ order.order_id }}</strong>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ order.created_at|date:"d M, h:i A" }}</div>
+            <tr style="border-bottom: 1px solid #F1F5F9; transition: background 0.15s;" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='transparent'">
+              
+              <!-- Order Ref & Placed Timestamp -->
+              <td style="padding: 12px 14px; vertical-align: top;">
+                <a href="{% url 'admin_dashboard:order_detail' order.order_id %}" style="font-weight: 800; color: var(--color-primary-dark); text-decoration: none; font-size: 0.95rem;">
+                  #{{ order.order_id }}
+                </a>
+                <div style="font-size: 0.74rem; color: #64748B; margin-top: 2px;">
+                  {{ order.created_at|date:"d M Y, h:i A" }}
+                </div>
+                {% if order.delivery_slot %}
+                  <div style="font-size: 0.72rem; color: #475569; margin-top: 2px;">
+                    Slot: <strong>{{ order.delivery_slot }}</strong>
+                  </div>
+                {% endif %}
               </td>
-              <td>
-                <div style="font-weight: 600;">{{ order.recipient_name }}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">
-                  {% if order.buyer %}<span style="font-family: monospace; font-weight: 700;">{{ order.buyer.account_id }}</span> &bull; {% endif %}{{ order.recipient_phone }}
+
+              <!-- Customer Details -->
+              <td style="padding: 12px 14px; vertical-align: top;">
+                <div style="font-weight: 700; color: #1E293B;">{{ order.recipient_name }}</div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 1px;">
+                  <i class="fa-solid fa-phone" style="font-size: 0.7rem;"></i> {{ order.recipient_phone }}
+                </div>
+                <div style="font-size: 0.72rem; color: #64748B;">
+                  {% if order.buyer %}
+                    Account: <span style="font-family: monospace; font-weight: 600; color: #6D28D9;">{{ order.buyer.account_id }}</span>
+                  {% endif %}
+                  &bull; PIN: {{ order.pin_code }}
                 </div>
               </td>
-              <td>
-                <div style="font-weight: 600; font-size: 0.85rem;">{{ order.delivery_slot }}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">PIN: {{ order.pin_code }}</div>
+
+              <!-- Items & Seller Partition Summary -->
+              <td style="padding: 12px 14px; vertical-align: top; max-width: 220px;">
+                <div style="font-weight: 600; color: #334155;">
+                  {{ order.items.count }} item(s) across {{ order.sub_orders.count }} seller(s)
+                </div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  {% for item in order.items.all|slice:":2" %}
+                    {{ item.product_name }}{% if not forloop.last %}, {% endif %}
+                  {% endfor %}
+                  {% if order.items.count > 2 %}...{% endif %}
+                </div>
               </td>
-              <td><strong style="font-size: 1.05rem; color: var(--color-primary-dark);">{{ order.total_amount|inr }}</strong></td>
-              <td>
-                <div style="font-weight: 600; font-size: 0.85rem;">{{ order.get_payment_method_display }}</div>
-                <div style="font-size: 0.75rem; color: #047857;">{{ order.get_payment_status_display }}</div>
+
+              <!-- Amount & Financials -->
+              <td style="padding: 12px 14px; text-align: right; vertical-align: top;">
+                <div style="font-weight: 800; font-size: 1.05rem; color: #047857;">
+                  ₹{{ order.total_amount|floatformat:2 }}
+                </div>
+                <div style="font-size: 0.72rem; color: #64748B; margin-top: 1px;">
+                  Subtotal: ₹{{ order.subtotal|floatformat:2 }}
+                  {% if order.delivery_fee > 0 %}&bull; Fee: ₹{{ order.delivery_fee|floatformat:2 }}{% endif %}
+                </div>
+                {% if order.cashback_redeemed and order.cashback_redeemed > 0 %}
+                  <div style="font-size: 0.72rem; color: #059669; font-weight: 600;">
+                    Redeemed: -₹{{ order.cashback_redeemed|floatformat:2 }}
+                  </div>
+                {% endif %}
+                {% if order.cashback_earned and order.cashback_earned > 0 %}
+                  <div style="font-size: 0.7rem; color: #059669;">
+                    Cashback: +₹{{ order.cashback_earned|floatformat:2 }}
+                  </div>
+                {% endif %}
               </td>
-              <td>
-                <span class="badge {{ order.status_badge_class }}">
-                  {{ order.get_status_display }}
+
+              <!-- Payment Method & Status -->
+              <td style="padding: 12px 14px; vertical-align: top;">
+                <div style="font-weight: 600; font-size: 0.85rem; color: #1E293B;">
+                  {{ order.get_payment_method_display }}
+                </div>
+                <span class="badge {% if order.payment_status == 'PAID' %}badge-success{% elif order.payment_status == 'REFUNDED' %}badge-danger{% else %}badge-warning{% endif %}" style="font-size: 0.7rem; margin-top: 2px;">
+                  {{ order.get_payment_status_display }}
                 </span>
               </td>
-              <td>
+
+              <!-- Order Status Badge -->
+              <td style="padding: 12px 14px; vertical-align: top;">
+                <span class="badge {{ order.status_badge_class }}" style="font-size: 0.75rem;">
+                  {{ order.get_status_display }}
+                </span>
+                {% if order.delivery_assignment %}
+                  <div style="font-size: 0.7rem; color: #2563EB; margin-top: 3px; font-weight: 600;">
+                    <i class="fa-solid fa-motorcycle"></i> {{ order.delivery_assignment.get_status_display }}
+                  </div>
+                {% endif %}
+              </td>
+
+              <!-- Assigned Driver & Quick Reassignment Form -->
+              <td style="padding: 12px 14px; vertical-align: top;">
                 <form action="{% url 'admin_dashboard:assign_delivery' order.order_id %}" method="POST" style="display: flex; gap: 4px; align-items: center; margin: 0;">
                   {% csrf_token %}
-                  <select name="delivery_person_id" class="form-select" style="padding: 0.3rem 0.5rem; font-size: 0.8rem; width: 140px;" required>
-                    <option value="">-- Choose Agent --</option>
+                  <select name="delivery_person_id" class="form-select" style="padding: 0.25rem 0.4rem; font-size: 0.78rem; width: 135px;" required>
+                    <option value="">-- Choose Rider --</option>
                     {% for driver in delivery_agents %}
                       <option value="{{ driver.id }}" {% if order.delivery_assignment.delivery_person.id == driver.id %}selected{% endif %}>
-                        {{ driver.get_full_name|default:driver.username }} [{{ driver.account_id }}] ({{ driver.active_assignments_count|default:"0" }} active)
+                        {{ driver.get_full_name|default:driver.username }} ({{ driver.active_assignments_count|default:"0" }})
                       </option>
                     {% endfor %}
                   </select>
-                  <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.35rem 0.6rem; font-size: 0.75rem;">
+                  <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.3rem 0.5rem; font-size: 0.72rem;">
                     {% if order.delivery_assignment %}Reassign{% else %}Assign{% endif %}
                   </button>
                 </form>
                 {% if order.delivery_assignment and order.delivery_assignment.delivery_person %}
-                  <div style="font-size: 0.75rem; color: #047857; margin-top: 3px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-                    <span>Assigned: <strong>{{ order.delivery_assignment.delivery_person.get_full_name|default:order.delivery_assignment.delivery_person.username }}</strong> <span style="font-family: monospace; font-size: 0.7rem; color: var(--text-muted);">[{{ order.delivery_assignment.delivery_person.account_id }}]</span></span>
-                    <span class="badge badge-info" style="font-size: 0.68rem; padding: 1px 5px;">{{ order.delivery_assignment.get_status_display }}</span>
+                  <div style="font-size: 0.72rem; color: #047857; margin-top: 3px;">
+                    Assigned: <strong>{{ order.delivery_assignment.delivery_person.get_full_name|default:order.delivery_assignment.delivery_person.username }}</strong>
                   </div>
                 {% else %}
-                  <div style="font-size: 0.72rem; color: #D97706; margin-top: 3px;">
-                    <i class="fa-solid fa-clock"></i> Auto-dispatching when packed
+                  <div style="font-size: 0.7rem; color: #D97706; margin-top: 3px;">
+                    <i class="fa-solid fa-hourglass-start"></i> Auto-dispatches on packed
                   </div>
                 {% endif %}
               </td>
-              <td style="text-align: right;">
-                <a href="{% url 'orders:track' order.order_id %}" target="_blank" class="btn btn-secondary btn-sm" title="Inspect Tracking">
-                  <i class="fa-solid fa-map-location-dot"></i>
-                </a>
+
+              <!-- Action Links -->
+              <td style="padding: 12px 14px; text-align: right; vertical-align: top;">
+                <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                  <a href="{% url 'admin_dashboard:order_detail' order.order_id %}" class="btn btn-primary btn-sm" title="View Complete Order Breakdown" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;">
+                    <i class="fa-solid fa-eye"></i> Details
+                  </a>
+                  <a href="{% url 'orders:track' order.order_id %}" target="_blank" class="btn btn-secondary btn-sm" title="Inspect Tracking" style="padding: 0.3rem 0.5rem; font-size: 0.78rem;">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                  </a>
+                </div>
               </td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                No orders found under this status.
+              <td colspan="8" style="text-align: center; padding: 3rem; color: #94A3B8;">
+                <i class="fa-solid fa-box-open" style="font-size: 2.5rem; color: #CBD5E1; margin-bottom: 0.75rem; display: block;"></i>
+                No marketplace orders match the current filter criteria.
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
+    <!-- Backend Pagination Controls -->
+    {% if page_obj.has_other_pages %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-top: 1px solid #E2E8F0; background: #F8FAFC; flex-wrap: wrap; gap: 0.75rem;">
+        <div style="font-size: 0.85rem; color: #64748B;">
+          Showing page <strong>{{ page_obj.number }}</strong> of <strong>{{ page_obj.paginator.num_pages }}</strong> (Total {{ page_obj.paginator.count }} orders)
+        </div>
+        <div style="display: flex; gap: 6px;">
+          {% if page_obj.has_previous %}
+            <a href="?page=1{% if active_tab %}&tab={{ active_tab }}{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.seller %}&seller={{ filters.seller }}{% endif %}{% if filters.delivery_agent %}&delivery_agent={{ filters.delivery_agent }}{% endif %}{% if filters.payment_method %}&payment_method={{ filters.payment_method }}{% endif %}{% if filters.payment_status %}&payment_status={{ filters.payment_status }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.cashback %}&cashback={{ filters.cashback }}{% endif %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">
+              First
+            </a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if active_tab %}&tab={{ active_tab }}{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.seller %}&seller={{ filters.seller }}{% endif %}{% if filters.delivery_agent %}&delivery_agent={{ filters.delivery_agent }}{% endif %}{% if filters.payment_method %}&payment_method={{ filters.payment_method }}{% endif %}{% if filters.payment_status %}&payment_status={{ filters.payment_status }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.cashback %}&cashback={{ filters.cashback }}{% endif %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">
+              Previous
+            </a>
+          {% endif %}
+
+          <span class="btn btn-primary btn-sm" style="font-size: 0.78rem; pointer-events: none;">
+            {{ page_obj.number }}
+          </span>
+
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if active_tab %}&tab={{ active_tab }}{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.seller %}&seller={{ filters.seller }}{% endif %}{% if filters.delivery_agent %}&delivery_agent={{ filters.delivery_agent }}{% endif %}{% if filters.payment_method %}&payment_method={{ filters.payment_method }}{% endif %}{% if filters.payment_status %}&payment_status={{ filters.payment_status }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.cashback %}&cashback={{ filters.cashback }}{% endif %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">
+              Next
+            </a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if active_tab %}&tab={{ active_tab }}{% endif %}{% if filters.q %}&q={{ filters.q }}{% endif %}{% if filters.seller %}&seller={{ filters.seller }}{% endif %}{% if filters.delivery_agent %}&delivery_agent={{ filters.delivery_agent }}{% endif %}{% if filters.payment_method %}&payment_method={{ filters.payment_method }}{% endif %}{% if filters.payment_status %}&payment_status={{ filters.payment_status }}{% endif %}{% if filters.date_from %}&date_from={{ filters.date_from }}{% endif %}{% if filters.date_to %}&date_to={{ filters.date_to }}{% endif %}{% if filters.cashback %}&cashback={{ filters.cashback }}{% endif %}" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">
+              Last
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
   </div>
 
 </div>
