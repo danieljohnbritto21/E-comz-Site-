@@ -86,7 +86,7 @@ def checkout_view(request):
     delivery_date_choice = 'today'
     delivery_slot = '07:00 AM - 10:00 AM'
     instructions = ''
-    payment_method = 'COD'
+    payment_method = ''
     address_id = ''
 
     if request.user.is_authenticated and addresses.exists():
@@ -106,10 +106,14 @@ def checkout_view(request):
 
     def build_checkout_context():
         from apps.reports.models import MarketplaceConfig
-        from apps.reports.services import get_buyer_cashback_balance
+        from apps.reports.services import get_buyer_cashback_balance, calculate_cashback_for_spend
         config = MarketplaceConfig.get_config()
-        total_items_count = sum(item.quantity for item in cart_items)
-        expected_cashback = (config.cashback_per_unit * Decimal(total_items_count)).quantize(Decimal('0.01'))
+        calc_mode = getattr(config, 'cashback_calculation_mode', 'SPEND_BASED')
+        if calc_mode == 'SPEND_BASED':
+            expected_cashback = calculate_cashback_for_spend(cart.subtotal, config)
+        else:
+            total_items_count = sum(item.quantity for item in cart_items)
+            expected_cashback = (config.cashback_per_unit * Decimal(total_items_count)).quantize(Decimal('0.01'))
         available_cashback = get_buyer_cashback_balance(request.user) if request.user.is_authenticated else Decimal('0.00')
 
         return {
@@ -161,7 +165,12 @@ def checkout_view(request):
         delivery_date_choice = request.POST.get('delivery_date', 'today')
         delivery_slot = request.POST.get('delivery_slot', '07:00 AM - 10:00 AM')
         instructions = request.POST.get('delivery_instructions', '').strip()
-        payment_method = request.POST.get('payment_method', 'COD')
+        payment_method = request.POST.get('payment_method', '').strip()
+
+        # Validate payment method explicitly
+        if not payment_method or payment_method not in Order.PaymentMethod.values:
+            messages.error(request, "Please select a payment method to continue.")
+            return render(request, 'buyer/checkout.html', build_checkout_context())
 
         # Auto-sync Name and Phone between Section 1 & Section 2 so the user never has to type twice
         if not customer_name and full_name:
@@ -267,7 +276,6 @@ def checkout_view(request):
         delivery_date = today_date if delivery_date_choice == 'today' else today_date + timezone.timedelta(days=1)
         delivery_slot = request.POST.get('delivery_slot', '10:00 AM - 01:00 PM')
         instructions = request.POST.get('delivery_instructions', '').strip()
-        payment_method = request.POST.get('payment_method', 'COD')
 
         # Recalculate all amounts on backend
         backend_subtotal = Decimal('0.00')

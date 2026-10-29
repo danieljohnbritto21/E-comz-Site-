@@ -358,7 +358,8 @@ function validatePricingAndCalculate() {
   const alertText = document.getElementById('pricing-error-text');
   const discountBox = document.getElementById('discount-badge-box');
   const profitLine = document.getElementById('profit-preview-line');
-  const commissionRate = parseFloat("{{ user.seller_profile.commission_rate|default:5.00 }}") || 5.0;
+  const rawCommissionRate = "{{ user.seller_profile.commission_rate|default:'0.00' }}";
+  const commissionRate = isNaN(parseFloat(rawCommissionRate)) ? 0.0 : parseFloat(rawCommissionRate);
 
   // Clear all previous errors
   [mrpError, sellingError, costError].forEach(el => {
@@ -463,12 +464,9 @@ function validatePricingAndCalculate() {
   }
 
   if (profitLine && hasSelling && hasCost) {
-    const commission = (selling * commissionRate / 100.0);
-    const payable = selling - commission;
-    const profit = payable - cost;
-    const profitText = (profit >= 0 ? '+' : '') + '₹' + profit.toFixed(2);
-    const marginPct = ((profit / selling) * 100).toFixed(1);
-    profitLine.innerHTML = `<i class="fa-solid fa-chart-line"></i> Estimated Net Profit: <strong style="color: ${profit >= 0 ? '#059669' : '#DC2626'}">${profitText}</strong> per unit (${marginPct}% margin after ${commissionRate}% commission &amp; ₹${cost.toFixed(2)} cost).`;
+    const receivableText = '₹' + cost.toFixed(2);
+    const cbEstimate = (selling / 10.0).toFixed(2);
+    profitLine.innerHTML = `<i class="fa-solid fa-wallet"></i> <strong>Seller Receivable:</strong> <strong style="color: #059669">${receivableText}</strong> per unit sold. (Customer pays ₹${selling.toFixed(2)} &amp; earns ₹${cbEstimate} cashback upon delivery).`;
     profitLine.style.display = 'block';
     showBox = true;
   }

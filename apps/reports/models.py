@@ -20,9 +20,9 @@ class MarketplaceConfig(models.Model):
     """
     # Commission settings
     commission_percentage = models.DecimalField(
-        max_digits=5, decimal_places=2, default=Decimal('5.00'),
+        max_digits=5, decimal_places=2, default=Decimal('0.00'),
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Default platform commission percentage. Per-seller override is on SellerProfile.commission_rate.'
+        help_text='Default platform commission percentage. Defaults to 0.00%. Per-seller override is on SellerProfile.commission_rate.'
     )
     commission_fixed_per_unit = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal('0.00'),
@@ -39,10 +39,31 @@ class MarketplaceConfig(models.Model):
     )
 
     # Cashback settings
+    cashback_rate_per_10 = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('1.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Cashback amount (₹) earned per ₹10 of eligible selling price spend. Default ₹1.00.'
+    )
     cashback_per_unit = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal('1.00'),
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Default cashback amount per eligible product unit.'
+        help_text='Fallback or legacy cashback amount per eligible product unit.'
+    )
+    CASHBACK_ROUNDING_CHOICES = [
+        ('PROPORTIONAL', 'Proportional Decimal (e.g. ₹45 -> ₹4.50)'),
+        ('FLOOR_10', 'Round Down to whole ₹10 blocks'),
+    ]
+    cashback_rounding_policy = models.CharField(
+        max_length=20, choices=CASHBACK_ROUNDING_CHOICES, default='PROPORTIONAL',
+        help_text='Calculation policy for fractional cashback.'
+    )
+    CASHBACK_CALC_CHOICES = [
+        ('SPEND_BASED', 'Spend-Based (₹1 per ₹10 spend)'),
+        ('PER_UNIT', 'Legacy Per-Unit Amount'),
+    ]
+    cashback_calculation_mode = models.CharField(
+        max_length=20, choices=CASHBACK_CALC_CHOICES, default='SPEND_BASED',
+        help_text='Whether cashback is calculated per ₹10 spend or per unit.'
     )
     CASHBACK_FUNDING_CHOICES = [
         ('COMPANY', 'Company Funded'),
@@ -52,6 +73,28 @@ class MarketplaceConfig(models.Model):
     cashback_funding = models.CharField(
         max_length=20, choices=CASHBACK_FUNDING_CHOICES, default='COMPANY',
         help_text='Who funds the buyer cashback reward.'
+    )
+    cashback_redemption_enabled = models.BooleanField(
+        default=True, help_text='Allow buyers to redeem available cashback at checkout.'
+    )
+
+    # Settlement settings
+    SELLER_SETTLEMENT_CHOICES = [
+        ('PRODUCT_COST_RECEIVABLE', 'Product Cost is Seller Receivable (Buy Price Model)'),
+        ('COMMISSION_DEDUCTION', 'Traditional Commission Deduction'),
+    ]
+    seller_settlement_mode = models.CharField(
+        max_length=30, choices=SELLER_SETTLEMENT_CHOICES, default='PRODUCT_COST_RECEIVABLE',
+        help_text='Defines how seller wallet earnings are calculated.'
+    )
+    seller_settlement_require_delivery = models.BooleanField(
+        default=True, help_text='Require successful delivery before settling seller profit.'
+    )
+    seller_settlement_require_payment = models.BooleanField(
+        default=True, help_text='Require payment verification before settling seller profit.'
+    )
+    return_period_days = models.PositiveIntegerField(
+        default=0, help_text='Days after delivery to wait before settling (return window). 0 = settle immediately on delivery.'
     )
 
     # Delivery settings
@@ -69,17 +112,6 @@ class MarketplaceConfig(models.Model):
         max_digits=10, decimal_places=2, default=Decimal('30.00'),
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text='Default delivery person earning per eligible delivered order.'
-    )
-
-    # Settlement settings
-    seller_settlement_require_delivery = models.BooleanField(
-        default=True, help_text='Require successful delivery before settling seller profit.'
-    )
-    seller_settlement_require_payment = models.BooleanField(
-        default=True, help_text='Require payment verification before settling seller profit.'
-    )
-    return_period_days = models.PositiveIntegerField(
-        default=0, help_text='Days after delivery to wait before settling (return window). 0 = settle immediately on delivery.'
     )
 
     # Audit
@@ -203,10 +235,14 @@ class OrderItemFinancialSnapshot(models.Model):
     commission_amount = models.DecimalField(max_digits=12, decimal_places=2, help_text='Total commission for this item')
 
     # Seller financials
-    seller_payable = models.DecimalField(max_digits=12, decimal_places=2, help_text='Revenue - commission')
+    seller_receivable = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text='Amount receivable by seller (Product Cost * quantity under receivable model).'
+    )
+    seller_payable = models.DecimalField(max_digits=12, decimal_places=2, help_text='Revenue - commission or agreed seller receivable')
     seller_profit = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True,
-        help_text='seller_payable - product_cost_total. Null if cost unavailable.'
+        help_text='Seller earnings to be credited to wallet.'
     )
 
     # Cashback
@@ -232,6 +268,18 @@ class OrderItemFinancialSnapshot(models.Model):
     @property
     def product_name(self):
         return self.order_item.product_name if self.order_item else ''
+
+    @property
+    def effective_seller_receivable(self):
+        if self.seller_receivable is not None:
+            return self.seller_receivable
+        if self.product_cost_total is not None:
+            return self.product_cost_total
+        return self.seller_payable
+
+    @property
+    def is_cost_recorded(self):
+        return self.product_cost_per_unit is not None
 
     @property
     def unit_selling_price(self):

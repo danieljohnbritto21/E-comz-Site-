@@ -87,6 +87,12 @@
         <div class="product-price-tax-note">
           (Inclusive of all applicable taxes)
         </div>
+        {% if product.estimated_cashback > 0 %}
+          <div class="product-cashback-badge" style="display: inline-flex; align-items: center; gap: 6px; background: #FEF3C7; border: 1px solid #FDE68A; color: #92400E; padding: 6px 12px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; margin-top: 8px;">
+            <i class="fa-solid fa-coins" style="color: #D97706;"></i>
+            <span>Earn ₹{{ product.estimated_cashback|floatformat:2 }} cashback after successful delivery</span>
+          </div>
+        {% endif %}
       </div>
 
       <!-- Stock Status -->

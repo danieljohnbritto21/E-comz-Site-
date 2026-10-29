@@ -25,6 +25,12 @@ class OrderManagementAndPnLTests(TestCase):
             role=User.Role.ADMIN
         )
 
+        from apps.reports.models import MarketplaceConfig
+        self.config = MarketplaceConfig.get_config()
+        self.config.seller_settlement_mode = 'COMMISSION_DEDUCTION'
+        self.config.cashback_calculation_mode = 'PER_UNIT'
+        self.config.save()
+
         # Seller user
         self.seller_user = User.objects.create_user(
             username='fresh_farms',

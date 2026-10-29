@@ -411,19 +411,19 @@
                       </div>
                     </div>
 
-                    <!-- Seller Profit Derivation -->
+                    <!-- Seller Profit / Receivable Derivation -->
                     <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 10px 14px;">
                       <div style="font-size: 0.75rem; font-weight: 800; color: #1D4ED8; text-transform: uppercase; margin-bottom: 4px;">
-                        <i class="fa-solid fa-store"></i> Seller Profit Derivation
+                        <i class="fa-solid fa-store"></i> Seller Receivable / Settlement
                       </div>
                       <div style="font-size: 0.8rem; color: #1E40AF; line-height: 1.5;">
-                        <div>Formula: <code>Seller Payable - Total Product Cost</code></div>
+                        <div>Model: <code>Seller Receives Product Cost per Unit (₹{{ row.seller_receivable|floatformat:2 }})</code></div>
                         <div style="margin-top: 4px; font-weight: 700; font-family: monospace;">
                           {% if row.has_cost_data and row.product_cost is not None %}
-                            ₹{{ row.seller_payable|floatformat:2 }} - ₹{{ row.product_cost|floatformat:2 }} = 
-                            <span style="font-size: 0.95rem; color: {% if row.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">₹{{ row.seller_profit|floatformat:2 }}</span>
+                            Seller Receivable: <span style="font-size: 0.95rem; color: #047857;">₹{{ row.seller_receivable|floatformat:2 }}</span>
+                            <span style="font-size: 0.72rem; color: #64748B; font-weight: normal;">(Cost total: ₹{{ row.product_cost|floatformat:2 }}; Commission not double-deducted)</span>
                           {% else %}
-                            <span style="color: #B45309;">Product cost was not provided by seller at listing time. Profit cannot be reliably computed.</span>
+                            <span style="color: #B45309;">Product cost was not provided by seller at listing time. Profit incomplete.</span>
                           {% endif %}
                         </div>
                       </div>
@@ -748,12 +748,11 @@
             <th style="padding: 8px 10px; text-align: right;">MRP / Unit</th>
             <th style="padding: 8px 10px; text-align: right;">Selling Price</th>
             <th style="padding: 8px 10px; text-align: right;">Customer Discount</th>
-            <th style="padding: 8px 10px; text-align: right;">Effective Price</th>
             <th style="padding: 8px 10px; text-align: right;">Unit Cost</th>
-            <th style="padding: 8px 10px; text-align: right;">Line Subtotal</th>
+            <th style="padding: 8px 10px; text-align: right;">Cashback (Est)</th>
+            <th style="padding: 8px 10px; text-align: right;">Line Sales</th>
+            <th style="padding: 8px 10px; text-align: right;">Seller Receivable</th>
             <th style="padding: 8px 10px; text-align: right;">Comm Amt</th>
-            <th style="padding: 8px 10px; text-align: right;">Seller Payable</th>
-            <th style="padding: 8px 10px; text-align: right;">Seller Profit</th>
             <th style="padding: 8px 10px; text-align: center;">Settlement</th>
           </tr>
         </thead>
@@ -791,9 +790,6 @@
                   —
                 {% endif %}
               </td>
-              <td style="padding: 8px 10px; text-align: right; vertical-align: top; font-weight: 600; color: #1E293B;">
-                ₹{{ snap.unit_effective_price|floatformat:2 }}
-              </td>
               <td style="padding: 8px 10px; text-align: right; vertical-align: top;">
                 {% if snap.product_cost_per_unit is not None %}
                   ₹{{ snap.product_cost_per_unit|floatformat:2 }}
@@ -801,24 +797,18 @@
                   <span style="color: #94A3B8; font-style: italic; font-size: 0.7rem;">Not recorded</span>
                 {% endif %}
               </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top; font-weight: 700; color: #D97706;">
+                ₹{{ snap.cashback_total|floatformat:2 }}
+                <div style="font-size: 0.65rem; color: #64748B;">({{ snap.cashback_funding }})</div>
+              </td>
               <td style="padding: 8px 10px; text-align: right; vertical-align: top; font-weight: 800; color: #047857;">
                 ₹{{ snap.product_revenue|floatformat:2 }}
               </td>
+              <td style="padding: 8px 10px; text-align: right; vertical-align: top; font-weight: 700; color: #2563EB;">
+                ₹{{ snap.effective_seller_receivable|floatformat:2 }}
+              </td>
               <td style="padding: 8px 10px; text-align: right; vertical-align: top; color: #047857; font-weight: 700;">
                 ₹{{ snap.commission_amount|floatformat:2 }}
-                <div style="font-size: 0.65rem; color: #64748B;">({{ snap.commission_rate }}%)</div>
-              </td>
-              <td style="padding: 8px 10px; text-align: right; vertical-align: top; font-weight: 700; color: #2563EB;">
-                ₹{{ snap.seller_payable|floatformat:2 }}
-              </td>
-              <td style="padding: 8px 10px; text-align: right; vertical-align: top;">
-                {% if snap.seller_profit is not None %}
-                  <strong style="color: {% if snap.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
-                    ₹{{ snap.seller_profit|floatformat:2 }}
-                  </strong>
-                {% else %}
-                  <span style="color: #94A3B8;">—</span>
-                {% endif %}
               </td>
               <td style="padding: 8px 10px; text-align: center; vertical-align: top;">
                 <span class="badge {% if snap.settlement_status == 'SETTLED' %}badge-success{% elif snap.settlement_status == 'REVERSED' %}badge-danger{% else %}badge-warning{% endif %}" style="font-size: 0.65rem;">

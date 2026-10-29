@@ -1077,14 +1077,29 @@ def admin_marketplace_config_view(request):
             'commission_percentage': 'commission_percentage',
             'commission_fixed_per_unit': 'commission_fixed_per_unit',
             'commission_base': 'commission_base',
+            'cashback_rate_per_10': 'cashback_rate_per_10',
             'cashback_per_unit': 'cashback_per_unit',
+            'cashback_rounding_policy': 'cashback_rounding_policy',
+            'cashback_calculation_mode': 'cashback_calculation_mode',
             'cashback_funding': 'cashback_funding',
+            'seller_settlement_mode': 'seller_settlement_mode',
             'delivery_fee_default': 'delivery_fee_default',
             'delivery_fee_free_above': 'delivery_fee_free_above',
             'delivery_person_earning_per_order': 'delivery_person_earning_per_order',
             'return_period_days': 'return_period_days',
         }
-        boolean_fields = ['seller_settlement_require_delivery', 'seller_settlement_require_payment']
+        boolean_fields = [
+            'seller_settlement_require_delivery',
+            'seller_settlement_require_payment',
+            'cashback_redemption_enabled'
+        ]
+        string_fields = [
+            'commission_base',
+            'cashback_funding',
+            'cashback_rounding_policy',
+            'cashback_calculation_mode',
+            'seller_settlement_mode'
+        ]
         changes = []
 
         with transaction.atomic():
@@ -1093,7 +1108,7 @@ def admin_marketplace_config_view(request):
                 if not new_val:
                     continue
                 old_val = str(getattr(config, model_field))
-                if model_field in ['commission_base', 'cashback_funding']:
+                if model_field in string_fields:
                     if new_val != old_val:
                         MarketplaceConfigHistory.objects.create(
                             changed_by=request.user, field_name=model_field,
@@ -1481,8 +1496,16 @@ def admin_company_pnl_view(request):
         has_cost_data = all(s.product_cost_per_unit is not None for s in snaps) if snaps else False
         total_product_cost = sum(s.product_cost_total for s in snaps if s.product_cost_total is not None) if has_cost_data else None
 
-        # Seller profit calculation (Revenue - Commission - Product Cost = Seller Payable - Product Cost)
-        if has_cost_data and total_product_cost is not None:
+        # Seller receivable and profit calculation
+        order_seller_receivable = sum(
+            (s.seller_receivable if s.seller_receivable is not None else s.effective_seller_receivable)
+            for s in snaps
+        ) if snaps else Decimal('0.00')
+
+        is_product_cost_receivable = getattr(config, 'seller_settlement_mode', 'PRODUCT_COST_RECEIVABLE') == 'PRODUCT_COST_RECEIVABLE'
+        if is_product_cost_receivable:
+            order_seller_profit = order_seller_receivable if has_cost_data else None
+        elif has_cost_data and total_product_cost is not None:
             order_seller_profit = (seller_payable - total_product_cost).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         else:
             order_seller_profit = None
@@ -1552,6 +1575,7 @@ def admin_company_pnl_view(request):
             'company_expenses': comp_exp,
             'company_revenue': comp_rev,
             'company_profit': comp_profit,
+            'seller_receivable': order_seller_receivable,
             'seller_payable': seller_payable,
             'seller_profit': order_seller_profit,
             'settlement_status': order_settlement,

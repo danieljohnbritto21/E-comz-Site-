@@ -1,5 +1,5 @@
 import uuid
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db import models, transaction
@@ -832,24 +832,234 @@ def seller_customers_view(request):
 
 @role_required(['SELLER'])
 def seller_reports_view(request):
-    """Sales, order analytics and financial breakdown for this seller."""
+    """
+    Sales, order analytics and financial breakdown for the authenticated seller.
+    
+    Strictly isolated to request.user.
+    All metrics and top items are computed dynamically from actual DB records
+    based on the selected reporting period (Today, This Month, This Year, All Time, or Custom Range).
+    """
+    from datetime import datetime
+    from apps.reports.models import OrderItemFinancialSnapshot, SellerWallet
+    from apps.reports.services import get_or_create_seller_wallet, create_order_financial_snapshots
+
     seller = request.user
-    sub_orders = SellerSubOrder.objects.filter(seller=seller).exclude(status__in=['REJECTED', 'CANCELLED'])
-    
-    total_revenue = sub_orders.aggregate(Sum('subtotal'))['subtotal__sum'] or Decimal('0.00')
-    total_orders_count = sub_orders.count()
-    completed_orders_count = sub_orders.filter(status='DELIVERED').count()
-    
-    top_items = OrderItem.objects.filter(seller=seller).values('product_name').annotate(
+    today = timezone.now().date()
+
+    # 1. Date Filtering
+    period = request.GET.get('period', 'all').lower().strip()
+    date_from_str = request.GET.get('date_from', '').strip()
+    date_to_str = request.GET.get('date_to', '').strip()
+
+    suborder_date_filter = {}
+    snapshot_date_filter = {}
+    date_label = "All Time"
+
+    if date_from_str or date_to_str:
+        period = 'custom'
+        if date_from_str:
+            try:
+                datetime.strptime(date_from_str, '%Y-%m-%d')
+                suborder_date_filter['created_at__date__gte'] = date_from_str
+                snapshot_date_filter['created_at__date__gte'] = date_from_str
+            except ValueError:
+                date_from_str = ''
+        if date_to_str:
+            try:
+                datetime.strptime(date_to_str, '%Y-%m-%d')
+                suborder_date_filter['created_at__date__lte'] = date_to_str
+                snapshot_date_filter['created_at__date__lte'] = date_to_str
+            except ValueError:
+                date_to_str = ''
+        date_label = f"Custom ({date_from_str or 'Earliest'} to {date_to_str or 'Latest'})"
+    elif period == 'today':
+        suborder_date_filter['created_at__date'] = today
+        snapshot_date_filter['created_at__date'] = today
+        date_label = f"Today ({today.strftime('%d %b %Y')})"
+    elif period == 'month':
+        month_start = today.replace(day=1)
+        suborder_date_filter['created_at__date__gte'] = month_start
+        snapshot_date_filter['created_at__date__gte'] = month_start
+        date_label = f"This Month ({today.strftime('%B %Y')})"
+    elif period == 'year':
+        suborder_date_filter['created_at__date__year'] = today.year
+        snapshot_date_filter['created_at__date__year'] = today.year
+        date_label = f"This Year ({today.year})"
+    else:
+        period = 'all'
+        date_label = "All Time"
+
+    # 2. Ensure immutable financial snapshots exist for all orders in period
+    seller_suborders_qs = SellerSubOrder.objects.filter(
+        seller=seller, **suborder_date_filter
+    ).select_related('order')
+
+    for so in seller_suborders_qs:
+        if not so.order.financial_snapshots.filter(seller=seller).exists():
+            create_order_financial_snapshots(so.order)
+
+    # 3. Sub-Order Counts (Avoid double-counting, each seller has 1 sub-order per order)
+    total_orders_count = seller_suborders_qs.count()
+    completed_deliveries_count = seller_suborders_qs.filter(
+        Q(status=SellerSubOrder.Status.DELIVERED) | Q(order__status=Order.Status.DELIVERED)
+    ).exclude(
+        status__in=[SellerSubOrder.Status.REJECTED, SellerSubOrder.Status.CANCELLED]
+    ).count()
+    cancelled_suborders_count = seller_suborders_qs.filter(
+        status__in=[SellerSubOrder.Status.REJECTED, SellerSubOrder.Status.CANCELLED]
+    ).count()
+    pending_orders_count = seller_suborders_qs.filter(
+        status__in=[
+            SellerSubOrder.Status.PENDING,
+            SellerSubOrder.Status.ACCEPTED,
+            SellerSubOrder.Status.PREPARING,
+            SellerSubOrder.Status.PACKED,
+            SellerSubOrder.Status.READY_FOR_PICKUP,
+            SellerSubOrder.Status.HANDED_OVER,
+            SellerSubOrder.Status.SHIPPED,
+        ]
+    ).count()
+
+    commission_rate = get_seller_commission_rate(seller)
+
+    # 4. Financial Snapshots & Item Metrics
+    # Eligible items exclude cancelled/reversed snapshots and cancelled/rejected orders
+    eligible_snapshots = OrderItemFinancialSnapshot.objects.filter(
+        seller=seller, **snapshot_date_filter
+    ).exclude(
+        settlement_status__in=['CANCELLED', 'REVERSED', 'INELIGIBLE']
+    ).exclude(
+        order_item__sub_order__status__in=[SellerSubOrder.Status.REJECTED, SellerSubOrder.Status.CANCELLED]
+    ).exclude(
+        order__status__in=[Order.Status.CANCELLED, Order.Status.REFUNDED, Order.Status.FAILED_DELIVERY]
+    )
+
+    total_revenue = eligible_snapshots.aggregate(t=Sum('product_revenue'))['t'] or Decimal('0.00')
+    total_units_sold = eligible_snapshots.aggregate(t=Sum('quantity'))['t'] or 0
+
+    # Calculate dynamic commission and seller payable based on the configured commission rate
+    total_commission = (total_revenue * commission_rate / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    total_seller_payable = (total_revenue - total_commission).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    # Product cost and store profit
+    snaps_with_cost = eligible_snapshots.filter(product_cost_total__isnull=False)
+    total_product_cost = snaps_with_cost.aggregate(t=Sum('product_cost_total'))['t'] or Decimal('0.00')
+    items_with_cost_count = snaps_with_cost.count()
+    total_eligible_items_count = eligible_snapshots.count()
+
+    # Net store profit: (Revenue of items with cost - Commission on items with cost) - Product Cost
+    revenue_with_cost = snaps_with_cost.aggregate(t=Sum('product_revenue'))['t'] or Decimal('0.00')
+    commission_with_cost = (revenue_with_cost * commission_rate / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    payable_with_cost = revenue_with_cost - commission_with_cost
+    total_store_profit = (payable_with_cost - total_product_cost).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    # 5. Seller Wallet & Balances
+    wallet = get_or_create_seller_wallet(seller)
+    available_wallet_balance = wallet.available_balance
+    pending_wallet_balance = wallet.pending_earnings
+    wallet_withdrawn = wallet.total_withdrawn
+    wallet_lifetime = wallet.lifetime_credited
+
+    # Settled vs Pending in this period
+    settled_snapshots = eligible_snapshots.filter(settlement_status='SETTLED')
+    settled_payable = settled_snapshots.aggregate(t=Sum('seller_payable'))['t'] or Decimal('0.00')
+    pending_snapshots = eligible_snapshots.filter(settlement_status='PENDING')
+    pending_payable = pending_snapshots.aggregate(t=Sum('seller_payable'))['t'] or Decimal('0.00')
+
+    # 6. Top-Performing Products Table
+    product_group = eligible_snapshots.values('order_item__product_name').annotate(
         units_sold=Sum('quantity'),
-        total_sales=Sum('total_price')
-    ).order_by('-units_sold')[:8]
+        revenue=Sum('product_revenue'),
+        product_cost=Sum('product_cost_total'),
+        orders_count=Count('order_id', distinct=True),
+        total_records=Count('id'),
+        cost_records=Count('id', filter=Q(product_cost_total__isnull=False)),
+    )
+
+    products_list = []
+    for item in product_group:
+        p_name = item['order_item__product_name']
+        u_sold = item['units_sold'] or 0
+        p_rev = item['revenue'] or Decimal('0.00')
+        p_cost = item['product_cost']
+        o_count = item['orders_count'] or 0
+        cost_recs = item['cost_records'] or 0
+        tot_recs = item['total_records'] or 0
+        has_cost = cost_recs > 0
+
+        # Dynamic commission, payable, and net profit derived from configured commission_rate:
+        p_comm = (p_rev * commission_rate / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        p_payable = (p_rev - p_comm).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        p_profit = (p_payable - p_cost).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP) if p_cost is not None else None
+
+        products_list.append({
+            'product_name': p_name,
+            'units_sold': u_sold,
+            'revenue': p_rev,
+            'product_cost': p_cost,
+            'commission_deducted': p_comm,
+            'seller_payable': p_payable,
+            'net_profit': p_profit,
+            'orders_count': o_count,
+            'has_cost': has_cost,
+            'cost_coverage': f"{cost_recs}/{tot_recs}" if tot_recs > 0 else "0/0",
+        })
+
+    # Sort options
+    sort_by = request.GET.get('sort_by', 'revenue').lower().strip()
+    if sort_by == 'profit':
+        products_list.sort(key=lambda x: (x['net_profit'] is not None, x['net_profit'] or Decimal('-999999999')), reverse=True)
+        sort_label = "Net Seller Profit (High to Low)"
+    elif sort_by == 'units':
+        products_list.sort(key=lambda x: x['units_sold'], reverse=True)
+        sort_label = "Units Sold (Most to Least)"
+    elif sort_by == 'orders':
+        products_list.sort(key=lambda x: x['orders_count'], reverse=True)
+        sort_label = "Order Count (Most to Least)"
+    else:
+        sort_by = 'revenue'
+        products_list.sort(key=lambda x: x['revenue'], reverse=True)
+        sort_label = "Revenue Generated (High to Low)"
+
+    paginator = Paginator(products_list, 10)
+    page_number = request.GET.get('page', 1)
+    top_products_page = paginator.get_page(page_number)
 
     return render(request, 'seller/reports.html', {
+        'period': period,
+        'date_from': date_from_str,
+        'date_to': date_to_str,
+        'date_label': date_label,
+        'sort_by': sort_by,
+        'sort_label': sort_label,
+        'commission_rate': commission_rate,
+
+        # Key Financial Summary Cards
         'total_revenue': total_revenue,
+        'total_store_profit': total_store_profit,
         'total_orders_count': total_orders_count,
-        'completed_orders_count': completed_orders_count,
-        'top_items': top_items,
+        'completed_deliveries_count': completed_deliveries_count,
+        'cancelled_suborders_count': cancelled_suborders_count,
+        'pending_orders_count': pending_orders_count,
+        'total_units_sold': total_units_sold,
+        'total_commission': total_commission,
+        'total_seller_payable': total_seller_payable,
+        'total_product_cost': total_product_cost,
+        'items_with_cost_count': items_with_cost_count,
+        'total_eligible_items_count': total_eligible_items_count,
+
+        # Wallet metrics
+        'wallet': wallet,
+        'available_wallet_balance': available_wallet_balance,
+        'pending_wallet_balance': pending_wallet_balance,
+        'wallet_withdrawn': wallet_withdrawn,
+        'wallet_lifetime': wallet_lifetime,
+        'settled_payable': settled_payable,
+        'pending_payable': pending_payable,
+
+        # Products
+        'top_products': top_products_page,
+        'total_unique_products_sold': len(products_list),
     })
 
 

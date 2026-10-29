@@ -95,6 +95,8 @@ class MarketplaceFinancialsAndApprovalTests(TestCase):
         self.config.delivery_fee_default = Decimal('30.00')
         self.config.cashback_per_unit = Decimal('1.00')
         self.config.delivery_person_earning_per_order = Decimal('25.00')
+        self.config.seller_settlement_mode = 'COMMISSION_DEDUCTION'
+        self.config.cashback_calculation_mode = 'PER_UNIT'
         self.config.save()
 
     def test_product_approval_lifecycle_and_history(self):

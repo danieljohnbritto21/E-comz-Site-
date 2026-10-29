@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Checkout - FreshMart{% endblock %}
+{% block title %}Secure Checkout - FreshMart{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -10,8 +10,245 @@
     display: none !important;
   }
 
-  /* 2. Modal Backdrop & Dialog Container */
-  .address-modal-backdrop {
+  /* 2. Compact Page Layout & Grid */
+  .checkout-container {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .checkout-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .checkout-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(350px, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  @media (max-width: 992px) {
+    .checkout-grid {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+  }
+
+  /* 3. Compact Section Cards */
+  .compact-card {
+    background: #ffffff;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 1.15rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    margin-bottom: 1.15rem;
+    transition: border-color 0.15s ease;
+  }
+
+  .compact-card:hover {
+    border-color: #CBD5E1;
+  }
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid #F1F5F9;
+  }
+
+  .step-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0F172A;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .step-badge {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #ECFDF5;
+    color: #047857;
+    font-weight: 800;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* 4. Compact Form Controls */
+  .compact-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  @media (max-width: 576px) {
+    .compact-form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .compact-form-group {
+    margin-bottom: 0.75rem;
+  }
+
+  .compact-form-group .form-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 0.25rem;
+    display: block;
+  }
+
+  .compact-form-group .form-control {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    outline: none;
+    transition: all 0.15s ease;
+    background: #ffffff;
+  }
+
+  .compact-form-group .form-control:focus {
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+  }
+
+  /* 5. Address Selection & Cards */
+  .saved-address-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 0.75rem 0.9rem;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: #ffffff;
+  }
+
+  .saved-address-card:hover {
+    border-color: #CBD5E1;
+  }
+
+  .saved-address-card.is-selected {
+    border-color: #059669;
+    background: #F0FDF4;
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
+  }
+
+  .btn-add-new-address {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0.65rem 1rem;
+    border: 1.5px dashed #059669;
+    background: #F0FDF4;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #047857;
+    transition: all 0.15s ease;
+    text-align: center;
+  }
+
+  .btn-add-new-address:hover {
+    background: #DCFCE7;
+    border-color: #047857;
+  }
+
+  /* 6. Delivery Schedule Summary Box */
+  .schedule-summary-box {
+    background: #F8FAFC;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    transition: all 0.2s ease;
+  }
+
+  .schedule-summary-box:hover {
+    border-color: #CBD5E1;
+    background: #F1F5F9;
+  }
+
+  /* 7. Payment Options Styling */
+  .payment-method-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 0.9rem;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: #ffffff;
+    margin-bottom: 0.5rem;
+  }
+
+  .payment-method-row:hover {
+    border-color: #CBD5E1;
+  }
+
+  .payment-method-row.is-selected {
+    border-color: #059669;
+    background: #F0FDF4;
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
+  }
+
+  /* 8. Sticky Order Summary */
+  .sticky-order-summary {
+    position: sticky;
+    top: 1.25rem;
+    background: #ffffff;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 1.15rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .mini-items-list {
+    max-height: 180px;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-bottom: 0.85rem;
+    border-bottom: 1px solid #F1F5F9;
+  }
+
+  .mini-items-list::-webkit-scrollbar {
+    width: 4px;
+  }
+  .mini-items-list::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+  }
+
+  /* 9. Modal Common Backdrops & Containers */
+  .address-modal-backdrop,
+  .schedule-modal-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(15, 23, 42, 0.65);
@@ -27,16 +264,18 @@
     transition: opacity 0.2s ease-in-out;
   }
 
-  .address-modal-backdrop.is-visible {
+  .address-modal-backdrop.is-visible,
+  .schedule-modal-backdrop.is-visible {
     display: flex;
     opacity: 1;
   }
 
-  .address-modal-container {
+  .address-modal-container,
+  .schedule-modal-container {
     background: #ffffff;
     border-radius: 16px;
     width: 100%;
-    max-width: 620px;
+    max-width: 600px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -46,12 +285,14 @@
     overflow: hidden;
   }
 
-  .address-modal-backdrop.is-visible .address-modal-container {
+  .address-modal-backdrop.is-visible .address-modal-container,
+  .schedule-modal-backdrop.is-visible .schedule-modal-container {
     transform: translateY(0) scale(1);
   }
 
-  .address-modal-header {
-    padding: 1.25rem 1.5rem;
+  .address-modal-header,
+  .schedule-modal-header {
+    padding: 1.1rem 1.4rem;
     border-bottom: 1px solid #E5E7EB;
     display: flex;
     align-items: center;
@@ -59,20 +300,23 @@
     background: #F8FAF9;
   }
 
-  .address-modal-body {
-    padding: 1.5rem;
+  .address-modal-body,
+  .schedule-modal-body {
+    padding: 1.25rem 1.4rem;
     overflow-y: auto;
     flex: 1;
   }
 
-  .address-modal-footer {
-    padding: 1rem 1.5rem;
+  .address-modal-footer,
+  .schedule-modal-footer {
+    padding: 0.9rem 1.4rem;
     border-top: 1px solid #E5E7EB;
     background: #F8FAF9;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
   }
 
   .modal-close-btn {
@@ -94,66 +338,102 @@
     color: #ffffff;
   }
 
-  .btn-add-new-address {
+  /* 10. Schedule Modal Specific Grids */
+  .schedule-date-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .schedule-date-card {
+    border: 1.5px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 0.75rem 0.9rem;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 10px;
-    padding: 0.9rem 1.25rem;
-    border: 1.5px dashed #059669;
-    background: #F0FDF4;
-    border-radius: 10px;
-    cursor: pointer;
-    width: 100%;
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: #047857;
-    transition: all 0.2s ease;
-    text-align: center;
+    transition: all 0.15s ease;
+    background: #ffffff;
   }
 
-  .btn-add-new-address:hover {
-    background: #DCFCE7;
-    border-color: #047857;
-    transform: translateY(-1px);
-  }
-
-  .saved-address-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 1rem;
-    border: 1.5px solid var(--bg-border);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: var(--transition-fast);
-  }
-
-  .saved-address-card:hover {
+  .schedule-date-card:hover {
     border-color: #CBD5E1;
   }
 
-  .saved-address-card.is-selected {
-    border-color: var(--color-primary);
+  .schedule-date-card.is-selected {
+    border-color: #059669;
     background: #F0FDF4;
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
+  }
+
+  .schedule-slot-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 500px) {
+    .schedule-slot-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .schedule-slot-card {
+    border: 1.5px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 0.75rem 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    transition: all 0.15s ease;
+    background: #ffffff;
+  }
+
+  .schedule-slot-card:hover {
+    border-color: #CBD5E1;
+  }
+
+  .schedule-slot-card.is-selected {
+    border-color: #059669;
+    background: #F0FDF4;
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15);
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+<div class="checkout-container">
   
-  <h1 style="font-size: 1.85rem; font-weight: 800; margin-bottom: 1.75rem;">
-    <i class="fa-solid fa-lock" style="color: var(--color-primary);"></i> Secure Checkout
-  </h1>
+  <!-- Compact Header Bar -->
+  <div class="checkout-header-bar">
+    <div>
+      <h1 style="font-size: 1.45rem; font-weight: 800; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-lock" style="color: #059669;"></i>
+        <span>Secure Checkout</span>
+      </h1>
+      <p style="font-size: 0.8rem; color: #64748B; margin: 3px 0 0 0;">
+        Fast doorstep delivery &bull; 100% Quality guarantee
+      </p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span class="badge badge-success" style="font-size: 0.75rem; padding: 4px 8px;">
+        <i class="fa-solid fa-shield-halved"></i> 256-Bit SSL Encrypted
+      </span>
+      <a href="{% url 'cart:view_cart' %}" class="btn btn-secondary btn-sm" style="font-size: 0.8rem; padding: 4px 10px; font-weight: 600; text-decoration: none;">
+        <i class="fa-solid fa-arrow-left"></i> Edit Basket
+      </a>
+    </div>
+  </div>
 
   {% if not user.is_authenticated %}
-  <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: var(--radius-md); padding: 0.9rem 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-    <div style="display: flex; align-items: center; gap: 10px; color: #166534; font-weight: 600; font-size: 0.95rem;">
-      <i class="fa-solid fa-circle-user" style="font-size: 1.25rem; color: #15803D;"></i>
-      <span>Already have a FreshMart account? Sign in for saved addresses, or checkout directly below.</span>
+  <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 8px; color: #166534; font-weight: 600; font-size: 0.88rem;">
+      <i class="fa-solid fa-circle-user" style="font-size: 1.15rem; color: #15803D;"></i>
+      <span>Already have an account? Sign in for saved addresses & faster checkout.</span>
     </div>
-    <a href="{% url 'accounts:login' %}?next={% url 'orders:checkout' %}" class="btn btn-outline btn-sm" style="font-weight: 700; white-space: nowrap; border-color: #16A34A; color: #15803D;">
+    <a href="{% url 'accounts:login' %}?next={% url 'orders:checkout' %}" class="btn btn-outline btn-sm" style="font-weight: 700; font-size: 0.78rem; border-color: #16A34A; color: #15803D; padding: 3px 10px;">
       <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In
     </a>
   </div>
@@ -162,45 +442,53 @@
   <form method="POST" action="{% url 'orders:checkout' %}" id="checkout-form">
     {% csrf_token %}
     <input type="hidden" name="checkout_token" id="id_checkout_token" value="{{ checkout_token }}">
+    
+    <!-- Synchronized Hidden Inputs for Schedule (Controlled by Schedule Modal) -->
+    <input type="hidden" name="delivery_date" id="id_delivery_date" value="{{ delivery_date|default:'today' }}">
+    <input type="hidden" name="delivery_slot" id="id_delivery_slot" value="{{ delivery_slot|default:'07:00 AM - 10:00 AM' }}">
+    <input type="hidden" name="delivery_instructions" id="id_delivery_instructions" value="{{ delivery_instructions }}">
 
     <div class="checkout-grid">
       
-      <!-- Left Column: Customer Details, Address, Scheduling & Payment -->
-      <div style="display: flex; flex-direction: column; gap: 1.75rem;">
+      <!-- Left Column: Checkout Details -->
+      <div>
         
-        <!-- A. Customer Details Card -->
-        <div class="form-card">
-          <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
-            <span style="background: var(--color-primary-subtle); color: var(--color-primary-dark); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">1</span>
-            Customer Details
-          </h2>
+        <!-- 1. Customer Details Card -->
+        <div class="compact-card">
+          <div class="step-header">
+            <h2 class="step-title">
+              <span class="step-badge">1</span>
+              <span>Customer Details</span>
+            </h2>
+            <span style="font-size: 0.75rem; color: #64748B;"><i class="fa-solid fa-id-card"></i> Order Contact</span>
+          </div>
 
-          <div class="form-row">
-            <div class="form-group">
+          <div class="compact-form-row">
+            <div class="compact-form-group" style="margin-bottom: 0;">
               <label class="form-label">Full Name *</label>
               <input type="text" name="customer_name" id="id_customer_name" class="form-control" placeholder="Your full name" value="{{ customer_name|default:full_name }}" required>
             </div>
-            <div class="form-group">
+            <div class="compact-form-group" style="margin-bottom: 0;">
               <label class="form-label">Mobile Number *</label>
               <input type="tel" name="customer_phone" id="id_customer_phone" class="form-control" placeholder="10-digit mobile number" value="{{ customer_phone|default:phone_number }}" required>
             </div>
           </div>
 
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">Email Address (Optional for guest)</label>
-            <input type="email" name="customer_email" id="id_customer_email" class="form-control" placeholder="Order updates and digital receipt" value="{{ customer_email }}">
+          <div class="compact-form-group" style="margin-top: 0.75rem; margin-bottom: 0;">
+            <label class="form-label">Email Address (Optional)</label>
+            <input type="email" name="customer_email" id="id_customer_email" class="form-control" placeholder="For digital tax invoice & live delivery tracking" value="{{ customer_email }}">
           </div>
         </div>
 
-        <!-- B. Delivery Address Card (Compact, Non-Scrolling Layout) -->
-        <div class="form-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-            <h2 style="font-size: 1.25rem; font-weight: 800; display: flex; align-items: center; gap: 8px; margin: 0;">
-              <span style="background: var(--color-primary-subtle); color: var(--color-primary-dark); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">2</span>
-              Delivery Address
+        <!-- 2. Delivery Address Card -->
+        <div class="compact-card">
+          <div class="step-header">
+            <h2 class="step-title">
+              <span class="step-badge">2</span>
+              <span>Delivery Address</span>
             </h2>
             {% if addresses %}
-              <button type="button" class="btn btn-outline btn-sm" onclick="openAddressModal()" style="font-size: 0.8rem; font-weight: 700; color: var(--color-primary-dark); border-color: var(--color-primary);">
+              <button type="button" class="btn btn-outline btn-sm" onclick="openAddressModal()" style="font-size: 0.78rem; font-weight: 700; color: #047857; border-color: #059669; padding: 3px 10px;">
                 <i class="fa-solid fa-plus"></i> New Address
               </button>
             {% endif %}
@@ -208,331 +496,225 @@
 
           {% if addresses %}
             <!-- Saved Addresses List -->
-            <div style="margin-bottom: 1.25rem;">
-              <label class="form-label">Select Delivery Address:</label>
-              <div style="display: flex; flex-direction: column; gap: 0.75rem;" id="address-selection-container">
-                {% for addr in addresses %}
-                  <label class="saved-address-card {% if address_id == addr.id|stringformat:'s' or not address_id and forloop.first and not house_number %}is-selected{% endif %}" id="saved-card-{{ addr.id }}">
-                    <input type="radio" name="address_id" value="{{ addr.id }}" {% if address_id == addr.id|stringformat:"s" or not address_id and forloop.first and not house_number %}checked{% endif %} style="margin-top: 4px;" onchange="selectSavedAddress(this)">
-                    <div style="flex: 1;">
-                      <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">
-                        {{ addr.full_name }} <span class="badge badge-secondary">{{ addr.get_address_type_display }}</span>
+            <div style="display: flex; flex-direction: column; gap: 0.6rem;" id="address-selection-container">
+              {% for addr in addresses %}
+                <label class="saved-address-card {% if address_id == addr.id|stringformat:'s' or not address_id and forloop.first and not house_number %}is-selected{% endif %}" id="saved-card-{{ addr.id }}">
+                  <input type="radio" name="address_id" value="{{ addr.id }}" {% if address_id == addr.id|stringformat:"s" or not address_id and forloop.first and not house_number %}checked{% endif %} style="margin-top: 3px; accent-color: #059669;" onchange="selectSavedAddress(this)">
+                  <div style="flex: 1;">
+                    <div style="font-weight: 700; font-size: 0.9rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                      {{ addr.full_name }} <span class="badge badge-secondary" style="font-size: 0.65rem; padding: 2px 6px;">{{ addr.get_address_type_display }}</span>
+                    </div>
+                    <div style="font-size: 0.82rem; color: #475569; margin-top: 1px;">
+                      {{ addr.formatted }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #64748B; margin-top: 1px;">
+                      Phone: {{ addr.phone_number }}
+                    </div>
+                  </div>
+                </label>
+              {% endfor %}
+
+              <!-- Newly Entered Custom Address Preview Card (Compact) -->
+              <div id="new-address-preview-box" style="display: {% if address_id == '' and house_number %}block{% else %}none{% endif %}; padding: 0.75rem 0.9rem; border: 1.5px solid #059669; background: #F0FDF4; border-radius: 10px;">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
+                  <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; flex: 1; margin: 0;">
+                    <input type="radio" name="address_id" value="" id="use-new-addr-radio" {% if address_id == '' and house_number %}checked{% endif %} onchange="selectNewAddressRadio(this)" style="margin-top: 3px; accent-color: #059669;">
+                    <div>
+                      <div style="font-weight: 700; font-size: 0.9rem; color: #047857;">
+                        <span id="preview-name">{{ full_name|default:customer_name }}</span>
+                        <span class="badge badge-success" id="preview-type" style="margin-left: 6px; font-size: 0.65rem; padding: 2px 6px;">{{ address_type|default:'Home' }}</span>
                       </div>
-                      <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">
-                        {{ addr.formatted }}
+                      <div style="font-size: 0.82rem; color: #1E293B; margin-top: 2px;" id="preview-address-text">
+                        {% if house_number %}{{ house_number }}, {{ street }}{% if area %}, {{ area }}{% endif %}, {{ city|default:'Central City' }} - {{ pin_code }}{% endif %}
                       </div>
-                      <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
-                        Phone: {{ addr.phone_number }}
+                      <div style="font-size: 0.75rem; color: #64748B; margin-top: 1px;">
+                        Phone: <span id="preview-phone">{{ phone_number|default:customer_phone }}</span>
                       </div>
                     </div>
                   </label>
-                {% endfor %}
-
-                <!-- Newly Entered Custom Address Preview Card (Compact) -->
-                <div id="new-address-preview-box" style="display: {% if address_id == '' and house_number %}block{% else %}none{% endif %}; padding: 1rem; border: 1.5px solid var(--color-primary); background: #F0FDF4; border-radius: var(--radius-md);">
-                  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
-                    <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; flex: 1; margin: 0;">
-                      <input type="radio" name="address_id" value="" id="use-new-addr-radio" {% if address_id == '' and house_number %}checked{% endif %} onchange="selectNewAddressRadio(this)" style="margin-top: 4px;">
-                      <div>
-                        <div style="font-weight: 700; font-size: 0.95rem; color: var(--color-primary-dark);">
-                          <span id="preview-name">{{ full_name|default:customer_name }}</span>
-                          <span class="badge badge-success" id="preview-type" style="margin-left: 6px;">{{ address_type|default:'Home' }}</span>
-                        </div>
-                        <div style="font-size: 0.85rem; color: var(--text-main); margin-top: 3px;" id="preview-address-text">
-                          {% if house_number %}{{ house_number }}, {{ street }}{% if area %}, {{ area }}{% endif %}, {{ city|default:'Central City' }} - {{ pin_code }}{% endif %}
-                        </div>
-                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
-                          Phone: <span id="preview-phone">{{ phone_number|default:customer_phone }}</span>
-                        </div>
-                      </div>
-                    </label>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="openAddressModal()" style="font-size: 0.8rem; padding: 4px 10px; white-space: nowrap;">
-                      <i class="fa-solid fa-pen-to-square"></i> Edit
-                    </button>
-                  </div>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="openAddressModal()" style="font-size: 0.75rem; padding: 3px 8px; white-space: nowrap;">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                  </button>
                 </div>
-
-                <!-- Deliver to Different Address Trigger Button -->
-                <button type="button" class="btn-add-new-address" onclick="openAddressModal()" id="btn-open-modal-trigger">
-                  <i class="fa-solid fa-circle-plus" style="font-size: 1.1rem;"></i>
-                  <span>+ Deliver to a Different / New Address</span>
-                </button>
               </div>
+
+              <!-- Deliver to Different Address Trigger Button -->
+              <button type="button" class="btn-add-new-address" onclick="openAddressModal()" id="btn-open-modal-trigger">
+                <i class="fa-solid fa-circle-plus" style="font-size: 1rem;"></i>
+                <span>+ Deliver to a Different / New Address</span>
+              </button>
             </div>
 
           {% else %}
             <!-- No Saved Addresses (First-time / Guest checkout) -->
             <input type="hidden" name="address_id" value="" id="use-new-addr-radio">
-            <div style="margin-bottom: 1rem;">
-              <div id="new-address-preview-box" style="display: {% if house_number %}block{% else %}none{% endif %}; padding: 1rem; border: 1.5px solid var(--color-primary); background: #F0FDF4; border-radius: var(--radius-md); margin-bottom: 1rem;">
+            <div>
+              <div id="new-address-preview-box" style="display: {% if house_number %}block{% else %}none{% endif %}; padding: 0.75rem 0.9rem; border: 1.5px solid #059669; background: #F0FDF4; border-radius: 10px; margin-bottom: 0.75rem;">
                 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;">
                   <div>
-                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--color-primary-dark);">
+                    <div style="font-weight: 700; font-size: 0.9rem; color: #047857;">
                       <span id="preview-name">{{ full_name|default:customer_name }}</span>
-                      <span class="badge badge-success" id="preview-type" style="margin-left: 6px;">{{ address_type|default:'Home' }}</span>
+                      <span class="badge badge-success" id="preview-type" style="margin-left: 6px; font-size: 0.65rem; padding: 2px 6px;">{{ address_type|default:'Home' }}</span>
                     </div>
-                    <div style="font-size: 0.85rem; color: var(--text-main); margin-top: 3px;" id="preview-address-text">
+                    <div style="font-size: 0.82rem; color: #1E293B; margin-top: 2px;" id="preview-address-text">
                       {% if house_number %}{{ house_number }}, {{ street }}{% if area %}, {{ area }}{% endif %}, {{ city|default:'Central City' }} - {{ pin_code }}{% endif %}
                     </div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
+                    <div style="font-size: 0.75rem; color: #64748B; margin-top: 1px;">
                       Phone: <span id="preview-phone">{{ phone_number|default:customer_phone }}</span>
                     </div>
                   </div>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="openAddressModal()" style="font-size: 0.8rem; padding: 4px 10px;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="openAddressModal()" style="font-size: 0.75rem; padding: 3px 8px;">
                     <i class="fa-solid fa-pen-to-square"></i> Edit
                   </button>
                 </div>
               </div>
 
               <button type="button" class="btn-add-new-address" onclick="openAddressModal()" id="btn-first-time-address">
-                <i class="fa-solid fa-location-dot" style="font-size: 1.1rem;"></i>
+                <i class="fa-solid fa-location-dot" style="font-size: 1rem;"></i>
                 <span id="btn-first-time-label">{% if house_number %}Change Delivery Address{% else %}Enter Doorstep Delivery Address{% endif %}</span>
               </button>
             </div>
           {% endif %}
         </div>
 
-        <!-- POPUP MODAL: Add / Edit Delivery Address -->
-        <div id="address-modal-overlay" class="address-modal-backdrop" onclick="handleModalBackdropClick(event)">
-          <div class="address-modal-container" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            
-            <div class="address-modal-header">
+        <!-- 3. Delivery Scheduling Summary Card (Replaces permanently expanded form) -->
+        <div class="compact-card">
+          <div class="step-header">
+            <h2 class="step-title">
+              <span class="step-badge">3</span>
+              <span>Delivery Schedule</span>
+            </h2>
+            <span style="font-size: 0.75rem; color: #059669; font-weight: 700;">
+              <i class="fa-solid fa-clock"></i> Express Doorstep Slot
+            </span>
+          </div>
+
+          <div class="schedule-summary-box">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="background: #ECFDF5; color: #047857; width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+                <i class="fa-solid fa-truck-fast"></i>
+              </div>
               <div>
-                <h3 id="modal-title" style="font-size: 1.15rem; font-weight: 800; color: #111827; margin: 0; display: flex; align-items: center; gap: 8px;">
-                  <i class="fa-solid fa-location-dot" style="color: var(--color-primary-dark);"></i>
-                  <span>Enter Delivery Address</span>
-                </h3>
-                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 3px 0 0 0;">
-                  Details for doorstep delivery and recipient verification
-                </p>
-              </div>
-              <button type="button" class="modal-close-btn" onclick="closeAddressModal()" aria-label="Close modal">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <div class="address-modal-body">
-              <div id="modal-error-alert" style="display: none; padding: 0.75rem 1rem; margin-bottom: 1.25rem; border-radius: 8px; background: #FEF2F2; border: 1px solid #FCA5A5; color: #B91C1C; font-size: 0.85rem; font-weight: 600;">
-                <i class="fa-solid fa-circle-exclamation"></i> <span id="modal-error-text">Please fill in all required fields.</span>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Recipient Name *</label>
-                  <input type="text" name="full_name" id="id_full_name" class="form-control" placeholder="Recipient Name" value="{{ full_name|default:customer_name }}">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <span style="font-weight: 800; font-size: 0.95rem; color: #0F172A;" id="summary-delivery-date-text">
+                    {% if delivery_date == 'tomorrow' %}Tomorrow{% else %}Today (Fast Delivery){% endif %}
+                  </span>
+                  <span class="badge badge-success" style="font-size: 0.68rem; padding: 2px 6px;">
+                    <i class="fa-solid fa-bolt"></i> Express
+                  </span>
                 </div>
-                <div class="form-group">
-                  <label class="form-label">Phone Number *</label>
-                  <input type="tel" name="phone_number" id="id_phone_number" class="form-control" placeholder="10-digit mobile number" value="{{ phone_number|default:customer_phone }}">
+                <div style="font-size: 0.85rem; color: #475569; margin-top: 2px;" id="summary-delivery-slot-text">
+                  {{ delivery_slot|default:'07:00 AM - 10:00 AM' }}
+                  {% if delivery_slot == '07:00 AM - 10:00 AM' or not delivery_slot %}
+                    (Early Morning Fresh)
+                  {% elif delivery_slot == '10:00 AM - 01:00 PM' %}
+                    (Midday Standard)
+                  {% elif delivery_slot == '02:00 PM - 05:00 PM' %}
+                    (Afternoon Dispatch)
+                  {% elif delivery_slot == '06:00 PM - 09:00 PM' %}
+                    (Evening Express)
+                  {% endif %}
                 </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">House / Flat / Building No. *</label>
-                  <input type="text" name="house_number" id="id_house_number" class="form-control" placeholder="e.g. Flat 402, Green Heights" value="{{ house_number }}">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Street / Colony *</label>
-                  <input type="text" name="street" id="id_street" class="form-control" placeholder="e.g. MG Road, Sector 4" value="{{ street }}">
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Area / Locality</label>
-                  <input type="text" name="area" id="id_area" class="form-control" placeholder="e.g. Downtown Central" value="{{ area }}">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">City *</label>
-                  <input type="text" name="city" id="id_city" class="form-control" placeholder="City" value="{{ city|default:'Central City' }}">
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">State *</label>
-                  <input type="text" name="state" id="id_state" class="form-control" placeholder="State" value="{{ state|default:'State' }}">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">PIN Code *</label>
-                  <input type="text" name="pin_code" id="id_pin_code" class="form-control" placeholder="e.g. 110001" value="{{ pin_code }}">
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Landmark (Optional)</label>
-                  <input type="text" name="landmark" id="id_landmark" class="form-control" placeholder="Nearby park, school, or store" value="{{ landmark }}">
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Address Type</label>
-                  <select name="address_type" id="id_address_type" class="form-select">
-                    <option value="HOME" {% if address_type == 'HOME' %}selected{% endif %}>Home</option>
-                    <option value="WORK" {% if address_type == 'WORK' %}selected{% endif %}>Office / Work</option>
-                    <option value="OTHER" {% if address_type == 'OTHER' %}selected{% endif %}>Other</option>
-                  </select>
+                <div id="summary-instructions-box" style="display: {% if delivery_instructions %}inline-flex{% else %}none{% endif %}; align-items: center; gap: 6px; font-size: 0.75rem; color: #64748B; margin-top: 4px; background: #F1F5F9; padding: 2px 8px; border-radius: 4px;">
+                  <i class="fa-regular fa-message"></i> Note: <span id="summary-instructions-text">{{ delivery_instructions }}</span>
                 </div>
               </div>
             </div>
 
-            <div class="address-modal-footer">
-              <button type="button" class="btn btn-secondary" onclick="closeAddressModal()">
-                Cancel
-              </button>
-              <button type="button" class="btn btn-primary" onclick="confirmModalAddress()" style="font-weight: 700; height: 42px;">
-                <i class="fa-solid fa-check"></i> Deliver to this Address
-              </button>
-            </div>
-
+            <button type="button" class="btn btn-outline btn-sm" onclick="openScheduleModal()" id="btn-change-schedule" style="font-size: 0.8rem; font-weight: 700; color: #047857; border-color: #059669; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
+              <i class="fa-regular fa-calendar-check"></i> Choose Delivery Time
+            </button>
           </div>
         </div>
 
-        <!-- C. Delivery Scheduling Card -->
-        <div class="form-card">
-          <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
-            <span style="background: var(--color-primary-subtle); color: var(--color-primary-dark); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">3</span>
-            Delivery Scheduling
-          </h2>
-
-          <!-- Delivery Date -->
-          <div class="form-group">
-            <label class="form-label">Delivery Date:</label>
-            <div style="display: flex; gap: 12px; margin-bottom: 1rem; flex-wrap: wrap;">
-              <label style="border: 1.5px solid var(--color-primary); background: var(--color-primary-subtle); padding: 0.65rem 1.25rem; border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_date" value="today" {% if delivery_date == 'today' or not delivery_date %}checked{% endif %}>
-                <span style="font-weight: 700; font-size: 0.9rem;">Today (Fast Delivery)</span>
-              </label>
-              <label style="border: 1.5px solid var(--bg-border); background: #ffffff; padding: 0.65rem 1.25rem; border-radius: var(--radius-md); cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_date" value="tomorrow" {% if delivery_date == 'tomorrow' %}checked{% endif %}>
-                <span style="font-weight: 700; font-size: 0.9rem;">Tomorrow</span>
-              </label>
-            </div>
+        <!-- 4. Payment Method Card -->
+        <div class="compact-card" id="payment-method-card" style="margin-bottom: 0;">
+          <div class="step-header">
+            <h2 class="step-title">
+              <span class="step-badge">4</span>
+              <span>Payment Method</span>
+            </h2>
+            <span style="font-size: 0.75rem; color: #64748B;"><i class="fa-solid fa-shield-halved"></i> 100% Secure</span>
           </div>
 
-          <!-- Delivery Slots -->
-          <div class="form-group">
-            <label class="form-label">Available Time Slots:</label>
-            <div class="delivery-slot-grid">
-              <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_slot" value="07:00 AM - 10:00 AM" {% if delivery_slot == '07:00 AM - 10:00 AM' or not delivery_slot %}checked{% endif %}>
-                <div>
-                  <div style="font-weight: 700; font-size: 0.875rem;">07:00 AM - 10:00 AM</div>
-                  <div style="font-size: 0.75rem; color: var(--text-muted);">Early Morning Fresh</div>
-                </div>
-              </label>
-
-              <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_slot" value="10:00 AM - 01:00 PM" {% if delivery_slot == '10:00 AM - 01:00 PM' %}checked{% endif %}>
-                <div>
-                  <div style="font-weight: 700; font-size: 0.875rem;">10:00 AM - 01:00 PM</div>
-                  <div style="font-size: 0.75rem; color: var(--text-muted);">Midday Standard</div>
-                </div>
-              </label>
-
-              <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_slot" value="02:00 PM - 05:00 PM" {% if delivery_slot == '02:00 PM - 05:00 PM' %}checked{% endif %}>
-                <div>
-                  <div style="font-weight: 700; font-size: 0.875rem;">02:00 PM - 05:00 PM</div>
-                  <div style="font-size: 0.75rem; color: var(--text-muted);">Afternoon Dispatch</div>
-                </div>
-              </label>
-
-              <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <input type="radio" name="delivery_slot" value="06:00 PM - 09:00 PM" {% if delivery_slot == '06:00 PM - 09:00 PM' %}checked{% endif %}>
-                <div>
-                  <div style="font-weight: 700; font-size: 0.875rem;">06:00 PM - 09:00 PM</div>
-                  <div style="font-size: 0.75rem; color: var(--text-muted);">Evening Express</div>
-                </div>
-              </label>
-            </div>
+          <!-- Payment Method Validation Error Alert -->
+          <div id="payment-error-alert" style="display: none; padding: 0.65rem 0.9rem; margin-bottom: 0.75rem; border-radius: 8px; background: #FEF2F2; border: 1.5px solid #F87171; color: #B91C1C; font-size: 0.85rem; font-weight: 600; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-circle-exclamation" style="font-size: 1rem; flex-shrink: 0;"></i>
+            <span id="payment-error-text">Please select a payment method to continue.</span>
           </div>
 
-          <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">Drop-off Instructions (Optional)</label>
-            <input type="text" name="delivery_instructions" id="id_delivery_instructions" class="form-control" placeholder="e.g. Ring the bell, leave package with society security..." value="{{ delivery_instructions }}">
-          </div>
-        </div>
-
-        <!-- D. Payment Method Selection Card -->
-        <div class="form-card">
-          <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 8px;">
-            <span style="background: var(--color-primary-subtle); color: var(--color-primary-dark); width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">4</span>
-            Select Payment Method
-          </h2>
-
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="display: flex; flex-direction: column; gap: 0.45rem;">
             
             <!-- Cash on Delivery -->
-            <label style="border: 1.5px solid var(--color-primary); background: var(--color-primary-subtle); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <label class="payment-method-row {% if payment_method == 'COD' %}is-selected{% endif %}" onclick="selectPaymentMethod(this.querySelector('input'))">
               <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="payment_method" value="COD" checked>
+                <input type="radio" name="payment_method" value="COD" {% if payment_method == 'COD' %}checked{% endif %} style="accent-color: #059669;">
                 <div>
-                  <div style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">Cash on Delivery (Pay at Doorstep)</div>
-                  <div style="font-size: 0.8rem; color: var(--text-secondary);">Pay cash or scan UPI QR upon delivery inspection</div>
+                  <div style="font-weight: 700; font-size: 0.88rem; color: #0F172A;">Cash on Delivery (Pay at Doorstep)</div>
+                  <div style="font-size: 0.75rem; color: #64748B;">Pay with cash or scan UPI QR upon delivery inspection</div>
                 </div>
               </div>
-              <i class="fa-solid fa-money-bill-wave" style="font-size: 1.35rem; color: var(--color-primary-dark);"></i>
+              <i class="fa-solid fa-money-bill-wave" style="font-size: 1.25rem; color: #047857;"></i>
             </label>
 
             <!-- UPI -->
-            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <label class="payment-method-row {% if payment_method == 'UPI' %}is-selected{% endif %}" onclick="selectPaymentMethod(this.querySelector('input'))">
               <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="payment_method" value="UPI">
+                <input type="radio" name="payment_method" value="UPI" {% if payment_method == 'UPI' %}checked{% endif %} style="accent-color: #059669;">
                 <div>
-                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Instant UPI (BHIM / Any UPI App)</div>
-                  <div style="font-size: 0.8rem; color: var(--text-muted);">Zero convenience fee & instant verification</div>
+                  <div style="font-weight: 700; font-size: 0.88rem; color: #0F172A;">Instant UPI (BHIM / Any UPI App)</div>
+                  <div style="font-size: 0.75rem; color: #64748B;">Zero convenience fee & instant automated verification</div>
                 </div>
               </div>
-              <i class="fa-solid fa-qrcode" style="font-size: 1.35rem; color: #2563EB;"></i>
+              <i class="fa-solid fa-qrcode" style="font-size: 1.25rem; color: #2563EB;"></i>
             </label>
 
             <!-- Google Pay -->
-            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <label class="payment-method-row {% if payment_method == 'GPAY' %}is-selected{% endif %}" onclick="selectPaymentMethod(this.querySelector('input'))">
               <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="payment_method" value="GPAY">
+                <input type="radio" name="payment_method" value="GPAY" {% if payment_method == 'GPAY' %}checked{% endif %} style="accent-color: #059669;">
                 <div>
-                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Google Pay</div>
-                  <div style="font-size: 0.8rem; color: var(--text-muted);">Quick checkout through Google Pay gateway</div>
+                  <div style="font-weight: 700; font-size: 0.88rem; color: #0F172A;">Google Pay</div>
+                  <div style="font-size: 0.75rem; color: #64748B;">Direct checkout through verified Google Pay gateway</div>
                 </div>
               </div>
-              <i class="fa-brands fa-google-pay" style="font-size: 1.6rem; color: #1E40AF;"></i>
+              <i class="fa-brands fa-google-pay" style="font-size: 1.5rem; color: #1E40AF;"></i>
             </label>
 
             <!-- PhonePe -->
-            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <label class="payment-method-row {% if payment_method == 'PHONEPE' %}is-selected{% endif %}" onclick="selectPaymentMethod(this.querySelector('input'))">
               <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="payment_method" value="PHONEPE">
+                <input type="radio" name="payment_method" value="PHONEPE" {% if payment_method == 'PHONEPE' %}checked{% endif %} style="accent-color: #059669;">
                 <div>
-                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">PhonePe Gateway</div>
-                  <div style="font-size: 0.8rem; color: var(--text-muted);">Seamless PhonePe app integration</div>
+                  <div style="font-weight: 700; font-size: 0.88rem; color: #0F172A;">PhonePe Gateway</div>
+                  <div style="font-size: 0.75rem; color: #64748B;">Seamless one-touch PhonePe app verification</div>
                 </div>
               </div>
-              <i class="fa-solid fa-mobile-screen-button" style="font-size: 1.35rem; color: #7C3AED;"></i>
+              <i class="fa-solid fa-mobile-screen-button" style="font-size: 1.25rem; color: #7C3AED;"></i>
             </label>
 
             <!-- Debit / Credit Cards -->
-            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <label class="payment-method-row {% if payment_method == 'CARD' %}is-selected{% endif %}" onclick="selectPaymentMethod(this.querySelector('input'))">
               <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="payment_method" value="CARD">
+                <input type="radio" name="payment_method" value="CARD" {% if payment_method == 'CARD' %}checked{% endif %} style="accent-color: #059669;">
                 <div>
-                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Debit / Credit Card</div>
-                  <div style="font-size: 0.8rem; color: var(--text-muted);">Visa, MasterCard, RuPay with secure bank encryption</div>
+                  <div style="font-weight: 700; font-size: 0.88rem; color: #0F172A;">Debit / Credit Card</div>
+                  <div style="font-size: 0.75rem; color: #64748B;">Visa, MasterCard, RuPay with RBI tokenized encryption</div>
                 </div>
               </div>
-              <i class="fa-solid fa-credit-card" style="font-size: 1.35rem; color: #059669;"></i>
+              <i class="fa-solid fa-credit-card" style="font-size: 1.25rem; color: #059669;"></i>
             </label>
 
             <!-- Net Banking -->
-            <label style="border: 1.5px solid var(--bg-border); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <label class="payment-method-row {% if payment_method == 'NETBANKING' %}is-selected{% endif %}" onclick="selectPaymentMethod(this.querySelector('input'))">
               <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="radio" name="payment_method" value="NETBANKING">
+                <input type="radio" name="payment_method" value="NETBANKING" {% if payment_method == 'NETBANKING' %}checked{% endif %} style="accent-color: #059669;">
                 <div>
-                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">Net Banking</div>
-                  <div style="font-size: 0.8rem; color: var(--text-muted);">All major Indian retail banks supported</div>
+                  <div style="font-weight: 700; font-size: 0.88rem; color: #0F172A;">Net Banking</div>
+                  <div style="font-size: 0.75rem; color: #64748B;">All major Indian retail banks supported via secure gateway</div>
                 </div>
               </div>
-              <i class="fa-solid fa-building-columns" style="font-size: 1.35rem; color: #D97706;"></i>
+              <i class="fa-solid fa-building-columns" style="font-size: 1.25rem; color: #D97706;"></i>
             </label>
 
           </div>
@@ -540,105 +722,334 @@
 
       </div>
 
-      <!-- Right Column: Order Summary (Recalculated on Backend) -->
+      <!-- Right Column: Order Summary (Sticky) -->
       <div>
-        <div class="order-summary-card">
-          <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">Order Summary</h3>
+        <div class="sticky-order-summary">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; padding-bottom: 0.6rem; border-bottom: 1px solid #F1F5F9;">
+            <h3 style="font-size: 1.05rem; font-weight: 800; color: #0F172A; margin: 0; display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-basket-shopping" style="color: #059669;"></i>
+              <span>Order Summary</span>
+            </h3>
+            <span class="badge badge-secondary" style="font-size: 0.72rem; padding: 2px 7px;">
+              {{ cart_items|length }} item{{ cart_items|length|pluralize }}
+            </span>
+          </div>
 
           <!-- Items Mini List -->
-          <div style="max-height: 240px; overflow-y: auto; margin-bottom: 1.25rem; border-bottom: 1px solid var(--bg-border); padding-bottom: 0.75rem;">
+          <div class="mini-items-list">
             {% for item in cart_items %}
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; font-size: 0.875rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem; font-size: 0.85rem;">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <img src="{{ item.product.primary_image_url }}" alt="{{ item.product.name }}" style="width: 36px; height: 36px; object-fit: contain; background: #FAFAFA; border-radius: 4px; border: 1px solid var(--bg-border);">
+                  <img src="{{ item.product.primary_image_url }}" alt="{{ item.product.name }}" style="width: 34px; height: 34px; object-fit: contain; background: #F8FAFC; border-radius: 6px; border: 1px solid #E2E8F0; flex-shrink: 0;">
                   <div>
-                    <div style="font-weight: 600; color: var(--text-main);">{{ item.product.name }}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">{{ item.quantity }} x {{ item.product.selling_price|inr }}</div>
+                    <div style="font-weight: 600; color: #1E293B; line-height: 1.2;">{{ item.product.name }}</div>
+                    <div style="font-size: 0.72rem; color: #64748B;">{{ item.quantity }} &times; {{ item.product.selling_price|inr }}</div>
                   </div>
                 </div>
-                <div style="font-weight: 700;">{{ item.line_total|inr }}</div>
+                <div style="font-weight: 700; color: #0F172A; margin-left: 8px; white-space: nowrap;">{{ item.line_total|inr }}</div>
               </div>
             {% endfor %}
           </div>
 
           <!-- Cashback Rewards Notice -->
           {% if expected_cashback > 0 %}
-            <div style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 12px; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
-              <i class="fa-solid fa-coins" style="color: #D97706; font-size: 1.25rem;"></i>
+            <div style="background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 8px; padding: 8px 10px; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-coins" style="color: #D97706; font-size: 1.15rem; flex-shrink: 0;"></i>
               <div>
-                <div style="font-weight: 700; font-size: 0.85rem; color: #92400E;">Earn ₹{{ expected_cashback|floatformat:2 }} Cashback!</div>
-                <div style="font-size: 0.72rem; color: #B45309;">₹{{ cashback_per_unit }} per item unit purchased, credited on successful delivery.</div>
+                <div style="font-weight: 700; font-size: 0.8rem; color: #92400E;">Earn ₹{{ expected_cashback|floatformat:2 }} Cashback!</div>
+                <div style="font-size: 0.7rem; color: #B45309;">Earn ₹1 cashback for every ₹10 spent, credited after verified delivery.</div>
               </div>
             </div>
           {% endif %}
 
           <!-- Cashback Redemption Toggle (if buyer has balance) -->
           {% if available_cashback > 0 %}
-            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 12px; margin-bottom: 1rem;">
+            <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 8px 10px; margin-bottom: 0.75rem;">
               <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin: 0;">
-                <input type="checkbox" name="redeem_cashback" value="1" id="redeem-cb-checkbox" onchange="toggleCashbackRedeem(this)" style="margin-top: 3px;">
+                <input type="checkbox" name="redeem_cashback" value="1" id="redeem-cb-checkbox" onchange="toggleCashbackRedeem(this)" style="margin-top: 2px; accent-color: #059669;">
                 <div>
-                  <div style="font-weight: 700; font-size: 0.85rem; color: #166534;">
+                  <div style="font-weight: 700; font-size: 0.82rem; color: #166534;">
                     Redeem Cashback (Available: ₹{{ available_cashback|floatformat:2 }})
                   </div>
-                  <div style="font-size: 0.72rem; color: #15803D;">Check to apply towards order total.</div>
+                  <div style="font-size: 0.7rem; color: #15803D;">Check to apply towards order total.</div>
                 </div>
               </label>
             </div>
           {% endif %}
 
-          <div class="summary-row">
-            <span>Items Subtotal</span>
-            <span style="font-weight: 600;">{{ cart.subtotal|inr }}</span>
-          </div>
-
-          {% if cart.total_discount > 0 %}
-            <div class="summary-row" style="color: #047857; font-weight: 600;">
-              <span>MRP Discount Savings</span>
-              <span>-{{ cart.total_discount|inr }}</span>
+          <!-- Totals Breakdown -->
+          <div style="display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; color: #475569;">
+              <span>Items Subtotal</span>
+              <span style="font-weight: 600; color: #0F172A;">{{ cart.subtotal|inr }}</span>
             </div>
-          {% endif %}
 
-          <div class="summary-row">
-            <span>Delivery Charges</span>
-            <span>
-              {% if cart.delivery_fee == 0 %}
-                <span class="badge badge-success">FREE</span>
-              {% else %}
-                {{ cart.delivery_fee|inr }}
-              {% endif %}
-            </span>
-          </div>
+            {% if cart.total_discount > 0 %}
+              <div style="display: flex; justify-content: space-between; color: #047857; font-weight: 600;">
+                <span>MRP Discount Savings</span>
+                <span>-{{ cart.total_discount|inr }}</span>
+              </div>
+            {% endif %}
 
-          <!-- Cashback Applied Row -->
-          <div class="summary-row" id="cashback-deduct-row" style="display: none; color: #047857; font-weight: 700;">
-            <span>Cashback Redeemed</span>
-            <span id="cashback-deduct-amount">-₹0.00</span>
-          </div>
+            <div style="display: flex; justify-content: space-between; color: #475569;">
+              <span>Delivery Charges</span>
+              <span>
+                {% if cart.delivery_fee == 0 %}
+                  <span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 6px;">FREE</span>
+                {% else %}
+                  <strong style="color: #0F172A;">{{ cart.delivery_fee|inr }}</strong>
+                {% endif %}
+              </span>
+            </div>
 
-          <div class="summary-row">
-            <span>Applicable Taxes (GST)</span>
-            <span style="color: var(--text-muted);">Included</span>
-          </div>
+            <!-- Cashback Applied Row -->
+            <div id="cashback-deduct-row" style="display: none; justify-content: space-between; color: #047857; font-weight: 700;">
+              <span>Cashback Redeemed</span>
+              <span id="cashback-deduct-amount">-₹0.00</span>
+            </div>
 
-          <div class="summary-total-row">
-            <span>Final Payable Amount</span>
-            <span style="color: var(--color-primary-dark);" id="final-payable-display">{{ cart.grand_total|inr }}</span>
+            <div style="display: flex; justify-content: space-between; color: #64748B; font-size: 0.78rem;">
+              <span>Applicable Taxes (GST)</span>
+              <span>Included</span>
+            </div>
+
+            <div style="border-top: 1.5px dashed #CBD5E1; margin: 0.35rem 0; padding-top: 0.5rem; display: flex; justify-content: space-between; align-items: baseline;">
+              <span style="font-size: 0.95rem; font-weight: 800; color: #0F172A;">Final Payable Amount</span>
+              <span style="font-size: 1.35rem; font-weight: 900; color: #047857;" id="final-payable-display">{{ cart.grand_total|inr }}</span>
+            </div>
           </div>
 
           <!-- Place Order Button with Anti-duplicate Protection -->
-          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1.5rem; font-weight: 800; font-size: 1.05rem;" id="place-order-btn">
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1rem; font-weight: 800; font-size: 1rem; padding: 0.8rem; border-radius: 10px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);" id="place-order-btn">
             <i class="fa-solid fa-bag-shopping"></i> Place Order Now (<span id="place-order-btn-amount">{{ cart.grand_total|inr }}</span>)
           </button>
 
-          <div style="margin-top: 1.25rem; font-size: 0.75rem; color: var(--text-muted); text-align: center; line-height: 1.4;">
-            <i class="fa-solid fa-shield-check" style="color: var(--color-primary-dark);"></i> 100% Quality & Freshness Guarantee. Secure Server-Side Order Processing.
+          <div style="margin-top: 0.85rem; font-size: 0.72rem; color: #64748B; text-align: center; line-height: 1.4; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <i class="fa-solid fa-shield-check" style="color: #059669; font-size: 0.9rem;"></i>
+            <span>100% Quality & Freshness Guarantee. Secure Checkout.</span>
           </div>
         </div>
       </div>
 
     </div>
   </form>
+
+  <!-- POPUP MODAL 1: Choose Delivery Schedule -->
+  <div id="schedule-modal-overlay" class="schedule-modal-backdrop" onclick="handleScheduleModalBackdropClick(event)">
+    <div class="schedule-modal-container" role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title">
+      
+      <div class="schedule-modal-header">
+        <div>
+          <h3 id="schedule-modal-title" style="font-size: 1.15rem; font-weight: 800; color: #111827; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-clock" style="color: #059669;"></i>
+            <span>Choose Delivery Schedule</span>
+          </h3>
+          <p style="font-size: 0.8rem; color: #64748B; margin: 3px 0 0 0;">
+            Select your preferred delivery date and time window for doorstep handover
+          </p>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeScheduleModal()" aria-label="Close delivery schedule modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="schedule-modal-body" style="display: flex; flex-direction: column; gap: 1.1rem;">
+        
+        <!-- A. Delivery Date Selection -->
+        <div>
+          <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-regular fa-calendar" style="color: #059669;"></i> Delivery Date
+          </label>
+          <div class="schedule-date-cards">
+            <label class="schedule-date-card {% if delivery_date == 'today' or not delivery_date %}is-selected{% endif %}" onclick="updateModalDateHighlight(this.querySelector('input'))">
+              <input type="radio" name="modal_delivery_date" value="today" {% if delivery_date == 'today' or not delivery_date %}checked{% endif %} style="accent-color: #059669;">
+              <div style="flex: 1;">
+                <div style="font-weight: 800; font-size: 0.9rem; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                  Today <span class="badge badge-success" style="font-size: 0.65rem; padding: 2px 6px;"><i class="fa-solid fa-bolt"></i> Fast Delivery</span>
+                </div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">Delivered today within selected slot</div>
+              </div>
+            </label>
+
+            <label class="schedule-date-card {% if delivery_date == 'tomorrow' %}is-selected{% endif %}" onclick="updateModalDateHighlight(this.querySelector('input'))">
+              <input type="radio" name="modal_delivery_date" value="tomorrow" {% if delivery_date == 'tomorrow' %}checked{% endif %} style="accent-color: #059669;">
+              <div style="flex: 1;">
+                <div style="font-weight: 800; font-size: 0.9rem; color: #0F172A;">
+                  Tomorrow
+                </div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 2px;">Scheduled next-day delivery</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- B. Available Time Slots -->
+        <div>
+          <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-regular fa-clock" style="color: #059669;"></i> Available Time Slots
+          </label>
+          <div class="schedule-slot-grid">
+            
+            <label class="schedule-slot-card {% if delivery_slot == '07:00 AM - 10:00 AM' or not delivery_slot %}is-selected{% endif %}" onclick="updateModalSlotHighlight(this.querySelector('input'))">
+              <input type="radio" name="modal_delivery_slot" value="07:00 AM - 10:00 AM" {% if delivery_slot == '07:00 AM - 10:00 AM' or not delivery_slot %}checked{% endif %} style="accent-color: #059669; margin-top: 2px;">
+              <div style="flex: 1;">
+                <div style="font-weight: 800; font-size: 0.88rem; color: #0F172A;">07:00 AM - 10:00 AM</div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 1px;">Early Morning Fresh</div>
+              </div>
+            </label>
+
+            <label class="schedule-slot-card {% if delivery_slot == '10:00 AM - 01:00 PM' %}is-selected{% endif %}" onclick="updateModalSlotHighlight(this.querySelector('input'))">
+              <input type="radio" name="modal_delivery_slot" value="10:00 AM - 01:00 PM" {% if delivery_slot == '10:00 AM - 01:00 PM' %}checked{% endif %} style="accent-color: #059669; margin-top: 2px;">
+              <div style="flex: 1;">
+                <div style="font-weight: 800; font-size: 0.88rem; color: #0F172A;">10:00 AM - 01:00 PM</div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 1px;">Midday Standard</div>
+              </div>
+            </label>
+
+            <label class="schedule-slot-card {% if delivery_slot == '02:00 PM - 05:00 PM' %}is-selected{% endif %}" onclick="updateModalSlotHighlight(this.querySelector('input'))">
+              <input type="radio" name="modal_delivery_slot" value="02:00 PM - 05:00 PM" {% if delivery_slot == '02:00 PM - 05:00 PM' %}checked{% endif %} style="accent-color: #059669; margin-top: 2px;">
+              <div style="flex: 1;">
+                <div style="font-weight: 800; font-size: 0.88rem; color: #0F172A;">02:00 PM - 05:00 PM</div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 1px;">Afternoon Dispatch</div>
+              </div>
+            </label>
+
+            <label class="schedule-slot-card {% if delivery_slot == '06:00 PM - 09:00 PM' %}is-selected{% endif %}" onclick="updateModalSlotHighlight(this.querySelector('input'))">
+              <input type="radio" name="modal_delivery_slot" value="06:00 PM - 09:00 PM" {% if delivery_slot == '06:00 PM - 09:00 PM' %}checked{% endif %} style="accent-color: #059669; margin-top: 2px;">
+              <div style="flex: 1;">
+                <div style="font-weight: 800; font-size: 0.88rem; color: #0F172A;">06:00 PM - 09:00 PM</div>
+                <div style="font-size: 0.75rem; color: #64748B; margin-top: 1px;">Evening Express</div>
+              </div>
+            </label>
+
+          </div>
+        </div>
+
+        <!-- C. Drop-off Instructions (Optional) -->
+        <div>
+          <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-regular fa-clipboard" style="color: #64748B;"></i> Drop-off Instructions (Optional)
+          </label>
+          <input type="text" id="modal_delivery_instructions" class="form-control" style="font-size: 0.85rem; padding: 0.6rem 0.8rem; border-radius: 8px;" placeholder="e.g. Ring the bell, leave package with society security..." value="{{ delivery_instructions }}">
+          <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 4px;">
+            Help our delivery partner locate your doorstep quickly.
+          </div>
+        </div>
+
+      </div>
+
+      <div class="schedule-modal-footer">
+        <div style="font-size: 0.75rem; color: #64748B; display: flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-circle-check" style="color: #059669;"></i> Guaranteed On-Time Doorstep Handover
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeScheduleModal()" style="padding: 0.45rem 1rem;">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="confirmModalSchedule()" style="font-weight: 700; padding: 0.45rem 1.15rem; display: inline-flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-check"></i> Confirm Schedule
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- POPUP MODAL 2: Add / Edit Delivery Address -->
+  <div id="address-modal-overlay" class="address-modal-backdrop" onclick="handleAddressModalBackdropClick(event)">
+    <div class="address-modal-container" role="dialog" aria-modal="true" aria-labelledby="address-modal-title">
+      
+      <div class="address-modal-header">
+        <div>
+          <h3 id="address-modal-title" style="font-size: 1.15rem; font-weight: 800; color: #111827; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-location-dot" style="color: #059669;"></i>
+            <span>Enter Delivery Address</span>
+          </h3>
+          <p style="font-size: 0.8rem; color: #64748B; margin: 3px 0 0 0;">
+            Details for doorstep delivery and recipient verification
+          </p>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeAddressModal()" aria-label="Close address modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="address-modal-body">
+        <div id="modal-error-alert" style="display: none; padding: 0.65rem 0.9rem; margin-bottom: 1rem; border-radius: 8px; background: #FEF2F2; border: 1px solid #FCA5A5; color: #B91C1C; font-size: 0.85rem; font-weight: 600;">
+          <i class="fa-solid fa-circle-exclamation"></i> <span id="modal-error-text">Please fill in all required fields.</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Recipient Name *</label>
+            <input type="text" name="full_name" id="id_full_name" class="form-control" placeholder="Recipient Name" value="{{ full_name|default:customer_name }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number *</label>
+            <input type="tel" name="phone_number" id="id_phone_number" class="form-control" placeholder="10-digit mobile number" value="{{ phone_number|default:customer_phone }}">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">House / Flat / Building No. *</label>
+            <input type="text" name="house_number" id="id_house_number" class="form-control" placeholder="e.g. Flat 402, Green Heights" value="{{ house_number }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Street / Colony *</label>
+            <input type="text" name="street" id="id_street" class="form-control" placeholder="e.g. MG Road, Sector 4" value="{{ street }}">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Area / Locality</label>
+            <input type="text" name="area" id="id_area" class="form-control" placeholder="e.g. Downtown Central" value="{{ area }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">City *</label>
+            <input type="text" name="city" id="id_city" class="form-control" placeholder="City" value="{{ city|default:'Central City' }}">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">State *</label>
+            <input type="text" name="state" id="id_state" class="form-control" placeholder="State" value="{{ state|default:'State' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">PIN Code *</label>
+            <input type="text" name="pin_code" id="id_pin_code" class="form-control" placeholder="e.g. 110001" value="{{ pin_code }}">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Landmark (Optional)</label>
+            <input type="text" name="landmark" id="id_landmark" class="form-control" placeholder="Nearby park, school, or store" value="{{ landmark }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address Type</label>
+            <select name="address_type" id="id_address_type" class="form-select">
+              <option value="HOME" {% if address_type == 'HOME' %}selected{% endif %}>Home</option>
+              <option value="WORK" {% if address_type == 'WORK' %}selected{% endif %}>Office / Work</option>
+              <option value="OTHER" {% if address_type == 'OTHER' %}selected{% endif %}>Other</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="address-modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddressModal()" style="padding: 0.45rem 1rem;">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="confirmModalAddress()" style="font-weight: 700; padding: 0.45rem 1.15rem; display: inline-flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-check"></i> Deliver to this Address
+        </button>
+      </div>
+
+    </div>
+  </div>
 
 </div>
 {% endblock %}
@@ -673,7 +1084,122 @@ function toggleCashbackRedeem(checkbox) {
 }
 
 // =============================================================================
-// MODAL POPUP FOR DELIVERY ADDRESS
+// POPUP MODAL 1: DELIVERY SCHEDULING
+// =============================================================================
+
+function openScheduleModal() {
+  const modal = document.getElementById('schedule-modal-overlay');
+  if (!modal) return;
+
+  // Sync modal state from current form values
+  const currentDate = document.getElementById('id_delivery_date')?.value || 'today';
+  const currentSlot = document.getElementById('id_delivery_slot')?.value || '07:00 AM - 10:00 AM';
+  const currentInstructions = document.getElementById('id_delivery_instructions')?.value || '';
+
+  // Select matching date in modal
+  const dateRadio = document.querySelector(`input[name="modal_delivery_date"][value="${currentDate}"]`);
+  if (dateRadio) {
+    dateRadio.checked = true;
+    updateModalDateHighlight(dateRadio);
+  }
+
+  // Select matching slot in modal
+  const slotRadio = document.querySelector(`input[name="modal_delivery_slot"][value="${currentSlot}"]`);
+  if (slotRadio) {
+    slotRadio.checked = true;
+    updateModalSlotHighlight(slotRadio);
+  }
+
+  // Sync instructions
+  const instrInput = document.getElementById('modal_delivery_instructions');
+  if (instrInput) {
+    instrInput.value = currentInstructions;
+  }
+
+  // Show modal
+  modal.classList.add('is-visible');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeScheduleModal() {
+  const modal = document.getElementById('schedule-modal-overlay');
+  if (!modal) return;
+  modal.classList.remove('is-visible');
+  document.body.style.overflow = '';
+}
+
+function handleScheduleModalBackdropClick(event) {
+  if (event.target && event.target.id === 'schedule-modal-overlay') {
+    closeScheduleModal();
+  }
+}
+
+function updateModalDateHighlight(radio) {
+  document.querySelectorAll('.schedule-date-card').forEach(c => c.classList.remove('is-selected'));
+  const card = radio ? radio.closest('.schedule-date-card') : null;
+  if (card) card.classList.add('is-selected');
+}
+
+function updateModalSlotHighlight(radio) {
+  document.querySelectorAll('.schedule-slot-card').forEach(c => c.classList.remove('is-selected'));
+  const card = radio ? radio.closest('.schedule-slot-card') : null;
+  if (card) card.classList.add('is-selected');
+}
+
+function confirmModalSchedule() {
+  const selectedDateRadio = document.querySelector('input[name="modal_delivery_date"]:checked');
+  const selectedSlotRadio = document.querySelector('input[name="modal_delivery_slot"]:checked');
+  const instructionsVal = (document.getElementById('modal_delivery_instructions')?.value || '').trim();
+
+  const selectedDate = selectedDateRadio ? selectedDateRadio.value : 'today';
+  const selectedSlot = selectedSlotRadio ? selectedSlotRadio.value : '07:00 AM - 10:00 AM';
+
+  // Save to form hidden fields
+  const hiddenDate = document.getElementById('id_delivery_date');
+  const hiddenSlot = document.getElementById('id_delivery_slot');
+  const hiddenInstructions = document.getElementById('id_delivery_instructions');
+
+  if (hiddenDate) hiddenDate.value = selectedDate;
+  if (hiddenSlot) hiddenSlot.value = selectedSlot;
+  if (hiddenInstructions) hiddenInstructions.value = instructionsVal;
+
+  // Update Main Checkout Summary Card
+  const dateTextEl = document.getElementById('summary-delivery-date-text');
+  const slotTextEl = document.getElementById('summary-delivery-slot-text');
+  const instructionsBoxEl = document.getElementById('summary-instructions-box');
+  const instructionsTextEl = document.getElementById('summary-instructions-text');
+
+  if (dateTextEl) {
+    dateTextEl.textContent = selectedDate === 'tomorrow' ? 'Tomorrow' : 'Today (Fast Delivery)';
+  }
+
+  if (slotTextEl) {
+    let slotSubtitle = 'Early Morning Fresh';
+    if (selectedSlot === '10:00 AM - 01:00 PM') slotSubtitle = 'Midday Standard';
+    else if (selectedSlot === '02:00 PM - 05:00 PM') slotSubtitle = 'Afternoon Dispatch';
+    else if (selectedSlot === '06:00 PM - 09:00 PM') slotSubtitle = 'Evening Express';
+    slotTextEl.textContent = `${selectedSlot} (${slotSubtitle})`;
+  }
+
+  if (instructionsBoxEl && instructionsTextEl) {
+    if (instructionsVal) {
+      instructionsTextEl.textContent = instructionsVal;
+      instructionsBoxEl.style.display = 'inline-flex';
+    } else {
+      instructionsBoxEl.style.display = 'none';
+    }
+  }
+
+  closeScheduleModal();
+  saveCheckoutDraft();
+
+  if (typeof showToast === 'function') {
+    showToast('Delivery schedule updated!', 'success');
+  }
+}
+
+// =============================================================================
+// POPUP MODAL 2: DELIVERY ADDRESS
 // =============================================================================
 
 function openAddressModal() {
@@ -701,7 +1227,7 @@ function openAddressModal() {
   modal.classList.add('is-visible');
   document.body.style.overflow = 'hidden';
 
-  // Focus first empty or appropriate field
+  // Focus appropriate field
   setTimeout(() => {
     const houseInput = document.getElementById('id_house_number');
     if (houseInput && !houseInput.value.trim()) {
@@ -733,25 +1259,13 @@ function closeAddressModal() {
   }
 }
 
-function handleModalBackdropClick(event) {
+function handleAddressModalBackdropClick(event) {
   if (event.target && event.target.id === 'address-modal-overlay') {
     closeAddressModal();
   }
 }
 
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    const modal = document.getElementById('address-modal-overlay');
-    if (modal && modal.classList.contains('is-visible')) {
-      closeAddressModal();
-    }
-  }
-});
-
 function confirmModalAddress() {
-  const alertBox = document.getElementById('modal-error-alert');
-  const errorText = document.getElementById('modal-error-text');
-
   const nameVal = (document.getElementById('id_full_name')?.value || '').trim();
   const phoneVal = (document.getElementById('id_phone_number')?.value || '').trim();
   const houseVal = (document.getElementById('id_house_number')?.value || '').trim();
@@ -844,13 +1358,11 @@ function showModalError(msg) {
 }
 
 function selectSavedAddress(radio) {
-  // Uncheck new address radio
   const newRadio = document.getElementById('use-new-addr-radio');
   if (newRadio) newRadio.checked = false;
 
-  // Highlight selected card
   document.querySelectorAll('.saved-address-card').forEach(c => c.classList.remove('is-selected'));
-  const card = radio.closest('.saved-address-card');
+  const card = radio ? radio.closest('.saved-address-card') : null;
   if (card) card.classList.add('is-selected');
 
   saveCheckoutDraft();
@@ -863,7 +1375,61 @@ function selectNewAddressRadio(radio) {
   saveCheckoutDraft();
 }
 
-// 1. Two-Way Field Synchronization (Name & Phone)
+function selectPaymentMethod(radio) {
+  if (!radio) return;
+  radio.checked = true;
+  document.querySelectorAll('.payment-method-row').forEach(row => row.classList.remove('is-selected'));
+  const parentRow = radio.closest('.payment-method-row');
+  if (parentRow) parentRow.classList.add('is-selected');
+
+  clearPaymentError();
+}
+
+function showPaymentError(msg) {
+  const alertBox = document.getElementById('payment-error-alert');
+  const alertText = document.getElementById('payment-error-text');
+  const card = document.getElementById('payment-method-card');
+
+  if (alertText) alertText.textContent = msg || 'Please select a payment method to continue.';
+  if (alertBox) {
+    alertBox.style.display = 'flex';
+  }
+  if (card) {
+    card.style.borderColor = '#EF4444';
+    card.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.15)';
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function clearPaymentError() {
+  const alertBox = document.getElementById('payment-error-alert');
+  const card = document.getElementById('payment-method-card');
+
+  if (alertBox) alertBox.style.display = 'none';
+  if (card) {
+    card.style.borderColor = '';
+    card.style.boxShadow = '';
+  }
+}
+
+// Keyboard Escape Handler for Both Modals
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const schedModal = document.getElementById('schedule-modal-overlay');
+    if (schedModal && schedModal.classList.contains('is-visible')) {
+      closeScheduleModal();
+      return;
+    }
+    const addrModal = document.getElementById('address-modal-overlay');
+    if (addrModal && addrModal.classList.contains('is-visible')) {
+      closeAddressModal();
+    }
+  }
+});
+
+// =============================================================================
+// TWO-WAY FIELD SYNC & DRAFT PERSISTENCE
+// =============================================================================
 const custName = document.getElementById('id_customer_name');
 const fullName = document.getElementById('id_full_name');
 const custPhone = document.getElementById('id_customer_phone');
@@ -901,12 +1467,12 @@ if (custPhone && phoneNum) {
   });
 }
 
-// 2. Real-Time SessionStorage Form Draft Persistence
 const fieldsToPersist = [
   'id_customer_name', 'id_customer_phone', 'id_customer_email',
   'id_full_name', 'id_phone_number', 'id_house_number',
   'id_street', 'id_area', 'id_city', 'id_state', 'id_pin_code',
-  'id_landmark', 'id_address_type', 'id_delivery_instructions'
+  'id_landmark', 'id_address_type', 'id_delivery_date',
+  'id_delivery_slot', 'id_delivery_instructions'
 ];
 
 function saveCheckoutDraft() {
@@ -931,6 +1497,31 @@ function restoreCheckoutDraft() {
         el.value = draft[id];
       }
     });
+
+    // If delivery date & slot restored, update summary
+    if (draft['id_delivery_date'] || draft['id_delivery_slot']) {
+      const selectedDate = draft['id_delivery_date'] || 'today';
+      const selectedSlot = draft['id_delivery_slot'] || '07:00 AM - 10:00 AM';
+      const instructionsVal = draft['id_delivery_instructions'] || '';
+
+      const dateTextEl = document.getElementById('summary-delivery-date-text');
+      const slotTextEl = document.getElementById('summary-delivery-slot-text');
+      const instructionsBoxEl = document.getElementById('summary-instructions-box');
+      const instructionsTextEl = document.getElementById('summary-instructions-text');
+
+      if (dateTextEl) dateTextEl.textContent = selectedDate === 'tomorrow' ? 'Tomorrow' : 'Today (Fast Delivery)';
+      if (slotTextEl) {
+        let slotSubtitle = 'Early Morning Fresh';
+        if (selectedSlot === '10:00 AM - 01:00 PM') slotSubtitle = 'Midday Standard';
+        else if (selectedSlot === '02:00 PM - 05:00 PM') slotSubtitle = 'Afternoon Dispatch';
+        else if (selectedSlot === '06:00 PM - 09:00 PM') slotSubtitle = 'Evening Express';
+        slotTextEl.textContent = `${selectedSlot} (${slotSubtitle})`;
+      }
+      if (instructionsBoxEl && instructionsTextEl && instructionsVal) {
+        instructionsTextEl.textContent = instructionsVal;
+        instructionsBoxEl.style.display = 'inline-flex';
+      }
+    }
 
     // If house_number was restored, show preview card
     const houseInput = document.getElementById('id_house_number');
@@ -957,7 +1548,6 @@ function restoreCheckoutDraft() {
   } catch (e) {}
 }
 
-// Attach input listeners for persistence
 fieldsToPersist.forEach(id => {
   const el = document.getElementById(id);
   if (el) {
@@ -966,10 +1556,9 @@ fieldsToPersist.forEach(id => {
   }
 });
 
-// Restore on page load
 document.addEventListener('DOMContentLoaded', restoreCheckoutDraft);
 
-// 3. Client-Side Pre-Validation & Anti-Double-Submit
+// Anti-Double Submit Protection
 const checkoutForm = document.getElementById('checkout-form');
 let isOrderSubmitting = false;
 
@@ -981,15 +1570,6 @@ checkoutForm.addEventListener('submit', function(e) {
 
   const isUsingSaved = document.querySelector('input[name="address_id"]:checked');
   const isSavedSelected = isUsingSaved && isUsingSaved.value !== '';
-
-  // Clear previous field errors
-  fieldsToPersist.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.style.borderColor = '';
-      el.style.backgroundColor = '';
-    }
-  });
 
   if (!isSavedSelected) {
     const requiredPairs = [
@@ -1004,20 +1584,24 @@ checkoutForm.addEventListener('submit', function(e) {
       const el = document.getElementById(req.id);
       if (el && !el.value.trim()) {
         e.preventDefault();
-        
-        // If missing, open the modal dialog to let user enter it conveniently!
         openAddressModal();
         el.style.borderColor = '#EF4444';
         el.style.backgroundColor = '#FEF2F2';
         el.focus();
-        
         showModalError('Please enter your ' + req.name + ' to continue.');
         return;
       }
     }
   }
 
-  // Clear draft on valid submit
+  // Validate Payment Method Selection
+  const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
+  if (!selectedPayment || !selectedPayment.value) {
+    e.preventDefault();
+    showPaymentError('Please select a payment method to continue.');
+    return false;
+  }
+
   try {
     sessionStorage.removeItem('freshmart_checkout_draft');
   } catch (e) {}

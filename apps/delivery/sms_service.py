@@ -11,9 +11,19 @@ def send_delivery_otp_sms(order, raw_otp):
     Sends SMS message to the customer's registered phone number and posts an in-app notification to the buyer.
     Never exposes plaintext OTP to delivery partner or seller endpoints.
     """
-    recipient_phone = order.recipient_phone
+    recipient_phone = getattr(order, 'recipient_phone', '') or ''
     masked_phone = f"...{recipient_phone[-4:]}" if len(recipient_phone) >= 4 else recipient_phone
     sms_ref = f"SMS-{uuid.uuid4().hex[:8].upper()}"
+
+    if not recipient_phone or not recipient_phone.strip():
+        logger.warning("Delivery OTP SMS dispatch failed: Order=%s has no phone number", order.order_id)
+        return {
+            'success': False,
+            'sms_reference': sms_ref,
+            'recipient_masked': '',
+            'error': 'Missing customer phone number',
+            'provider': 'LOCAL_SIMULATOR',
+        }
 
     sms_body = (
         f"FreshMart OTP: Your secure delivery code for Order #{order.order_id} is {raw_otp}. "

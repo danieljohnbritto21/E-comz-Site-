@@ -210,6 +210,12 @@ class Product(models.Model):
         # Strict pricing validation: MRP > Selling Price > Product Cost
         # Applied when creating/editing prices and not when rejecting/suspending invalid products
         if pricing_fields_in_update and not is_rejected_or_suspended:
+            if self.mrp is not None and self.mrp <= Decimal('0'):
+                raise ValidationError({'mrp': 'MRP must be a positive amount greater than zero.'})
+            if self.selling_price is not None and self.selling_price <= Decimal('0'):
+                raise ValidationError({'selling_price': 'Selling Price must be a positive amount greater than zero.'})
+            if self.product_cost is not None and self.product_cost <= Decimal('0'):
+                raise ValidationError({'product_cost': 'Product Cost must be a positive amount greater than zero.'})
             if self.mrp is not None and self.selling_price is not None and self.mrp <= self.selling_price:
                 raise ValidationError({'mrp': 'MRP must be greater than Selling Price.'})
             if self.selling_price is not None and self.product_cost is not None and self.selling_price <= self.product_cost:
@@ -243,6 +249,14 @@ class Product(models.Model):
             discount = ((self.mrp - self.selling_price) / self.mrp) * Decimal(100)
             return int(round(discount))
         return 0
+
+    @property
+    def estimated_cashback(self):
+        """Estimated cashback earned on eligible selling price: ₹1 per ₹10 spend."""
+        from decimal import ROUND_HALF_UP
+        if self.selling_price and self.selling_price > Decimal('0'):
+            return (self.selling_price / Decimal('10')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return Decimal('0.00')
 
     @property
     def savings_amount(self):

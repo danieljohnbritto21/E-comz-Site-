@@ -50,13 +50,29 @@
         <!-- Section 2: Buyer Cashback -->
         <div style="margin-bottom: 1.75rem; border-top: 1px solid #F1F5F9; padding-top: 1.25rem;">
           <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-coins" style="color: #D97706;"></i> 2. Buyer Cashback Policy
+            <i class="fa-solid fa-coins" style="color: #D97706;"></i> 2. Buyer Cashback Policy & Spend Calculation
           </h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;">
             <div>
-              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Cashback Per Eligible Unit (₹)</label>
-              <input type="number" step="0.01" min="0" name="cashback_per_unit" value="{{ config.cashback_per_unit }}" class="form-control" required>
-              <small style="font-size: 0.72rem; color: #64748B;">Default: ₹1.00 per unit purchased.</small>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Cashback per ₹10 Spend (₹)</label>
+              <input type="number" step="0.01" min="0" name="cashback_rate_per_10" value="{{ config.cashback_rate_per_10|default:'1.00' }}" class="form-control" required>
+              <small style="font-size: 0.72rem; color: #64748B;">Standard: ₹1.00 cashback for every ₹10 of eligible Selling Price spend.</small>
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Rounding Policy</label>
+              <select name="cashback_rounding_policy" class="form-select">
+                <option value="PROPORTIONAL" {% if config.cashback_rounding_policy == 'PROPORTIONAL' %}selected{% endif %}>Proportional (Exact 2 Decimals, e.g. ₹45 &rarr; ₹4.50)</option>
+                <option value="FLOOR_10" {% if config.cashback_rounding_policy == 'FLOOR_10' %}selected{% endif %}>Floor to Full ₹10 Blocks (e.g. ₹45 &rarr; ₹4.00)</option>
+              </select>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;">
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Calculation Mode</label>
+              <select name="cashback_calculation_mode" class="form-select">
+                <option value="SPEND_BASED" {% if config.cashback_calculation_mode == 'SPEND_BASED' %}selected{% endif %}>Spend Based (₹1 per ₹10 Selling Price)</option>
+                <option value="PER_UNIT" {% if config.cashback_calculation_mode == 'PER_UNIT' %}selected{% endif %}>Fixed Per Unit</option>
+              </select>
             </div>
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Funding Source</label>
@@ -66,6 +82,12 @@
                 <option value="PROMOTIONAL" {% if config.cashback_funding == 'PROMOTIONAL' %}selected{% endif %}>Promotional Campaign Budget</option>
               </select>
             </div>
+          </div>
+          <div style="margin-top: 0.5rem;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #1E293B; cursor: pointer;">
+              <input type="checkbox" name="cashback_redemption_enabled" {% if config.cashback_redemption_enabled %}checked{% endif %}>
+              <span>Enable Cashback Redemption at Checkout (Available balances only)</span>
+            </label>
           </div>
         </div>
 
@@ -98,6 +120,13 @@
           <h3 style="font-size: 1rem; font-weight: 700; color: #1E293B; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-wallet" style="color: #2563EB;"></i> 4. Seller Settlement Rules
           </h3>
+          <div style="margin-bottom: 1rem;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Seller Settlement Model</label>
+            <select name="seller_settlement_mode" class="form-select">
+              <option value="PRODUCT_COST_RECEIVABLE" {% if config.seller_settlement_mode == 'PRODUCT_COST_RECEIVABLE' %}selected{% endif %}>Product Cost Receivable (Seller receives Product Cost per unit; Commission is platform spread)</option>
+              <option value="COMMISSION_DEDUCTION" {% if config.seller_settlement_mode == 'COMMISSION_DEDUCTION' %}selected{% endif %}>Commission Deduction (Legacy: Selling Price minus Commission)</option>
+            </select>
+          </div>
           <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1rem;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #1E293B; cursor: pointer;">
               <input type="checkbox" name="seller_settlement_require_delivery" {% if config.seller_settlement_require_delivery %}checked{% endif %}>

@@ -93,7 +93,7 @@ class SellerProfile(models.Model):
     )
     preparation_time_minutes = models.PositiveIntegerField(default=30)
     is_approved = models.BooleanField(default=False)
-    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=5.00, help_text=_('Platform commission percentage.'))
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, help_text=_('Platform commission percentage. Defaults to 0.00%.'))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -1,73 +1,304 @@
 {% extends 'seller/base_seller.html' %}
-{% load static %}
+{% load static catalog_tags %}
 
 {% block title %}Sales & Reports - Seller Dashboard{% endblock %}
 
 {% block seller_content %}
 <div>
-  <div class="dashboard-header">
+  <!-- Header & Date Range Toolbar -->
+  <div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
     <div>
-      <h1 class="dashboard-title">Sales & Financial Reports</h1>
-      <p class="dashboard-subtitle">Real-time revenue analytics, order completions, and bestseller metrics</p>
+      <h1 class="dashboard-title" style="margin-bottom: 4px;">Sales & Financial Reports</h1>
+      <p class="dashboard-subtitle" style="margin: 0;">
+        Real-time revenue analytics, order fulfillment, product costs, commission, and net profit reconciliation
+      </p>
+    </div>
+
+    <!-- Date Period Toolbar -->
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+      <div style="display: flex; gap: 4px; background: #ffffff; padding: 4px; border: 1px solid var(--bg-border); border-radius: 8px; box-shadow: var(--shadow-sm);">
+        <a href="?{% query_transform period='all' date_from='' date_to='' page=1 %}" class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 5px 12px; font-size: 0.8rem;">All Time</a>
+        <a href="?{% query_transform period='today' date_from='' date_to='' page=1 %}" class="btn btn-sm {% if period == 'today' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 5px 12px; font-size: 0.8rem;">Today</a>
+        <a href="?{% query_transform period='month' date_from='' date_to='' page=1 %}" class="btn btn-sm {% if period == 'month' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 5px 12px; font-size: 0.8rem;">This Month</a>
+        <a href="?{% query_transform period='year' date_from='' date_to='' page=1 %}" class="btn btn-sm {% if period == 'year' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 5px 12px; font-size: 0.8rem;">This Year</a>
+      </div>
+
+      <!-- Custom Date Range Form -->
+      <form method="GET" style="display: flex; gap: 6px; align-items: center; margin: 0;">
+        {% if sort_by %}<input type="hidden" name="sort_by" value="{{ sort_by }}">{% endif %}
+        <input type="date" name="date_from" value="{{ date_from }}" class="form-control" style="padding: 4px 8px; font-size: 0.78rem; width: 130px; border: 1px solid var(--bg-border); border-radius: 6px;" aria-label="Start date">
+        <span style="font-size: 0.75rem; color: var(--text-muted);">to</span>
+        <input type="date" name="date_to" value="{{ date_to }}" class="form-control" style="padding: 4px 8px; font-size: 0.78rem; width: 130px; border: 1px solid var(--bg-border); border-radius: 6px;" aria-label="End date">
+        <button type="submit" class="btn btn-primary btn-sm" style="padding: 5px 10px; font-size: 0.78rem; display: flex; align-items: center; gap: 4px;">
+          <i class="fa-solid fa-calendar-check"></i> Filter
+        </button>
+        {% if period != 'all' or date_from or date_to %}
+          <a href="{% url 'seller:reports' %}" class="btn btn-secondary btn-sm" style="padding: 5px 8px; font-size: 0.78rem;" title="Reset Date Filter">
+            <i class="fa-solid fa-rotate-left"></i>
+          </a>
+        {% endif %}
+      </form>
     </div>
   </div>
 
-  <div class="metrics-grid">
-    <div class="metric-card">
+  <!-- Active Filter Window Banner -->
+  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 16px; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #334155;">
+      <i class="fa-solid fa-clock-rotate-left" style="color: #059669;"></i>
+      <span>Reporting Window: <strong>{{ date_label }}</strong></span>
+      <span style="color: #CBD5E1;">&bull;</span>
+      <span>Store: <strong>{{ request.user.seller_profile.store_name|default:request.user.username }}</strong> (<span style="font-family: monospace;">{{ request.user.account_id }}</span>)</span>
+      <span style="color: #CBD5E1;">&bull;</span>
+      <span>Fulfillment: <strong>{{ completed_deliveries_count }}</strong> delivered of <strong>{{ total_orders_count }}</strong> sub-orders</span>
+    </div>
+    <div style="font-size: 0.8rem; color: #64748B;">
+      Platform Commission: <strong>{{ commission_rate }}%</strong> &bull; Settlement: <strong>Immediate on Delivery</strong>
+    </div>
+  </div>
+
+  <!-- DYNAMIC FINANCIAL SUMMARY CARDS -->
+  <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    
+    <!-- 1. Total Store Revenue -->
+    <div class="metric-card" style="position: relative;">
       <div class="metric-icon-box metric-icon-green"><i class="fa-solid fa-indian-rupee-sign"></i></div>
-      <div>
+      <div style="flex: 1; min-width: 0;">
         <div class="metric-label">Total Store Revenue</div>
         <div class="metric-value">{{ total_revenue|inr }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">Gross customer sales</div>
       </div>
     </div>
 
+    <!-- 2. Store Profit -->
+    <div class="metric-card" style="position: relative; border-left: 3px solid #059669;">
+      <div class="metric-icon-box" style="background: #ECFDF5; color: #047857;"><i class="fa-solid fa-sack-dollar"></i></div>
+      <div style="flex: 1; min-width: 0;">
+        <div class="metric-label" style="color: #047857;">Net Store Profit</div>
+        <div class="metric-value" style="color: {% if total_store_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">{% if total_store_profit >= 0 %}+{% endif %}{{ total_store_profit|inr }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+          {% if items_with_cost_count < total_eligible_items_count and total_eligible_items_count > 0 %}
+            Profit on {{ items_with_cost_count }}/{{ total_eligible_items_count }} items with cost
+          {% else %}
+            Net profit after COGS & fees
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Total Sub-Orders -->
     <div class="metric-card">
       <div class="metric-icon-box metric-icon-blue"><i class="fa-solid fa-receipt"></i></div>
-      <div>
+      <div style="flex: 1; min-width: 0;">
         <div class="metric-label">Total Sub-Orders</div>
         <div class="metric-value">{{ total_orders_count }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+          {{ pending_orders_count }} pending / in progress
+        </div>
       </div>
     </div>
 
+    <!-- 4. Completed Deliveries -->
     <div class="metric-card">
       <div class="metric-icon-box metric-icon-purple"><i class="fa-solid fa-circle-check"></i></div>
-      <div>
+      <div style="flex: 1; min-width: 0;">
         <div class="metric-label">Completed Deliveries</div>
-        <div class="metric-value">{{ completed_orders_count }}</div>
+        <div class="metric-value">{{ completed_deliveries_count }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+          Genuine fulfilled deliveries
+        </div>
       </div>
     </div>
+
+    <!-- 5. Total Units Sold -->
+    <div class="metric-card">
+      <div class="metric-icon-box metric-icon-amber"><i class="fa-solid fa-boxes-stacked"></i></div>
+      <div style="flex: 1; min-width: 0;">
+        <div class="metric-label">Total Units Sold</div>
+        <div class="metric-value">{{ total_units_sold }} <span style="font-size: 0.9rem; font-weight: 500; color: var(--text-muted);">units</span></div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">Produce & grocery items fulfilled</div>
+      </div>
+    </div>
+
+    <!-- 6. Net Seller Payable -->
+    <div class="metric-card">
+      <div class="metric-icon-box" style="background: #EEF2FF; color: #4F46E5;"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+      <div style="flex: 1; min-width: 0;">
+        <div class="metric-label">Net Seller Payable</div>
+        <div class="metric-value" style="color: #4F46E5;">{{ total_seller_payable|inr }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">Gross revenue - commission</div>
+      </div>
+    </div>
+
+    <!-- 7. Platform Commission -->
+    <div class="metric-card">
+      <div class="metric-icon-box" style="background: #FFFBEB; color: #B45309;"><i class="fa-solid fa-percent"></i></div>
+      <div style="flex: 1; min-width: 0;">
+        <div class="metric-label">Platform Commission</div>
+        <div class="metric-value" style="color: #B45309;">{% if total_commission > 0 %}-{{ total_commission|inr }}{% else %}{{ total_commission|inr }}{% endif %}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+          {% if commission_rate == 0 %}0% Fee - No commission deducted{% else %}{{ commission_rate }}% FreshMart fee{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. Available Wallet Balance -->
+    <div class="metric-card" style="border-left: 3px solid #10B981;">
+      <div class="metric-icon-box" style="background: #ECFDF5; color: #059669;"><i class="fa-solid fa-wallet"></i></div>
+      <div style="flex: 1; min-width: 0;">
+        <div class="metric-label">Available Wallet Balance</div>
+        <div class="metric-value" style="color: #059669;">{{ available_wallet_balance|inr }}</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+          Pending: {{ pending_wallet_balance|inr }} &bull; <a href="{% url 'seller:wallet' %}" style="color: #059669; font-weight: 600; text-decoration: underline;">Payouts</a>
+        </div>
+      </div>
+    </div>
+
   </div>
 
+  <!-- TOP PERFORMING PRODUCE / ITEMS TABLE -->
   <div class="table-card">
-    <div class="table-card-header">
-      <h3 style="font-size: 1.1rem; font-weight: 800;">Top Performing Produce / Items</h3>
+    <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--bg-border);">
+      <div>
+        <h3 style="font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--text-main);">
+          <i class="fa-solid fa-arrow-trend-up" style="color: #059669; margin-right: 6px;"></i> Top Performing Produce / Items
+        </h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 3px 0 0 0;">
+          Product-level breakdown showing volume, revenue, product costs, commission, and net profit
+        </p>
+      </div>
+
+      <!-- Sorting Controls -->
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Sort by:</span>
+        <div style="display: flex; gap: 4px; background: #F1F5F9; padding: 3px; border-radius: 6px;">
+          <a href="?{% query_transform sort_by='revenue' page=1 %}" class="btn btn-sm {% if sort_by == 'revenue' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 3px 10px; font-size: 0.78rem;">
+            Revenue
+          </a>
+          <a href="?{% query_transform sort_by='profit' page=1 %}" class="btn btn-sm {% if sort_by == 'profit' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 3px 10px; font-size: 0.78rem;">
+            Net Profit
+          </a>
+          <a href="?{% query_transform sort_by='units' page=1 %}" class="btn btn-sm {% if sort_by == 'units' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 3px 10px; font-size: 0.78rem;">
+            Units Sold
+          </a>
+          <a href="?{% query_transform sort_by='orders' page=1 %}" class="btn btn-sm {% if sort_by == 'orders' %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 3px 10px; font-size: 0.78rem;">
+            Orders
+          </a>
+        </div>
+        <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 0.75rem; padding: 4px 8px;">
+          <i class="fa-solid fa-sort"></i> {{ sort_label }}
+        </span>
+      </div>
     </div>
+
     <div class="table-responsive">
       <table class="data-table">
         <thead>
           <tr>
+            <th style="width: 45px;">#</th>
             <th>Product Name</th>
-            <th>Total Units Sold</th>
-            <th>Revenue Generated</th>
+            <th style="text-align: center;">Total Units Sold</th>
+            <th style="text-align: center;">Orders Count</th>
+            <th style="text-align: right;">Revenue Generated</th>
+            <th style="text-align: right;">Product Cost (COGS)</th>
+            <th style="text-align: right;">Commission Deducted</th>
+            <th style="text-align: right;">Net Seller Profit</th>
           </tr>
         </thead>
         <tbody>
-          {% for item in top_items %}
+          {% for item in top_products %}
             <tr>
-              <td><strong>{{ item.product_name }}</strong></td>
-              <td><span class="badge badge-success">{{ item.units_sold }} units</span></td>
-              <td><strong style="color: var(--color-primary-dark);">{{ item.total_sales|inr }}</strong></td>
+              <td style="color: var(--text-muted); font-size: 0.85rem;">{{ forloop.counter0|add:top_products.start_index }}</td>
+              <td>
+                <div style="font-weight: 700; color: var(--text-main);">{{ item.product_name }}</div>
+                {% if not item.has_cost %}
+                  <div style="font-size: 0.72rem; color: #D97706; margin-top: 2px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Product cost missing in catalog
+                  </div>
+                {% endif %}
+              </td>
+              <td style="text-align: center;">
+                <span class="badge badge-success" style="font-size: 0.8rem; padding: 4px 8px;">{{ item.units_sold }} units</span>
+              </td>
+              <td style="text-align: center; font-weight: 600; color: #475569;">
+                {{ item.orders_count }}
+              </td>
+              <td style="text-align: right;">
+                <strong style="color: var(--color-primary-dark); font-size: 0.95rem;">{{ item.revenue|inr }}</strong>
+              </td>
+              <td style="text-align: right;">
+                {% if item.has_cost %}
+                  <span style="color: #475569; font-weight: 600;">{{ item.product_cost|inr }}</span>
+                {% else %}
+                  <span style="color: var(--text-muted); font-style: italic; font-size: 0.8rem;" title="Product cost was not provided for this item">Not Recorded</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                {% if item.commission_deducted > 0 %}
+                  <span style="color: #D97706; font-weight: 600;">-{{ item.commission_deducted|inr }}</span>
+                {% else %}
+                  <span style="color: var(--text-muted); font-weight: 500;">₹0.00</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                {% if item.has_cost %}
+                  <strong style="font-size: 0.95rem; color: {% if item.net_profit >= 0 %}#059669{% else %}#DC2626{% endif %};">
+                    {% if item.net_profit >= 0 %}+{% endif %}{{ item.net_profit|inr }}
+                  </strong>
+                {% else %}
+                  <span style="color: var(--text-muted); font-style: italic; font-size: 0.8rem;" title="Profit cannot be calculated without cost data">
+                    No Cost Data
+                  </span>
+                {% endif %}
+              </td>
             </tr>
           {% empty %}
             <tr>
-              <td colspan="3" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                No sales data recorded yet.
+              <td colspan="8" style="text-align: center; padding: 3.5rem 1.5rem;">
+                <div style="max-width: 400px; margin: 0 auto;">
+                  <i class="fa-solid fa-chart-pie" style="font-size: 2.8rem; color: #CBD5E1; margin-bottom: 0.75rem;"></i>
+                  <h4 style="font-weight: 700; color: #1E293B; margin-bottom: 0.35rem;">No Sales Data for {{ date_label }}</h4>
+                  <p style="color: #64748B; font-size: 0.85rem; margin-bottom: 1.25rem;">
+                    No eligible product order items were fulfilled within this selected reporting period.
+                  </p>
+                  {% if period != 'all' %}
+                    <a href="?period=all" class="btn btn-primary btn-sm">
+                      <i class="fa-solid fa-arrows-rotate"></i> Show All Time Sales
+                    </a>
+                  {% endif %}
+                </div>
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
+    <!-- Table Pagination -->
+    {% if top_products.has_other_pages %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-top: 1px solid var(--bg-border); background: #FAFAFA;">
+        <div style="font-size: 0.8rem; color: var(--text-muted);">
+          Showing items {{ top_products.start_index }} to {{ top_products.end_index }} of {{ top_products.paginator.count }} products
+        </div>
+        <div style="display: flex; gap: 4px;">
+          {% if top_products.has_previous %}
+            <a href="?{% query_transform page=top_products.previous_page_number %}" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.8rem;">
+              <i class="fa-solid fa-chevron-left"></i> Previous
+            </a>
+          {% endif %}
+          
+          <span style="display: flex; align-items: center; padding: 0 10px; font-size: 0.8rem; font-weight: 600; color: #334155;">
+            Page {{ top_products.number }} of {{ top_products.paginator.num_pages }}
+          </span>
+
+          {% if top_products.has_next %}
+            <a href="?{% query_transform page=top_products.next_page_number %}" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 0.8rem;">
+              Next <i class="fa-solid fa-chevron-right"></i>
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
   </div>
 </div>
 {% endblock %}
