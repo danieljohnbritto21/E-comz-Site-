@@ -112,7 +112,8 @@ def calculate_seller_financials(selling_price, product_cost, quantity, commissio
             seller_receivable = product_cost_total
             result['seller_receivable'] = seller_receivable
             result['seller_payable'] = seller_receivable
-            result['seller_profit'] = seller_receivable
+            # Seller's internal profit is NOT known/tracked under this model
+            result['seller_profit'] = None
         else:
             # Traditional commission deduction
             seller_payable = (product_revenue - commission_amount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)

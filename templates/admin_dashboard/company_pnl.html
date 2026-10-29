@@ -157,23 +157,31 @@
         </div>
       </div>
 
-      <!-- Card 3: Total Seller Profit -->
+      <!-- Card 3: Total Seller Payable / Profit -->
       <div style="background: #ffffff; border: 1px solid #BFDBFE; border-radius: 12px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(37,99,235,0.06);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 0.72rem; font-weight: 700; color: #1D4ED8; text-transform: uppercase; letter-spacing: 0.5px;">Total Seller Profit</span>
+          <span style="font-size: 0.72rem; font-weight: 700; color: #1D4ED8; text-transform: uppercase; letter-spacing: 0.5px;">
+            {% if is_product_cost_receivable %}Total Seller Payable{% else %}Total Seller Profit{% endif %}
+          </span>
           <div style="width: 32px; height: 32px; border-radius: 8px; background: #EFF6FF; color: #2563EB; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
             <i class="fa-solid fa-store"></i>
           </div>
         </div>
-        <div style="font-size: 1.65rem; font-weight: 800; color: {% if total_completed_seller_profit >= 0 %}#1D4ED8{% else %}#DC2626{% endif %}; margin-top: 4px; font-family: monospace;">
-          {% if completed_orders_with_cost_count > 0 %}
+        <div style="font-size: 1.65rem; font-weight: 800; color: #1D4ED8; margin-top: 4px; font-family: monospace;">
+          {% if is_product_cost_receivable %}
+            ₹{{ total_completed_seller_payable|floatformat:2 }}
+          {% elif completed_orders_with_cost_count > 0 %}
             ₹{{ total_completed_seller_profit|floatformat:2 }}
           {% else %}
             <span style="font-size: 1.05rem; color: #94A3B8; font-weight: 600;">No audited cost</span>
           {% endif %}
         </div>
         <div style="font-size: 0.72rem; color: #64748B; margin-top: 3px;">
-          Audited profit across {{ completed_orders_with_cost_count }} order{% if completed_orders_with_cost_count != 1 %}s{% endif %}
+          {% if is_product_cost_receivable %}
+            Agreed product cost receivables settled/payable to sellers
+          {% else %}
+            Audited profit across {{ completed_orders_with_cost_count }} order{% if completed_orders_with_cost_count != 1 %}s{% endif %}
+          {% endif %}
         </div>
       </div>
 
@@ -193,23 +201,31 @@
         </div>
       </div>
 
-      <!-- Card 5: Avg Seller Profit / Order -->
+      <!-- Card 5: Avg Seller Settlement / Profit / Order -->
       <div style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">Avg Seller Margin</span>
+          <span style="font-size: 0.72rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">
+            {% if is_product_cost_receivable %}Avg Seller Settlement{% else %}Avg Seller Margin{% endif %}
+          </span>
           <div style="width: 32px; height: 32px; border-radius: 8px; background: #F8FAFC; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
             <i class="fa-solid fa-coins"></i>
           </div>
         </div>
-        <div style="font-size: 1.65rem; font-weight: 800; color: {% if avg_seller_profit_per_order >= 0 %}#1D4ED8{% else %}#DC2626{% endif %}; margin-top: 4px; font-family: monospace;">
-          {% if completed_orders_with_cost_count > 0 %}
+        <div style="font-size: 1.65rem; font-weight: 800; color: #1D4ED8; margin-top: 4px; font-family: monospace;">
+          {% if is_product_cost_receivable %}
+            ₹{{ avg_seller_payable_per_order|floatformat:2 }}
+          {% elif completed_orders_with_cost_count > 0 %}
             ₹{{ avg_seller_profit_per_order|floatformat:2 }}
           {% else %}
             <span style="font-size: 1.05rem; color: #94A3B8; font-weight: 600;">No audited cost</span>
           {% endif %}
         </div>
         <div style="font-size: 0.72rem; color: #64748B; margin-top: 3px;">
-          Per order merchant return (audited)
+          {% if is_product_cost_receivable %}
+            Average receivable per seller order
+          {% else %}
+            Per order merchant return (audited)
+          {% endif %}
         </div>
       </div>
 
@@ -342,6 +358,7 @@
                 <strong style="font-size: 0.95rem; color: {% if row.company_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
                   ₹{{ row.company_profit|floatformat:2 }}
                 </strong>
+                <div style="font-size: 0.68rem; color: #64748B;">Contribution</div>
               </td>
 
               <!-- Seller Payable -->
@@ -351,7 +368,11 @@
 
               <!-- Seller Profit (Highlighted Cell) -->
               <td style="padding: 10px 12px; text-align: right; vertical-align: middle; background: #EFF6FF;">
-                {% if row.has_cost_data and row.seller_profit is not None %}
+                {% if row.is_product_cost_receivable %}
+                  <span class="badge" style="background: #F1F5F9; color: #475569; font-size: 0.68rem; padding: 3px 6px; border: 1px solid #CBD5E1;" title="Under Product Cost Receivable model, the seller is paid the agreed Product Cost (₹{{ row.seller_receivable|floatformat:2 }}). Private wholesale production/acquisition costs are not tracked by the platform.">
+                    Not Tracked (3rd-Party)
+                  </span>
+                {% elif row.has_cost_data and row.seller_profit is not None %}
                   <strong style="font-family: monospace; font-size: 0.95rem; color: {% if row.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
                     ₹{{ row.seller_profit|floatformat:2 }}
                   </strong>
@@ -389,18 +410,23 @@
                       <i class="fa-solid fa-calculator" style="color: #6366F1;"></i>
                       <span>Financial Reconciliation & Profit Formula for Order #{{ row.order_id }}</span>
                     </div>
-                    <a href="{% url 'admin_dashboard:order_detail' row.order_id %}" target="_blank" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 3px 8px;">
-                      <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Full Order Details
-                    </a>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span class="badge {{ row.payment_status_badge }}" style="font-size: 0.72rem; padding: 3px 8px;">
+                        {{ row.payment_method_display }} &bull; {{ row.payment_status_display }}
+                      </span>
+                      <a href="{% url 'admin_dashboard:order_detail' row.order_id %}" target="_blank" class="btn btn-primary btn-sm" style="font-size: 0.75rem; padding: 3px 8px;">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Full Order Details
+                      </a>
+                    </div>
                   </div>
 
-                  <!-- 2-Column Math Equations Box -->
-                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                  <!-- 3-Column Math Equations Box -->
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
                     
                     <!-- Company Profit Derivation -->
                     <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 14px;">
                       <div style="font-size: 0.75rem; font-weight: 800; color: #047857; text-transform: uppercase; margin-bottom: 4px;">
-                        <i class="fa-solid fa-building-columns"></i> Company Profit Derivation
+                        <i class="fa-solid fa-building-columns"></i> Company Profit / Contribution
                       </div>
                       <div style="font-size: 0.8rem; color: #166534; line-height: 1.5;">
                         <div>Formula: <code>(Commission + Delivery Fee) - (Rider Payout + Company Cashback)</code></div>
@@ -408,10 +434,33 @@
                           (₹{{ row.company_commission|floatformat:2 }} + ₹{{ row.delivery_revenue|floatformat:2 }}) - (₹{{ row.rider_payout|floatformat:2 }} + ₹{{ row.company_cashback|floatformat:2 }}) = 
                           <span style="font-size: 0.95rem; color: {% if row.company_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">₹{{ row.company_profit|floatformat:2 }}</span>
                         </div>
+                        <div style="font-size: 0.72rem; color: #047857; margin-top: 4px;">
+                          Delivery Margin: ₹{{ row.delivery_revenue_retained|floatformat:2 }} (Fee ₹{{ row.delivery_revenue|floatformat:2 }} - Payout ₹{{ row.rider_payout|floatformat:2 }})
+                        </div>
                       </div>
                     </div>
 
-                    <!-- Seller Profit / Receivable Derivation -->
+                    <!-- Customer Cashback Audit -->
+                    <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 14px;">
+                      <div style="font-size: 0.75rem; font-weight: 800; color: #92400E; text-transform: uppercase; margin-bottom: 4px;">
+                        <i class="fa-solid fa-wallet"></i> Customer Cashback Audit
+                      </div>
+                      <div style="font-size: 0.8rem; color: #78350F; line-height: 1.5;">
+                        <div>Expected (₹1 / ₹10 spend): <strong>₹{{ row.cashback_expected|floatformat:2 }}</strong></div>
+                        <div style="margin-top: 3px;">
+                          Confirmed Credited: <strong style="color: #047857;">₹{{ row.company_cashback|floatformat:2 }}</strong>
+                        </div>
+                        <div style="font-size: 0.72rem; color: #B45309; margin-top: 2px;">
+                          {% if row.cashback_pending > 0 %}
+                            Pending Delivery OTP: ₹{{ row.cashback_pending|floatformat:2 }}
+                          {% else %}
+                            Fully settled post-delivery
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Seller Settlement / Receivable Derivation -->
                     <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 10px 14px;">
                       <div style="font-size: 0.75rem; font-weight: 800; color: #1D4ED8; text-transform: uppercase; margin-bottom: 4px;">
                         <i class="fa-solid fa-store"></i> Seller Receivable / Settlement
@@ -421,7 +470,9 @@
                         <div style="margin-top: 4px; font-weight: 700; font-family: monospace;">
                           {% if row.has_cost_data and row.product_cost is not None %}
                             Seller Receivable: <span style="font-size: 0.95rem; color: #047857;">₹{{ row.seller_receivable|floatformat:2 }}</span>
-                            <span style="font-size: 0.72rem; color: #64748B; font-weight: normal;">(Cost total: ₹{{ row.product_cost|floatformat:2 }}; Commission not double-deducted)</span>
+                            <div style="font-size: 0.72rem; color: #64748B; font-weight: normal; margin-top: 2px;">
+                              Agreed settlement liability. Merchant's internal wholesale acquisition costs are not tracked by platform.
+                            </div>
                           {% else %}
                             <span style="color: #B45309;">Product cost was not provided by seller at listing time. Profit incomplete.</span>
                           {% endif %}
@@ -469,7 +520,9 @@
                             <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #047857; font-weight: 700;">₹{{ snap.commission_amount|floatformat:2 }}</td>
                             <td style="padding: 6px 8px; text-align: right; font-family: monospace; color: #2563EB; font-weight: 700;">₹{{ snap.seller_payable|floatformat:2 }}</td>
                             <td style="padding: 6px 8px; text-align: right; font-family: monospace;">
-                              {% if snap.seller_profit is not None %}
+                              {% if row.is_product_cost_receivable %}
+                                <span style="color: #64748B; font-size: 0.7rem;">Not Tracked</span>
+                              {% elif snap.seller_profit is not None %}
                                 <strong style="color: {% if snap.seller_profit >= 0 %}#047857{% else %}#DC2626{% endif %};">
                                   ₹{{ snap.seller_profit|floatformat:2 }}
                                 </strong>

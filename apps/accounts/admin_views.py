@@ -1381,40 +1381,50 @@ def admin_company_pnl_view(request):
     total_customer_discounts = period_snapshots.aggregate(
         t=Sum('discount_amount'))['t'] or Decimal('0.00')
 
-    # 4. Third-Party Marketplace Commission vs Company-Owned Product Revenue
-    # Company products: seller is ADMIN role or superuser
     settled_snapshots = period_snapshots.filter(settlement_status='SETTLED')
-    
-    # 3rd-party marketplace commission
-    third_party_settled = settled_snapshots.filter(seller__role=User.Role.SELLER)
-    marketplace_commission_revenue = third_party_settled.aggregate(
-        t=Sum('commission_amount'))['t'] or Decimal('0.00')
 
-    # Company-owned product sales & COGS (No artificial commission charged)
-    company_owned_settled = settled_snapshots.filter(Q(seller__role=User.Role.ADMIN) | Q(seller__is_superuser=True))
-    company_owned_revenue = company_owned_settled.aggregate(
-        t=Sum('product_revenue'))['t'] or Decimal('0.00')
-    company_owned_cogs = company_owned_settled.filter(product_cost_total__isnull=False).aggregate(
-        t=Sum('product_cost_total'))['t'] or Decimal('0.00')
+    # 4. Third-Party Marketplace Commission vs Company-Owned Product Revenue
+    # Calculated consistently across delivered/completed orders in the reporting period
+    marketplace_commission_revenue = sum(
+        sum(s.commission_amount for s in o.financial_snapshots.filter(seller__role=User.Role.SELLER))
+        for o in delivered_orders
+    )
+
+    company_owned_revenue = sum(
+        sum(s.product_revenue for s in o.financial_snapshots.filter(Q(seller__role=User.Role.ADMIN) | Q(seller__is_superuser=True)))
+        for o in delivered_orders
+    )
+    company_owned_cogs = sum(
+        sum(s.product_cost_total for s in o.financial_snapshots.filter(Q(seller__role=User.Role.ADMIN) | Q(seller__is_superuser=True)) if s.product_cost_total is not None)
+        for o in delivered_orders
+    )
 
     # 5. Delivery Economics
     delivery_fees_charged = delivered_orders.aggregate(
         t=Sum('delivery_fee'))['t'] or Decimal('0.00')
 
-    delivery_settled_earnings = DeliveryEarning.objects.filter(
-        status='SETTLED', **delivery_date_filter
+    delivery_payout_expenses = sum(
+        next((de.earning_amount for de in o.delivery_earnings.all() if de.status == 'SETTLED'), Decimal('0.00'))
+        for o in delivered_orders
     )
-    delivery_payout_expenses = delivery_settled_earnings.aggregate(
-        t=Sum('earning_amount'))['t'] or Decimal('0.00')
     company_delivery_margin = delivery_fees_charged - delivery_payout_expenses
 
     # 6. Cashback Accounting & Multi-source Attribution
     cashback_entries = CashbackLedger.objects.filter(**cashback_date_filter)
     
-    # Company-funded cashback recognized as expense
-    company_cashback_expense = cashback_entries.filter(
-        entry_type='EARNED', status='CONFIRMED', funding_source='COMPANY'
-    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    # Company-funded cashback recognized as expense:
+    # Authoritative reconciliation: sum of confirmed cashback or fulfilled snapshot obligations across delivered orders
+    company_cashback_expense = sum(
+        (
+            sum(
+                cb.amount for cb in ord_obj.cashback_entries.all()
+                if cb.entry_type == 'EARNED' and cb.status == 'CONFIRMED' and cb.funding_source == 'COMPANY'
+            ) or (
+                sum(s.cashback_total for s in ord_obj.financial_snapshots.all() if s.cashback_funding == 'COMPANY')
+            )
+        )
+        for ord_obj in delivered_orders
+    )
 
     seller_funded_cashback = cashback_entries.filter(
         entry_type='EARNED', status='CONFIRMED', funding_source='SELLER'
@@ -1481,8 +1491,12 @@ def admin_company_pnl_view(request):
     # 10. Order-wise Profit Breakdown & Dynamic Calculations
     order_profit_rows = []
     total_completed_company_profit = Decimal('0.00')
+    total_completed_seller_payable = Decimal('0.00')
     total_completed_seller_profit = Decimal('0.00')
     completed_orders_with_cost_count = 0
+    completed_orders_with_payable_count = 0
+
+    is_product_cost_receivable = getattr(config, 'seller_settlement_mode', 'PRODUCT_COST_RECEIVABLE') == 'PRODUCT_COST_RECEIVABLE'
 
     for ord_obj in period_orders_qs:
         snaps = list(ord_obj.financial_snapshots.all())
@@ -1502,32 +1516,47 @@ def admin_company_pnl_view(request):
             for s in snaps
         ) if snaps else Decimal('0.00')
 
-        is_product_cost_receivable = getattr(config, 'seller_settlement_mode', 'PRODUCT_COST_RECEIVABLE') == 'PRODUCT_COST_RECEIVABLE'
         if is_product_cost_receivable:
-            order_seller_profit = order_seller_receivable if has_cost_data else None
+            # Under PRODUCT_COST_RECEIVABLE model, the seller receivable is the agreed Product Cost.
+            # The 3rd-party merchant's private wholesale acquisition cost is not tracked by the platform.
+            order_seller_profit = None
         elif has_cost_data and total_product_cost is not None:
             order_seller_profit = (seller_payable - total_product_cost).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         else:
             order_seller_profit = None
 
-        # Delivery economics
+        # Delivery economics: settled payouts are recognized delivery expense
         del_fee = ord_obj.delivery_fee
-        del_earning = next((de for de in ord_obj.delivery_earnings.all() if de.status in ['SETTLED', 'PENDING']), None)
+        del_earning = next((de for de in ord_obj.delivery_earnings.all() if de.status == 'SETTLED'), None)
         rider_payout = del_earning.earning_amount if del_earning else Decimal('0.00')
 
-        # Company-funded cashback
-        company_cb = sum(
+        # Company-funded cashback: confirmed ledger entry or fulfilled snapshot obligation
+        confirmed_cb = sum(
             cb.amount for cb in ord_obj.cashback_entries.all()
             if cb.entry_type == 'EARNED' and cb.status == 'CONFIRMED' and cb.funding_source == 'COMPANY'
         )
-        if not company_cb and ord_obj.status == Order.Status.DELIVERED:
+        if confirmed_cb > Decimal('0.00'):
+            company_cb = confirmed_cb
+        elif ord_obj.status == Order.Status.DELIVERED:
             company_cb = sum(s.cashback_total for s in snaps if s.cashback_funding == 'COMPANY')
+        else:
+            company_cb = Decimal('0.00')
+
+        # Cashback audit metrics
+        expected_cb = sum(s.cashback_total for s in snaps)
+        pending_cb = max(Decimal('0.00'), expected_cb - company_cb) if ord_obj.status != Order.Status.DELIVERED else Decimal('0.00')
+        reversed_cb = sum(
+            abs(cb.amount) for cb in ord_obj.cashback_entries.all()
+            if cb.entry_type == 'REVERSED' and cb.status == 'CONFIRMED'
+        )
 
         # Company-owned product COGS & Revenue
         company_owned_rev = sum(s.product_revenue for s in snaps if s.seller.role != User.Role.SELLER or s.seller.is_superuser)
         company_owned_cost = sum(s.product_cost_total for s in snaps if (s.seller.role != User.Role.SELLER or s.seller.is_superuser) and s.product_cost_total is not None)
 
-        # Net Company Profit for this order
+        # Net Company Profit for this order:
+        # Recognized Revenue: Commission + Company Owned Sales + Delivery Fee Charged
+        # Recognized Expenses: Rider Payout + Confirmed Company Cashback + Company COGS
         comp_rev = comm_amount + company_owned_rev + del_fee
         comp_exp = rider_payout + company_cb + company_owned_cost
         comp_profit = (comp_rev - comp_exp).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
@@ -1552,6 +1581,9 @@ def admin_company_pnl_view(request):
         is_completed = (ord_obj.status == Order.Status.DELIVERED)
         if is_completed:
             total_completed_company_profit += comp_profit
+            total_completed_seller_payable += order_seller_receivable
+            if order_seller_receivable > Decimal('0.00'):
+                completed_orders_with_payable_count += 1
             if order_seller_profit is not None:
                 total_completed_seller_profit += order_seller_profit
                 completed_orders_with_cost_count += 1
@@ -1570,14 +1602,23 @@ def admin_company_pnl_view(request):
             'product_cost': total_product_cost,
             'company_commission': comm_amount,
             'delivery_revenue': del_fee,
+            'delivery_revenue_retained': del_fee - rider_payout,
             'rider_payout': rider_payout,
             'company_cashback': company_cb,
+            'cashback_expected': expected_cb,
+            'cashback_pending': pending_cb,
+            'cashback_reversed': reversed_cb,
             'company_expenses': comp_exp,
             'company_revenue': comp_rev,
             'company_profit': comp_profit,
             'seller_receivable': order_seller_receivable,
             'seller_payable': seller_payable,
             'seller_profit': order_seller_profit,
+            'is_seller_profit_known': order_seller_profit is not None,
+            'is_product_cost_receivable': is_product_cost_receivable,
+            'payment_method_display': ord_obj.get_payment_method_display(),
+            'payment_status_display': ord_obj.get_payment_status_display(),
+            'payment_status_badge': 'badge-success' if ord_obj.payment_status == 'PAID' else 'badge-warning',
             'settlement_status': order_settlement,
             'items_count': len(snaps),
             'snapshots': snaps,
@@ -1587,6 +1628,13 @@ def admin_company_pnl_view(request):
     avg_company_profit_per_order = (
         (total_completed_company_profit / completed_orders_count).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         if completed_orders_count > 0 else Decimal('0.00')
+    )
+    avg_seller_payable_per_order = (
+        (total_completed_seller_payable / completed_orders_with_payable_count).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if completed_orders_with_payable_count > 0 else (
+            (total_completed_seller_payable / completed_orders_count).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            if completed_orders_count > 0 else Decimal('0.00')
+        )
     )
     avg_seller_profit_per_order = (
         (total_completed_seller_profit / completed_orders_with_cost_count).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
@@ -1699,12 +1747,16 @@ def admin_company_pnl_view(request):
         'total_orders_count': total_orders_count,
         'delivered_orders_count': delivered_orders_count,
 
-        # Order-Wise Dynamic Profit Metrics (New Feature)
+        # Order-Wise Dynamic Profit Metrics
+        'is_product_cost_receivable': is_product_cost_receivable,
         'completed_orders_count': completed_orders_count,
         'total_completed_company_profit': total_completed_company_profit,
+        'total_completed_seller_payable': total_completed_seller_payable,
         'total_completed_seller_profit': total_completed_seller_profit,
         'completed_orders_with_cost_count': completed_orders_with_cost_count,
+        'completed_orders_with_payable_count': completed_orders_with_payable_count,
         'avg_company_profit_per_order': avg_company_profit_per_order,
+        'avg_seller_payable_per_order': avg_seller_payable_per_order,
         'avg_seller_profit_per_order': avg_seller_profit_per_order,
         'order_profit_page': order_profit_page,
         'order_search': order_search,
